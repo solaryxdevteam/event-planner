@@ -10,7 +10,8 @@
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,css,scss,md}\"",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:seed": "node -e \"console.log('Run seed via Supabase Dashboard SQL Editor or use: npx supabase db reset --db-url YOUR_DB_URL'); console.log('Seed file: db/seed.sql');\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
