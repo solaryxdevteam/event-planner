@@ -126,6 +126,32 @@
 
 ---
 
+## ⚡ Priority Recommendation: MCP Servers
+
+For your immediate development needs, we recommend starting with these MCP servers:
+
+### Critical MCP Servers
+
+1. **Supabase MCP Server** - Critical for all database/auth operations
+2. **PostgreSQL MCP Server** - For complex query development
+3. **Linear MCP Server** - For project management and issue tracking
+
+### Setup Instructions
+
+📖 **Complete setup guide:** See [`docs/mcp-setup.md`](./docs/mcp-setup.md) for detailed configuration instructions.
+
+**Quick Start:**
+1. Copy `.mcp.json.example` to your Cursor MCP config location (`~/.cursor/mcp.json` on macOS/Linux)
+2. Fill in your credentials (Supabase URL/keys, PostgreSQL connection string, Linear API key)
+3. Restart Cursor to activate the MCP servers
+
+### MCP Documentation
+
+- [shadcn/ui MCP Documentation](https://ui.shadcn.com/docs/mcp)
+- [Next.js MCP Guide](https://nextjs.org/docs/app/guides/mcp)
+
+---
+
 ## 📦 Installed Packages Summary
 
 ### Core Dependencies
