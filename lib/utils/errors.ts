@@ -1,4 +1,4 @@
-import { ErrorCode } from '@/lib/types/api.types';
+import { ErrorCode } from "@/lib/types/api.types";
 
 /**
  * Custom Application Error Class
@@ -18,10 +18,10 @@ export class AppError extends Error {
     isOperational: boolean = true
   ) {
     super(message);
-    
+
     // Maintains proper stack trace for where our error was thrown
     Object.setPrototypeOf(this, AppError.prototype);
-    
+
     this.name = this.constructor.name;
     this.code = code;
     this.statusCode = statusCode;
@@ -42,7 +42,7 @@ export class AppError extends Error {
       code: this.code,
       statusCode: this.statusCode,
       details: this.details,
-      stack: process.env.NODE_ENV === 'development' ? this.stack : undefined,
+      stack: process.env.NODE_ENV === "development" ? this.stack : undefined,
     };
   }
 }
@@ -58,21 +58,19 @@ export class ValidationError extends AppError {
 
 export class NotFoundError extends AppError {
   constructor(resource: string, identifier?: string) {
-    const message = identifier 
-      ? `${resource} with identifier "${identifier}" not found`
-      : `${resource} not found`;
+    const message = identifier ? `${resource} with identifier "${identifier}" not found` : `${resource} not found`;
     super(message, ErrorCode.NOT_FOUND, 404);
   }
 }
 
 export class UnauthorizedError extends AppError {
-  constructor(message: string = 'Authentication required') {
+  constructor(message: string = "Authentication required") {
     super(message, ErrorCode.UNAUTHORIZED, 401);
   }
 }
 
 export class ForbiddenError extends AppError {
-  constructor(message: string = 'You do not have permission to perform this action') {
+  constructor(message: string = "You do not have permission to perform this action") {
     super(message, ErrorCode.FORBIDDEN, 403);
   }
 }
@@ -103,24 +101,24 @@ export function getErrorMessage(error: unknown): string {
   if (isAppError(error)) {
     return error.message;
   }
-  
+
   if (error instanceof Error) {
     return error.message;
   }
-  
-  if (typeof error === 'string') {
+
+  if (typeof error === "string") {
     return error;
   }
-  
-  return 'An unknown error occurred';
+
+  return "An unknown error occurred";
 }
 
 /**
  * Helper to log errors appropriately based on environment
  */
 export function logError(error: unknown, context?: string): void {
-  const contextPrefix = context ? `[${context}] ` : '';
-  
+  const contextPrefix = context ? `[${context}] ` : "";
+
   if (isAppError(error)) {
     if (error.isOperational) {
       // Expected operational errors (log as warning)

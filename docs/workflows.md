@@ -47,13 +47,13 @@ Event Planner (Level 1)
 
 ### Role-Based Permissions
 
-| Action | Event Planner | City Curator | Regional Curator | Lead Curator | Global Director |
-|--------|--------------|--------------|------------------|--------------|-----------------|
-| Create Events | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Approve Events | - | ✓ | ✓ | ✓ | ✓ |
-| Manage Users | - | - | - | - | ✓ |
-| Ban Venues | - | - | - | - | ✓ |
-| Configure Approvals | - | - | - | - | ✓ |
+| Action              | Event Planner | City Curator | Regional Curator | Lead Curator | Global Director |
+| ------------------- | ------------- | ------------ | ---------------- | ------------ | --------------- |
+| Create Events       | ✓             | ✓            | ✓                | ✓            | ✓               |
+| Approve Events      | -             | ✓            | ✓                | ✓            | ✓               |
+| Manage Users        | -             | -            | -                | -            | ✓               |
+| Ban Venues          | -             | -            | -                | -            | ✓               |
+| Configure Approvals | -             | -            | -                | -            | ✓               |
 
 ---
 
@@ -62,9 +62,9 @@ Event Planner (Level 1)
 ### State Diagram
 
 ```
-[No Event] 
+[No Event]
     ↓
-[Create New] → [Draft] 
+[Create New] → [Draft]
     ↓           ↑ ↓
 [Auto-save]    [Edit]
     ↓           ↑ ↓
@@ -80,6 +80,7 @@ Event Planner (Level 1)
 **Actor**: Any authenticated user with event creation permission
 
 **Steps**:
+
 1. User navigates to `/events/new`
 2. System checks for existing draft:
    - If draft exists → Show dialog: "Continue editing or start new?"
@@ -89,22 +90,26 @@ Event Planner (Level 1)
 #### 2. **Fill Event Details (Multi-Step Form)**
 
 **Step 1 - Basic Information**:
+
 - Title (required)
 - Description (required)
 - Event Date (required, must be future date)
 - Event Time (required)
 
 **Step 2 - Venue Selection**:
+
 - Select from existing venues (dropdown with search)
 - OR Quick-add new venue inline
 - Venue details: name, address, city, capacity
 
 **Step 3 - Event Details**:
+
 - Expected Attendance (number)
 - Budget (optional)
 - Notes (optional)
 
 **Step 4 - Review & Submit**:
+
 - Review all entered information
 - Options:
   - "Save as Draft" (manual)
@@ -116,6 +121,7 @@ Event Planner (Level 1)
 **Trigger**: Every 30 seconds while editing (debounced)
 
 **Process**:
+
 1. Validate current form data
 2. Call `updateEventDraft(eventId, formData)`
 3. Save to database with status = 'draft'
@@ -123,6 +129,7 @@ Event Planner (Level 1)
 5. Continue editing
 
 **Storage**:
+
 - Table: `events`
 - Status: `draft`
 - Creator: Current user ID
@@ -132,6 +139,7 @@ Event Planner (Level 1)
 **Trigger**: User clicks "Save as Template"
 
 **Process**:
+
 1. Show dialog: "Template name?"
 2. Copy event data to `templates` table
 3. Associate with current user
@@ -143,6 +151,7 @@ Event Planner (Level 1)
 **Trigger**: User selects template from dropdown
 
 **Process**:
+
 1. Fetch template data
 2. Pre-fill form fields with template values
 3. Clear event-specific data (date, time)
@@ -153,12 +162,14 @@ Event Planner (Level 1)
 **Trigger**: User clicks "Submit for Approval" on review step
 
 **Validation**:
+
 - All required fields filled
 - Event date is in the future
 - Venue selected
 - Expected attendance > 0
 
 **Process**:
+
 1. Validate form data
 2. Call `submitEventForApproval(eventId)`
 3. Backend builds approval chain (see Approval Workflow)
@@ -174,6 +185,7 @@ Event Planner (Level 1)
 **Trigger**: User clicks "Delete Draft"
 
 **Process**:
+
 1. Show confirmation dialog: "Are you sure?"
 2. If confirmed:
    - Call `deleteDraft(eventId)`
@@ -192,12 +204,14 @@ Event Planner (Level 1)
 **Function**: `buildApprovalChain(creatorId)`
 
 **Process**:
+
 1. Start with creator's parent
 2. Walk up hierarchy to Global Director
 3. Filter by approval config (which roles are required)
 4. Return array of approver IDs in sequence
 
 **Example Chain**:
+
 ```
 Event Planner creates event
     ↓
@@ -205,6 +219,7 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 ```
 
 **Configurable Skipping**:
+
 - Global Director can configure which roles are required
 - Example: Skip Regional Curator level
 - Modified chain: [City Curator, Lead Curator, Global Director]
@@ -232,6 +247,7 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 **Trigger**: Event submitted OR previous approver approved
 
 **Notification**:
+
 - Email sent to current approver
 - Subject: "New Event Approval Request: [Event Title]"
 - Contains:
@@ -240,6 +256,7 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
   - Approval chain progress
 
 **Dashboard Indicator**:
+
 - "Pending Approvals" count updated
 - Event appears in `/approvals` page under "Events" tab
 
@@ -250,6 +267,7 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 **Interface**: `/approvals` page
 
 **Display**:
+
 - Event details card
 - Creator information
 - Venue details
@@ -263,17 +281,19 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 **Trigger**: Approver clicks "Approve"
 
 **Validation**:
+
 - User must be current approver in sequence
 - Approval status must be "pending"
 - Comment is optional
 
 **Process**:
+
 1. Update approval record:
    - Status: `pending` → `approved`
    - Comment saved
    - Timestamp recorded
 2. Check if last approver in chain:
-   - **If last**: 
+   - **If last**:
      - Update event status: `in_review` → `approved_scheduled`
      - Send notification to creator: "Event approved!"
      - Create audit log: "Event approved by [Name]"
@@ -289,10 +309,12 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 **Trigger**: Approver clicks "Reject"
 
 **Validation**:
+
 - User must be current approver in sequence
 - Comment is **MANDATORY** (rejection reason)
 
 **Process**:
+
 1. Show confirmation dialog with comment textarea
 2. Update approval record:
    - Status: `pending` → `rejected`
@@ -309,6 +331,7 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 **Options**:
 
 **Option A - Create New from Rejected**:
+
 1. Navigate to `/events/requests?tab=rejected`
 2. Click "Create New from This" on rejected event
 3. System copies event data to new draft
@@ -316,6 +339,7 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 5. Original rejected event remains in history
 
 **Option B - View Feedback**:
+
 1. View rejection comments from approver
 2. Understand what needs to change
 3. Use as reference for future events
@@ -327,11 +351,13 @@ Approval Chain: [City Curator, Regional Curator, Lead Curator, Global Director]
 ### When Modifications Are Allowed
 
 **Eligible Events**:
+
 - Status: `approved_scheduled` (approved but not yet occurred)
 - No pending modification already exists
 - No pending cancellation exists
 
 **Who Can Request**:
+
 - Event creator only
 
 ### State Flow
@@ -361,11 +387,13 @@ OR
 **Trigger**: Creator clicks "Request Modification" on event detail page
 
 **Preconditions**:
+
 - Event status = `approved_scheduled`
 - No existing pending modification
 - User is event creator
 
 **Interface**:
+
 1. Display modal with pre-filled form (current event data)
 2. User can modify any field:
    - Title, description, date, time
@@ -375,6 +403,7 @@ OR
 4. Show diff preview (old → new)
 
 **Process**:
+
 1. User submits modification form
 2. Validate changes (at least one field changed)
 3. Create record in `event_versions` table:
@@ -393,6 +422,7 @@ OR
 **Interface**: `/approvals` page, "Modifications" tab
 
 **Display**:
+
 - Original event details
 - Proposed changes (diff view)
 - Change summary: "3 fields changed"
@@ -405,6 +435,7 @@ OR
 #### 3a. **Approve Modification**
 
 **Process**:
+
 1. Update approval record: `approved`
 2. Check if last approver:
    - **If last**:
@@ -423,6 +454,7 @@ OR
 **Validation**: Comment mandatory
 
 **Process**:
+
 1. Update approval record: `rejected` with comment
 2. Update version status: `pending` → `rejected`
 3. Original event remains unchanged
@@ -438,10 +470,12 @@ OR
 ### When Cancellations Are Allowed
 
 **Eligible Events**:
+
 - Status: `approved_scheduled` (approved but not yet occurred)
 - No pending cancellation already exists
 
 **Who Can Request**:
+
 - Configurable by Global Director
 - Default: Event creator + all users in approval chain
 
@@ -474,11 +508,13 @@ OR
 **Trigger**: User clicks "Request Cancellation" on event detail page
 
 **Preconditions**:
+
 - Event status = `approved_scheduled`
 - No existing pending cancellation
 - User has cancellation permission (check config)
 
 **Interface**:
+
 1. Show warning dialog:
    - "⚠️ This will request to cancel the event"
    - "This action requires approval from [roles]"
@@ -486,6 +522,7 @@ OR
 3. Confirm / Cancel buttons
 
 **Process**:
+
 1. User enters reason and confirms
 2. Create cancellation request record
 3. Build cancellation approval chain:
@@ -502,6 +539,7 @@ OR
 **Interface**: `/approvals` page, "Cancellations" tab
 
 **Display**:
+
 - Event details (full information)
 - Cancellation reason (from requester)
 - Requester information
@@ -513,6 +551,7 @@ OR
 #### 3a. **Approve Cancellation**
 
 **Process**:
+
 1. Update approval record: `approved`
 2. Check if last approver:
    - **If last**:
@@ -531,6 +570,7 @@ OR
 **Validation**: Comment mandatory
 
 **Process**:
+
 1. Update approval record: `rejected` with comment
 2. Delete cancellation request
 3. Event remains status: `approved_scheduled`
@@ -548,6 +588,7 @@ OR
 **Trigger**: Daily cron job (midnight) or database trigger
 
 **Process**:
+
 1. Find all events where:
    - `event_date` < today
    - `status` = `approved_scheduled`
@@ -584,6 +625,7 @@ OR
 #### 1. **Event Completes**
 
 **Automatic Process**:
+
 1. Event date passes
 2. Status automatically updated to `completed_awaiting_report`
 3. Creator receives email: "Submit report for [Event Title]"
@@ -595,24 +637,29 @@ OR
 **Trigger**: Creator clicks "Submit Report" on event detail page
 
 **Preconditions**:
+
 - Event status = `completed_awaiting_report`
 - User is event creator
 
 **Interface**: Report submission form with sections:
 
 **Section 1 - Attendance**:
+
 - Actual attendance count (required, number)
 
 **Section 2 - Summary**:
+
 - Event summary (required, rich text, 100-1000 characters)
 - What went well?
 - What could be improved?
 
 **Section 3 - Feedback**:
+
 - Participant feedback (optional, text)
 - Partner feedback (optional, text)
 
 **Section 4 - Media Upload**:
+
 - Drag-and-drop file upload
 - Multiple files supported
 - Accepted formats: images (jpg, png, gif), videos (mp4, mov)
@@ -622,12 +669,14 @@ OR
 - Remove file option
 
 **Section 5 - External Links**:
+
 - Social media posts (optional)
 - News articles (optional)
 - Photo galleries (optional)
 - Add multiple links
 
 **Process**:
+
 1. User fills form and uploads media
 2. Validate required fields
 3. Upload media files to Supabase Storage:
@@ -650,6 +699,7 @@ OR
 **Interface**: `/approvals` page, "Reports" tab
 
 **Display**:
+
 - Original event details
 - Report details:
   - Actual attendance vs expected attendance
@@ -663,6 +713,7 @@ OR
 #### 4a. **Approve Report**
 
 **Process**:
+
 1. Update approval record: `approved`
 2. Check if last approver:
    - **If last**:
@@ -680,6 +731,7 @@ OR
 **Validation**: Comment mandatory with specific feedback
 
 **Process**:
+
 1. Update approval record: `rejected` with comment
 2. Update report status: `pending` → `rejected`
 3. Event status remains: `completed_awaiting_report`
@@ -693,6 +745,7 @@ OR
 **Trigger**: Creator clicks "Edit Report" on rejected report
 
 **Process**:
+
 1. Load existing report data into form
 2. User can modify all fields
 3. Can add/remove media files
@@ -723,6 +776,7 @@ OR
 **Trigger**: User creates event and needs to add venue, OR manages venues from `/venues` page
 
 **Interface**:
+
 - Modal or inline form with fields:
   - Name (required)
   - Address (required)
@@ -731,6 +785,7 @@ OR
   - Notes (optional)
 
 **Duplicate Detection**:
+
 1. User enters venue name and address
 2. On blur or submit, check for duplicate:
    - Query: Same name AND same address AND same creator
@@ -741,6 +796,7 @@ OR
      - "Create Anyway" → Create new record (rare case)
 
 **Process**:
+
 1. Validate form data
 2. Check for duplicate
 3. If duplicate exists and is soft-deleted:
@@ -758,6 +814,7 @@ OR
 **Who Can Edit**: Venue creator
 
 **Process**:
+
 1. User clicks "Edit" on venue
 2. Load venue data into form
 3. User modifies fields
@@ -770,6 +827,7 @@ OR
 **Who Can Delete**: Venue creator
 
 **Process**:
+
 1. User clicks "Delete" on venue
 2. Show confirmation: "Are you sure? Events using this venue will still show it."
 3. If confirmed:
@@ -786,6 +844,7 @@ OR
 **Use Case**: Problematic venue used by multiple users
 
 **Process**:
+
 1. Global Director navigates to `/venues`
 2. Clicks "Ban" on venue
 3. Show confirmation with reason textarea
@@ -802,6 +861,7 @@ OR
 **Rule**: Users can see venues created by themselves or their subordinates
 
 **Example**:
+
 - Event Planner A creates "Downtown Conference Center"
 - City Curator B (parent of A) can see it
 - Event Planner C (different city) cannot see it
@@ -840,6 +900,7 @@ OR
 **Interface**: `/admin/users` page
 
 **Process**:
+
 1. Click "Add User" button
 2. Fill form:
    - Email (required, unique)
@@ -865,6 +926,7 @@ OR
 #### 2. **User Accepts Invitation**
 
 **Process**:
+
 1. User receives email with magic link
 2. Clicks link
 3. Redirected to login page
@@ -877,6 +939,7 @@ OR
 **Who Can Edit**: Global Director
 
 **What Can Be Edited**:
+
 - Name
 - Role (with parent update if needed)
 - Parent (validate hierarchy)
@@ -884,6 +947,7 @@ OR
 - Notification preferences (by user themselves)
 
 **Process**:
+
 1. Click "Edit" on user row
 2. Load user data into form
 3. Modify fields
@@ -899,6 +963,7 @@ OR
 **Use Case**: User leaves organization
 
 **Process**:
+
 1. Click "Deactivate" on user
 2. Show confirmation: "This will prevent login and remove from approval chains"
 3. If confirmed:
@@ -914,6 +979,7 @@ OR
 **Interface**: `/admin/users` page, "Hierarchy" tab
 
 **Display**:
+
 - Tree visualization with Global Director at top
 - Each node shows: avatar, name, role
 - Expandable/collapsible branches
@@ -945,10 +1011,12 @@ OR
 **Trigger**: During event creation or from existing event
 
 **Interface**:
+
 - Button: "Save as Template"
 - Modal with template name input
 
 **What Gets Saved**:
+
 - Title (as template name or custom name)
 - Description
 - Venue (reference)
@@ -957,12 +1025,14 @@ OR
 - Notes
 
 **What Does NOT Get Saved**:
+
 - Event date, time (event-specific)
 - Creator (assigned on use)
 - Status
 - Approval chain
 
 **Process**:
+
 1. User clicks "Save as Template"
 2. Enter template name
 3. System copies relevant fields to JSON
@@ -979,6 +1049,7 @@ OR
 **Interface**: Dropdown on event creation form
 
 **Process**:
+
 1. User selects template from dropdown
 2. System loads template_data JSON
 3. Pre-fill form fields with template values
@@ -991,6 +1062,7 @@ OR
 **Trigger**: User clicks "Delete" on template
 
 **Process**:
+
 1. Show confirmation
 2. Hard delete from templates table
 3. Show toast: "Template deleted"
@@ -999,7 +1071,8 @@ OR
 
 **Note**: Not directly supported in MVP
 
-**Workaround**: 
+**Workaround**:
+
 1. Load template into new event
 2. Modify fields
 3. Save as new template (optionally delete old one)
@@ -1010,27 +1083,28 @@ OR
 
 ### Email Notification Triggers
 
-| Trigger | Recipient | Email Type |
-|---------|-----------|------------|
-| Event submitted for approval | First approver | Approval request |
-| Event approved (not final) | Next approver | Approval request |
-| Event approved (final) | Creator | Approval success |
-| Event rejected | Creator | Rejection with reason |
-| Modification requested | First approver | Modification approval request |
-| Modification approved | Creator | Modification approved |
-| Modification rejected | Creator | Modification rejected with reason |
-| Cancellation requested | First approver | Cancellation approval request |
-| Cancellation approved | Creator + all approvers | Cancellation confirmed |
-| Cancellation rejected | Requester | Cancellation denied with reason |
-| Event completed | Creator | Report submission reminder |
-| Report submitted | First approver | Report approval request |
-| Report approved | Creator | Report approved |
-| Report rejected | Creator | Report rejected with feedback |
-| User created | New user | Magic link invitation |
+| Trigger                      | Recipient               | Email Type                        |
+| ---------------------------- | ----------------------- | --------------------------------- |
+| Event submitted for approval | First approver          | Approval request                  |
+| Event approved (not final)   | Next approver           | Approval request                  |
+| Event approved (final)       | Creator                 | Approval success                  |
+| Event rejected               | Creator                 | Rejection with reason             |
+| Modification requested       | First approver          | Modification approval request     |
+| Modification approved        | Creator                 | Modification approved             |
+| Modification rejected        | Creator                 | Modification rejected with reason |
+| Cancellation requested       | First approver          | Cancellation approval request     |
+| Cancellation approved        | Creator + all approvers | Cancellation confirmed            |
+| Cancellation rejected        | Requester               | Cancellation denied with reason   |
+| Event completed              | Creator                 | Report submission reminder        |
+| Report submitted             | First approver          | Report approval request           |
+| Report approved              | Creator                 | Report approved                   |
+| Report rejected              | Creator                 | Report rejected with feedback     |
+| User created                 | New user                | Magic link invitation             |
 
 ### Email Template Structure
 
 **All emails include**:
+
 1. Header with app logo/name
 2. Greeting: "Hi [Name],"
 3. Main content with action details
@@ -1045,6 +1119,7 @@ OR
 **Stored in**: `users.notification_prefs` (JSONB)
 
 **Schema**:
+
 ```json
 {
   "email_enabled": true,
@@ -1059,6 +1134,7 @@ OR
 ```
 
 **Frequency Behavior**:
+
 - **Instant**: Email sent immediately on trigger
 - **Daily**: Emails queued, sent once per day at 8am local time (future enhancement)
 - **Weekly**: Emails queued, sent once per week on Monday (future enhancement)
@@ -1070,6 +1146,7 @@ OR
 **Format**: `https://app.domain.com/path?token=auth_token`
 
 **Examples**:
+
 - Approval request: `/approvals?event_id=xxx`
 - Event approved: `/events/xxx`
 - Report reminder: `/events/xxx#report`
@@ -1129,6 +1206,7 @@ OR
 ## Audit Trail Throughout All Workflows
 
 **Every action creates an audit log entry with**:
+
 - event_id (if applicable)
 - user_id (actor)
 - action_type (enum)
@@ -1137,11 +1215,13 @@ OR
 - created_at (timestamp)
 
 **Visible in**:
+
 - Event detail page (timeline view)
 - Admin audit log page (filterable)
 - User activity page
 
 **Use cases**:
+
 - Accountability: Who approved/rejected and when
 - Debugging: Track event state changes
 - Reporting: Analyze approval times, rejection rates
@@ -1150,4 +1230,3 @@ OR
 ---
 
 This comprehensive workflow documentation provides a complete reference for all business processes in the Event Management Platform. Each workflow includes state diagrams, detailed steps, validation rules, and integration points with other workflows.
-
