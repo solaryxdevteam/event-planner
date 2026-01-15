@@ -1,5 +1,5 @@
 ---
-description: Database schema patterns, Supabase integration, RLS policies, and data access conventions for the hierarchical event management system
+description: Database schema patterns, Supabase integration, backend-only authorization (NO RLS), and data access conventions for the hierarchical event management system
 alwaysApply: true
 ---
 
@@ -53,7 +53,7 @@ Use `is_active` boolean instead of hard deletes:
 is_active BOOLEAN NOT NULL DEFAULT true
 ```
 
-Never expose deleted records to users (filter in RLS policies).
+Never expose deleted records to users (filter in Service Layer queries).
 
 ### Audit Trail
 
@@ -96,84 +96,103 @@ RETURNS UUID[] AS $$
 $$ LANGUAGE SQL STABLE;
 ```
 
-## Row Level Security (RLS)
+## Authorization Strategy
 
-### Enable RLS on All Tables
+### ⚠️ CRITICAL: NO Row Level Security (RLS)
 
+**This application does NOT use Row Level Security (RLS) at the database level.**
+
+All authorization and access control is handled exclusively in the backend application layer.
+
+### Why Backend-Only Authorization?
+
+1. **Database Portability** - Easy to migrate to different databases (MySQL, MongoDB, etc.)
+2. **Testability** - Business logic is easier to test in application code
+3. **Maintainability** - All authorization logic in one place (no SQL + TypeScript duplication)
+4. **Flexibility** - Complex business rules are easier to implement in application code
+5. **Debugging** - Easier to trace and debug authorization logic
+
+### DO NOT Use RLS
+
+❌ **Never enable RLS on any table:**
 ```sql
+-- DON'T DO THIS
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE venues ENABLE ROW LEVEL SECURITY;
--- etc.
 ```
 
-### Pyramid Visibility Pattern
-
-Users can only see their own data + data from subordinates:
-
+❌ **Never create RLS policies:**
 ```sql
--- SELECT Policy: Pyramid Visibility
-CREATE POLICY "users_select_policy" ON users
-FOR SELECT
-USING (
-  auth.uid() = id
-  OR auth.uid() IN (
-    SELECT unnest(get_subordinate_user_ids(auth.uid()))
-  )
-);
-
--- SELECT Policy for events: Creator's hierarchy visibility
-CREATE POLICY "events_select_policy" ON events
-FOR SELECT
-USING (
-  creator_id IN (
-    SELECT unnest(get_subordinate_user_ids(auth.uid()))
-  )
-  OR auth.uid() IN (
-    SELECT approver_id FROM event_approvals WHERE event_id = events.id
-  )
-);
+-- DON'T DO THIS
+CREATE POLICY "users_select_policy" ON users FOR SELECT USING (...);
 ```
 
-### INSERT Policies
+### Backend Authorization Pattern
 
-Users can only insert records as themselves:
-```sql
-CREATE POLICY "events_insert_policy" ON events
-FOR INSERT
-WITH CHECK (
-  auth.uid() = creator_id
-  AND auth.uid() IS NOT NULL
-);
+✅ **All authorization is handled in the Service Layer:**
+
+#### 1. Data Access Layer (DAL) - Filter by Subordinate IDs
+
+```typescript
+// /lib/data-access/venues.dal.ts
+export async function findAll(
+  subordinateUserIds: string[],  // Authorization filter from service layer
+  options?: { includeCreator?: boolean; activeOnly?: boolean }
+): Promise<VenueWithCreator[]> {
+  const supabase = await createClient();
+  
+  let query = supabase
+    .from("venues")
+    .select("*")
+    .in("creator_id", subordinateUserIds)  // Backend authorization filter
+    .order("name");
+
+  const { data, error } = await query;
+  return data;
+}
 ```
 
-### UPDATE Policies
+#### 2. Service Layer - Get Subordinate IDs & Enforce Permissions
 
-Role-based or ownership-based updates:
-```sql
-CREATE POLICY "events_update_policy" ON events
-FOR UPDATE
-USING (
-  -- Owner can update own drafts
-  (auth.uid() = creator_id AND status = 'draft')
-  OR
-  -- Global Director can update anything
-  (auth.uid() IN (SELECT id FROM users WHERE role = 'global_director'))
-);
+```typescript
+// /lib/services/venues/venue.service.ts
+import { getSubordinateUserIds } from "@/lib/services/users/hierarchy.service";
+
+export async function getVenues(search?: string): Promise<VenueWithCreator[]> {
+  const user = await requireActiveUser();
+  
+  // Get subordinate user IDs for pyramid visibility
+  const subordinateIds = await getSubordinateUserIds(user.id);
+  
+  // Pass to DAL for filtering
+  return venueDAL.findAll(subordinateIds, { includeCreator: true, activeOnly: true });
+}
 ```
 
-### DELETE Policies
+#### 3. Hierarchy Service - Pyramid Visibility Logic
 
-Prefer soft deletes, restrict hard deletes:
-```sql
--- Only allow hard delete of drafts by owner
-CREATE POLICY "events_delete_policy" ON events
-FOR DELETE
-USING (
-  auth.uid() = creator_id
-  AND status = 'draft'
-);
+```typescript
+// /lib/services/users/hierarchy.service.ts
+export async function getSubordinateUserIds(userId: string): Promise<string[]> {
+  // Returns [userId, ...all subordinate user IDs recursively]
+  // This implements pyramid visibility in application code
+}
 ```
+
+### Pyramid Visibility Implementation
+
+Users can only see data from themselves + their subordinates:
+
+- **Event Planners**: See only their own data
+- **City Curators**: See their own + Event Planners below them
+- **Regional Curators**: See their own + City Curators + Event Planners below them
+- **Lead Curators**: See their own + Regional Curators + all below
+- **Global Directors**: See everything
+
+This is implemented by:
+1. Getting subordinate user IDs in the Service Layer
+2. Passing those IDs to the DAL
+3. Filtering queries with `.in("creator_id", subordinateUserIds)`
 
 ## Database Functions
 
@@ -528,15 +547,15 @@ type EventStatus = Database["public"]["Enums"]["event_status"];
     001_initial_schema.sql
     002_add_templates.sql
   /functions
-    get_subordinate_user_ids.sql
-    build_approval_chain.sql
+    (if needed - prefer backend logic)
   /triggers
     audit_log_trigger.sql
     updated_at_trigger.sql
-  /policies
-    users_policies.sql
-    events_policies.sql
+  /test-data
+    create_test_user.sql
   /seed.sql
+  
+Note: No /policies folder - authorization is backend-only
 ```
 
 ### Apply Migrations
@@ -549,22 +568,24 @@ supabase db push
 ## Best Practices
 
 ✅ **Do:**
-- Enable RLS on all tables
 - Use UUIDs for primary keys
-- Add indexes on foreign keys and frequently queried columns
+- Add indexes on foreign keys and frequently queried columns (especially creator_id for authorization)
 - Use soft deletes with `is_active`
 - Log all state changes to audit_logs
 - Use transactions for multi-table updates
 - Validate data at database level (constraints, checks)
-- Use database functions for complex queries
 - Generate TypeScript types from schema
+- Handle ALL authorization in the Service Layer
+- Pass subordinate user IDs from Service to DAL for filtering
+- Use `.in("creator_id", subordinateUserIds)` for authorization queries
 
 ❌ **Don't:**
-- Expose sensitive data through RLS policies
+- Enable RLS on any tables (authorization is backend-only)
+- Create RLS policies (authorization is backend-only)
 - Use hard deletes for important records
 - Skip indexes on large tables
 - Store large files in database (use Storage)
-- Put business logic in database functions (use Service layer)
-- Bypass RLS with service role key in client code
+- Put business logic in database functions (use Service layer instead)
 - Store unencrypted sensitive data
+- Query database directly without going through Service Layer
 
