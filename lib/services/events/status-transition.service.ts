@@ -41,7 +41,7 @@ export async function transitionCompletedEvents(): Promise<{
   transitioned: number;
   errors: string[];
 }> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const errors: string[] = [];
   let transitioned = 0;
 
@@ -94,7 +94,7 @@ export async function transitionCompletedEvents(): Promise<{
  * @param event - The event to transition
  */
 async function transitionSingleEvent(event: Event): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Update event status
   const { error: updateError } = await supabase
@@ -143,7 +143,7 @@ async function transitionSingleEvent(event: Event): Promise<void> {
  * @param event - The event that needs a report
  */
 async function notifyCreatorReportDue(event: Event): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Get creator details
   const { data: creator, error } = await supabase
@@ -186,7 +186,7 @@ export async function manuallyTransitionEvent(
   eventId: string,
   userId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     // Verify event exists and is in correct status
@@ -234,7 +234,7 @@ export async function manuallyTransitionEvent(
  * @returns Number of events ready to transition
  */
 export async function getEventsNeedingTransition(): Promise<number> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { count, error } = await supabase
     .from("events")
@@ -327,7 +327,7 @@ export async function getEventsNeedingTransition(): Promise<number> {
  * Use this in tests to verify the logic
  */
 export async function _testGetEventsReadyForTransition(): Promise<Event[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data } = await supabase
     .from("events")

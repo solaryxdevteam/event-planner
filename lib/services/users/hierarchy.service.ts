@@ -30,7 +30,7 @@ type Role = Database["public"]["Enums"]["role"];
  * // Returns: [regionalCuratorId, cityCurator1Id, cityCurator2Id, planner1Id, planner2Id, ...]
  */
 export async function getSubordinateUserIds(userId: string): Promise<string[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Fetch all active users (we'll build the tree in memory)
   const { data: allUsers, error } = await supabase
@@ -77,7 +77,7 @@ export async function getSubordinateUserIds(userId: string): Promise<string[]> {
  * @returns Tree structure with all users organized by hierarchy
  */
 export async function getHierarchyTree(): Promise<HierarchyNode[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: users, error } = await supabase
     .from("users")
@@ -130,7 +130,7 @@ export async function validateParentAssignment(
     return { valid: false, error: "User cannot be their own parent" };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Get all users
   const { data: users, error } = await supabase.from("users").select("id, parent_id").eq("is_active", true);
@@ -173,7 +173,7 @@ export async function validateParentAssignment(
  * @returns Array of direct child users
  */
 export async function getDirectChildren(userId: string): Promise<User[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("users")
@@ -196,7 +196,7 @@ export async function getDirectChildren(userId: string): Promise<User[]> {
  * @returns Array of users from the starting user up to root
  */
 export async function getPathToRoot(userId: string): Promise<User[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const path: User[] = [];
   let currentId: string | null = userId;

@@ -1,0 +1,263 @@
+/**
+ * Database Types
+ * Generated from Supabase schema
+ * These types represent the database structure from 001_initial_schema.sql
+ */
+
+// =============================================
+// ENUMS
+// =============================================
+
+export type Role = "event_planner" | "city_curator" | "regional_curator" | "lead_curator" | "global_director";
+
+export type EventStatus =
+  | "draft"
+  | "in_review"
+  | "rejected"
+  | "approved_scheduled"
+  | "completed_awaiting_report"
+  | "completed_archived"
+  | "cancelled";
+
+export type ApprovalStatus = "waiting" | "pending" | "approved" | "rejected";
+
+export type ApprovalType = "event" | "modification" | "cancellation" | "report";
+
+export type ActionType =
+  | "create_draft"
+  | "submit_for_approval"
+  | "approve"
+  | "reject"
+  | "request_modification"
+  | "approve_modification"
+  | "reject_modification"
+  | "request_cancellation"
+  | "approve_cancellation"
+  | "reject_cancellation"
+  | "submit_report"
+  | "approve_report"
+  | "reject_report"
+  | "update_event"
+  | "delete_draft"
+  | "create_user"
+  | "update_user"
+  | "deactivate_user"
+  | "create_venue"
+  | "update_venue"
+  | "delete_venue"
+  | "ban_venue";
+
+// =============================================
+// TABLE TYPES
+// =============================================
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  parent_id: string | null;
+  city: string | null;
+  region: string | null;
+  is_active: boolean;
+  avatar_url: string | null;
+  notification_prefs: {
+    email_enabled: boolean;
+    frequency: "instant" | "daily" | "weekly";
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Venue {
+  id: string;
+  name: string;
+  address: string;
+  city: string;
+  capacity: number | null;
+  notes: string | null;
+  creator_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Event {
+  id: string;
+  title: string;
+  description: string | null;
+  event_date: string; // Date string (YYYY-MM-DD)
+  event_time: string | null; // Time string (HH:MM:SS)
+  venue_id: string | null;
+  creator_id: string;
+  status: EventStatus;
+  expected_attendance: number | null;
+  budget: number | null; // Decimal as number
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventVersion {
+  id: string;
+  event_id: string;
+  version_number: number;
+  version_data: Record<string, unknown>;
+  status: EventStatus;
+  change_reason: string | null;
+  created_at: string;
+}
+
+export interface EventApproval {
+  id: string;
+  event_id: string;
+  approver_id: string;
+  approval_type: ApprovalType;
+  status: ApprovalStatus;
+  sequence_order: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Report {
+  id: string;
+  event_id: string;
+  attendance_count: number;
+  summary: string;
+  feedback: string | null;
+  media_urls: string[];
+  external_links: Array<{ url: string; title: string }>;
+  status: ApprovalStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  event_id: string | null;
+  user_id: string | null;
+  action_type: ActionType;
+  comment: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface Template {
+  id: string;
+  user_id: string;
+  name: string;
+  template_data: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ApprovalConfig {
+  id: string;
+  config_data: {
+    event_planner: boolean;
+    city_curator: boolean;
+    regional_curator: boolean;
+    lead_curator: boolean;
+    global_director: boolean;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+// =============================================
+// DATABASE SCHEMA TYPE
+// =============================================
+
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: User;
+        Insert: Omit<User, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<User, "id" | "created_at">>;
+      };
+      venues: {
+        Row: Venue;
+        Insert: Omit<Venue, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Venue, "id" | "created_at">>;
+      };
+      events: {
+        Row: Event;
+        Insert: Omit<Event, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Event, "id" | "created_at">>;
+      };
+      event_versions: {
+        Row: EventVersion;
+        Insert: Omit<EventVersion, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<EventVersion, "id" | "created_at">>;
+      };
+      event_approvals: {
+        Row: EventApproval;
+        Insert: Omit<EventApproval, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<EventApproval, "id" | "created_at">>;
+      };
+      reports: {
+        Row: Report;
+        Insert: Omit<Report, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Report, "id" | "created_at">>;
+      };
+      audit_logs: {
+        Row: AuditLog;
+        Insert: Omit<AuditLog, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: never; // Audit logs are immutable
+      };
+      templates: {
+        Row: Template;
+        Insert: Omit<Template, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<Template, "id" | "created_at">>;
+      };
+      approval_configs: {
+        Row: ApprovalConfig;
+        Insert: Omit<ApprovalConfig, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<ApprovalConfig, "id" | "created_at">>;
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: {
+      role: Role;
+      event_status: EventStatus;
+      approval_status: ApprovalStatus;
+      approval_type: ApprovalType;
+      action_type: ActionType;
+    };
+  };
+}

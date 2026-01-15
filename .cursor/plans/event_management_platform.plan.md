@@ -108,22 +108,13 @@ Deliver working demonstration with complete database, backend (3-layer architect
 /db
   /migrations
     /001_initial_schema.sql
-  /functions
-    /get_subordinate_user_ids.sql
-    /build_approval_chain.sql
   /triggers
     /audit_log_trigger.sql
     /updated_at_trigger.sql
     /auto_status_transition.sql
-  /policies
-    /users_policies.sql
-    /events_policies.sql
-    /venues_policies.sql
-    /audit_logs_policies.sql
+
   /seed.sql
 ```
-
-
 
 ## Frontend Structure
 
@@ -431,17 +422,6 @@ Enums:
 - `build_approval_chain(user_id uuid)` - Returns array of approver IDs walking up hierarchy
 - Trigger: `updated_at_trigger` - Auto-update updated_at on all tables
 - Trigger: `audit_log_trigger` - Auto-insert audit log on event state changes
-
-### 1.3: Row Level Security Policies
-
-**Files:** `/db/policies/*.sql`For each table, create policies:
-
-- **SELECT:** User can view own data + data from subordinates (using `get_subordinate_user_ids`)
-- **INSERT:** Authenticated users can insert with creator_id = auth.uid()
-- **UPDATE:** Owner can update own data, or role-based permissions
-- **DELETE:** Soft deletes only, owner or Global Director
-
-Apply to: users, events, event_versions, event_approvals, venues, audit_logs, templates
 
 ### 1.4: Supabase Client Configuration
 
@@ -1377,7 +1357,6 @@ Test complete workflows:
 
 ### 20.1: Security Audit
 
-- Review all RLS policies
 - Review server actions for authorization
 - Add rate limiting
 - Test for SQL injection

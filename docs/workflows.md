@@ -867,7 +867,7 @@ OR
 - Event Planner C (different city) cannot see it
 - Regional Curator D (parent of B) can see it
 
-**Implementation**: RLS policy using `get_subordinate_user_ids()`
+**Implementation**: Backend authorization using `getSubordinateUserIds()` in Service Layer
 
 ---
 

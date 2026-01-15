@@ -343,23 +343,25 @@ COMMENT ON TABLE approval_configs IS 'Configuration for which roles are required
 COMMENT ON COLUMN approval_configs.config_data IS 'Boolean flags for each role indicating if they are required in approval chain';
 
 -- =============================================
--- 3. ROW LEVEL SECURITY (RLS)
+-- 3. AUTHORIZATION & SECURITY
 -- =============================================
 
--- Enable RLS on all tables
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE venues ENABLE ROW LEVEL SECURITY;
-ALTER TABLE events ENABLE ROW LEVEL SECURITY;
-ALTER TABLE event_versions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE event_approvals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE approval_configs ENABLE ROW LEVEL SECURITY;
-
--- Note: RLS policies will be created in separate policy files
--- This allows for easier management and updates of security rules
--- See: /db/policies/*.sql
+-- IMPORTANT: This application does NOT use Row Level Security (RLS)
+-- All authorization and access control is handled in the backend application layer.
+--
+-- Reasons for backend-only authorization:
+-- 1. Database portability - easier to migrate to different databases (MySQL, MongoDB, etc.)
+-- 2. Testability - business logic is easier to test in application code
+-- 3. Maintainability - all authorization logic in one place (no SQL + TypeScript duplication)
+-- 4. Flexibility - complex business rules are easier to implement in application code
+--
+-- Security is enforced through:
+-- - Service Layer: /lib/services/*/*.service.ts (permission checks, hierarchy validation)
+-- - Permissions: /lib/permissions/* (role-based access control)
+-- - Auth Middleware: /lib/auth/server.ts (user authentication)
+--
+-- DO NOT enable RLS on any tables in this project.
+-- All queries must go through the Service Layer which enforces proper authorization.
 
 -- =============================================
 -- 4. FUNCTIONS
@@ -455,7 +457,7 @@ INSERT INTO approval_configs (config_data) VALUES (
 -- =============================================
 
 -- Grant necessary permissions to authenticated users
--- (Specific permissions controlled by RLS policies)
+-- (Specific permissions controlled by backend Service Layer)
 
 -- =============================================
 -- END OF MIGRATION

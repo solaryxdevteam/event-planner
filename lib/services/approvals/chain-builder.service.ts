@@ -57,7 +57,7 @@ export async function buildApprovalChain(creatorUserId: string): Promise<string[
  * @returns The latest approval config or default if none exists
  */
 export async function getApprovalConfig(): Promise<ApprovalConfig> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: configs, error } = await supabase
     .from("approval_configs")
@@ -95,7 +95,7 @@ export async function getApprovalConfig(): Promise<ApprovalConfig> {
  * @returns The created config record
  */
 export async function updateApprovalConfig(newConfig: Record<Role, boolean>): Promise<ApprovalConfig> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Validate that all roles are present
   const requiredRoles: Role[] = [
@@ -134,7 +134,7 @@ export async function updateApprovalConfig(newConfig: Record<Role, boolean>): Pr
  * @returns Array of approver details with user info
  */
 export async function getApprovalChainWithDetails(creatorUserId: string): Promise<ApprovalChainStep[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Build the chain of IDs
   const approverIds = await buildApprovalChain(creatorUserId);
@@ -191,7 +191,7 @@ export async function canApprove(userId: string, eventCreatorId: string): Promis
  * @returns Next approver's user ID or null if this was the last approver
  */
 export async function getNextApprover(eventId: string, currentSequence: number): Promise<string | null> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: nextApproval, error } = await supabase
     .from("event_approvals")

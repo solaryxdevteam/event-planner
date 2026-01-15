@@ -2,23 +2,75 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Node.js 18+ installed
+- Supabase CLI installed (`brew install supabase/tap/supabase` or `npm install -g supabase`)
+- Docker Desktop running (required for local Supabase)
+
+### Initial Setup
+
+1. **Install dependencies:**
+
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables:**
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   Then edit `.env.local` with your Supabase credentials.
+
+3. **Start local Supabase:**
+
+   ```bash
+   supabase start
+   ```
+
+4. **Link to remote project (optional, for sync):**
+
+   ```bash
+   npm run db:link <your-project-ref>
+   ```
+
+5. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database Management
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project uses Supabase for database management. See [scripts/README.md](./scripts/README.md) for detailed database sync instructions.
+
+### Quick Commands
+
+**Schema Management:**
+
+```bash
+npm run db:pull    # Pull schema from remote
+npm run db:push    # Push schema to remote
+npm run db:reset   # Reset local database
+```
+
+**Data Synchronization:**
+
+```bash
+npm run db:sync:pull  # Pull data from remote to local
+npm run db:sync:push  # Push data from local to remote
+```
+
+**Status:**
+
+```bash
+npm run db:status  # Check Supabase status and connection details
+```
+
+For more details, see [scripts/README.md](./scripts/README.md).
 
 ## Learn More
 
