@@ -1,31 +1,30 @@
 /**
  * Authentication Client Functions
- * Client-side authentication helpers for magic link auth
+ * Client-side authentication helpers for email/password auth
  */
 
 "use client";
 
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 import type { ActionResponse } from "@/lib/types/api.types";
 
 /**
- * Send a magic link to the user's email
- * The user will receive an email with a link to sign in
+ * Sign in with email and password
  *
  * @param email - User's email address
- * @param redirectTo - URL to redirect to after successful authentication (optional)
+ * @param password - User's password
  * @returns Promise with success/error response
  */
-export async function sendMagicLink(email: string, redirectTo?: string): Promise<ActionResponse<{ message: string }>> {
+export async function signInWithPassword(
+  email: string,
+  password: string
+): Promise<ActionResponse<{ message: string }>> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
 
-    const { error } = await supabase.auth.signInWithOtp({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      options: {
-        emailRedirectTo: redirectTo || `${window.location.origin}/auth/callback`,
-        shouldCreateUser: true, // Allow new users to sign up
-      },
+      password,
     });
 
     if (error) {
@@ -38,13 +37,13 @@ export async function sendMagicLink(email: string, redirectTo?: string): Promise
     return {
       success: true,
       data: {
-        message: "Check your email for the magic link!",
+        message: "Signed in successfully",
       },
     };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to send magic link",
+      error: error instanceof Error ? error.message : "Failed to sign in",
     };
   }
 }
@@ -55,7 +54,7 @@ export async function sendMagicLink(email: string, redirectTo?: string): Promise
  */
 export async function signOut(): Promise<ActionResponse<void>> {
   try {
-    const supabase = getSupabaseClient();
+    const supabase = createClient();
 
     const { error } = await supabase.auth.signOut();
 
@@ -83,7 +82,7 @@ export async function signOut(): Promise<ActionResponse<void>> {
  * @returns The current user or null if not authenticated
  */
 export async function getCurrentUser() {
-  const supabase = getSupabaseClient();
+  const supabase = createClient();
   const {
     data: { user },
     error,
@@ -105,7 +104,7 @@ export async function getCurrentUser() {
  * @returns Unsubscribe function
  */
 export function onAuthStateChange(callback: (userId: string | null) => void) {
-  const supabase = getSupabaseClient();
+  const supabase = createClient();
 
   const {
     data: { subscription },
@@ -114,12 +113,4 @@ export function onAuthStateChange(callback: (userId: string | null) => void) {
   });
 
   return () => subscription.unsubscribe();
-}
-
-/**
- * Resend the magic link if the user didn't receive it
- * @param email - User's email address
- */
-export async function resendMagicLink(email: string): Promise<ActionResponse<{ message: string }>> {
-  return sendMagicLink(email);
 }

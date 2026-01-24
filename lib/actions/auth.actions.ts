@@ -8,8 +8,18 @@
 import { requireAuth, requireRole, requireMinimumRole, requireActiveUser } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResponse } from "@/lib/types/api.types";
-import type { User } from "@/lib/types/database.types";
+import type { User, Invitation, Database } from "@/lib/types/database.types";
 import { handleAsync } from "@/lib/utils/response";
+import * as userService from "@/lib/services/users/user.service";
+import * as invitationService from "@/lib/services/invitations/invitation.service";
+import { registerWithInvitationSchema, activateUserSchema } from "@/lib/validation/users.schema";
+import { revalidatePath } from "next/cache";
+import { UserRole } from "@/lib/types/roles";
+
+type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
+type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
+type EventInsert = Database["public"]["Tables"]["events"]["Insert"];
+type EventApprovalUpdate = Database["public"]["Tables"]["event_approvals"]["Update"];
 
 /**
  * Example: Get current user profile
@@ -27,24 +37,31 @@ export async function getCurrentUserProfile(): Promise<ActionResponse<User>> {
  * Demonstrates authenticated mutation
  */
 export async function updateUserProfile(data: {
-  name?: string;
-  city?: string;
-  region?: string;
+  first_name?: string;
+  last_name?: string | null;
+  country_id?: string;
+  state_id?: string | null;
+  city?: string | null;
   avatar_url?: string;
 }): Promise<ActionResponse<User>> {
   return handleAsync(async () => {
     const user = await requireAuth();
     const supabase = await createClient();
 
+    const updateData: UserUpdate = {
+      first_name: data.first_name,
+      last_name: data.last_name,
+      country_id: data.country_id,
+      state_id: data.state_id,
+      city: data.city,
+      avatar_url: data.avatar_url,
+      updated_at: new Date().toISOString(),
+    };
+
     const { data: updatedUser, error } = await supabase
       .from("users")
-      .update({
-        name: data.name,
-        city: data.city,
-        region: data.region,
-        avatar_url: data.avatar_url,
-        updated_at: new Date().toISOString(),
-      })
+      // @ts-expect-error - Supabase type inference issue with Database types
+      .update(updateData)
       .eq("id", user.id)
       .select()
       .single();
@@ -61,11 +78,16 @@ export async function updateUserProfile(data: {
 export async function deactivateUser(userId: string): Promise<ActionResponse<void>> {
   return handleAsync(async () => {
     // Only global directors can deactivate users
-    await requireRole(["global_director"]);
+    await requireRole([UserRole.GLOBAL_DIRECTOR]);
 
     const supabase = await createClient();
 
-    const { error } = await supabase.from("users").update({ is_active: false }).eq("id", userId);
+    const updateData: UserUpdate = { is_active: false };
+    const { error } = await supabase
+      .from("users")
+      // @ts-expect-error - Supabase type inference issue with Database types
+      .update(updateData)
+      .eq("id", userId);
 
     if (error) throw error;
   }, "deactivateUser");
@@ -82,12 +104,14 @@ export async function approveEvent(eventId: string): Promise<ActionResponse<void
     const supabase = await createClient();
 
     // Update the approval
+    const updateData: EventApprovalUpdate = {
+      status: "approved",
+      updated_at: new Date().toISOString(),
+    };
     const { error } = await supabase
       .from("event_approvals")
-      .update({
-        status: "approved",
-        updated_at: new Date().toISOString(),
-      })
+      // @ts-expect-error - Supabase type inference issue with Database types
+      .update(updateData)
       .eq("event_id", eventId)
       .eq("approver_id", user.id)
       .eq("status", "pending");
@@ -101,9 +125,11 @@ export async function approveEvent(eventId: string): Promise<ActionResponse<void
  * This is called after magic link authentication
  */
 export async function completeUserProfile(data: {
-  name: string;
-  city?: string;
-  region?: string;
+  first_name: string;
+  last_name?: string | null;
+  country_id?: string;
+  state_id?: string | null;
+  city?: string | null;
 }): Promise<ActionResponse<User>> {
   return handleAsync(async () => {
     const supabase = await createClient();
@@ -125,17 +151,45 @@ export async function completeUserProfile(data: {
       throw new Error("User profile already exists");
     }
 
+    // Get default US country ID if not provided
+    let countryId = data.country_id;
+    if (!countryId) {
+      const { data: usCountry, error: countryError } = await supabase
+        .from("locations")
+        .select("id")
+        .eq("type", "country")
+        .eq("code", "US")
+        .single();
+
+      if (countryError || !usCountry) {
+        throw new Error("US country not found in locations table");
+      }
+      // @ts-expect-error - Supabase type inference issue with Database types
+      countryId = (usCountry as { id: string }).id;
+    }
+
     // Create the user profile
+    const insertData: UserInsert = {
+      id: supabaseUser.id,
+      email: supabaseUser.email!,
+      first_name: data.first_name,
+      last_name: data.last_name || null,
+      country_id: countryId,
+      state_id: data.state_id || null,
+      city: data.city || null,
+      role: UserRole.EVENT_PLANNER, // Default role
+      parent_id: null,
+      phone: null,
+      company: null,
+      status: "pending" as const,
+      is_active: false,
+      avatar_url: null,
+      notification_prefs: null,
+    };
     const { data: newUser, error: createError } = await supabase
       .from("users")
-      .insert({
-        id: supabaseUser.id,
-        email: supabaseUser.email!,
-        name: data.name,
-        city: data.city,
-        region: data.region,
-        role: "event_planner", // Default role
-      })
+      // @ts-expect-error - Supabase type inference issue with Database types
+      .insert(insertData)
       .select()
       .single();
 
@@ -158,19 +212,153 @@ export async function createEvent(data: {
     const user = await requireActiveUser();
     const supabase = await createClient();
 
+    const insertData: EventInsert = {
+      title: data.title,
+      description: data.description,
+      event_date: data.event_date,
+      event_time: null,
+      venue_id: null,
+      creator_id: user.id,
+      status: "draft",
+      expected_attendance: null,
+      budget: null,
+      notes: null,
+    };
     const { data: event, error } = await supabase
       .from("events")
-      .insert({
-        title: data.title,
-        description: data.description,
-        event_date: data.event_date,
-        creator_id: user.id,
-        status: "draft",
-      })
+      // @ts-expect-error - Supabase type inference issue with Database types
+      .insert(insertData)
       .select("id")
       .single();
 
     if (error) throw error;
     return event;
   }, "createEvent");
+}
+
+/**
+ * Register a user with an invitation token
+ *
+ * @param formData - Registration form data (token, first_name, last_name, email, phone, company, password)
+ */
+export async function registerWithInvitation(
+  formData:
+    | FormData
+    | {
+        token: string;
+        first_name: string;
+        last_name?: string | null;
+        email: string;
+        phone?: string | null;
+        company?: string | null;
+        state_id?: string | null;
+        city?: string | null;
+        password: string;
+      }
+): Promise<ActionResponse<User>> {
+  return handleAsync(async () => {
+    // Parse form data
+    let data: {
+      token: string;
+      first_name: string;
+      last_name?: string | null;
+      email: string;
+      phone?: string | null;
+      company?: string | null;
+      state_id?: string | null;
+      city?: string | null;
+      password: string;
+    };
+
+    if (formData instanceof FormData) {
+      data = {
+        token: formData.get("token") as string,
+        first_name: formData.get("first_name") as string,
+        last_name: formData.get("last_name") as string | null,
+        email: formData.get("email") as string,
+        phone: formData.get("phone") as string | null,
+        company: formData.get("company") as string | null,
+        state_id: formData.get("state_id") as string | null,
+        city: formData.get("city") as string | null,
+        password: formData.get("password") as string,
+      };
+    } else {
+      data = formData;
+    }
+
+    // Validate input
+    const validated = registerWithInvitationSchema.parse(data);
+
+    // Register user
+    const user = await userService.registerWithInvitation(validated.token, validated);
+
+    return user;
+  }, "registerWithInvitation");
+}
+
+/**
+ * Validate an invitation token
+ *
+ * @param token - Invitation token to validate
+ */
+export async function validateInvitationToken(token: string): Promise<ActionResponse<Invitation>> {
+  return handleAsync(async () => {
+    const invitation = await invitationService.validateInvitation(token);
+
+    if (!invitation) {
+      throw new Error("Invalid or expired invitation token");
+    }
+
+    return invitation;
+  }, "validateInvitationToken");
+}
+
+/**
+ * Activate a user (Global Director only)
+ *
+ * @param formData - Activation form data (userId, role, parent_id)
+ * Note: Location fields (country_id, state_id, city) are set during registration
+ * and can be edited later via the user edit form
+ */
+export async function activateUser(
+  formData:
+    | FormData
+    | {
+        userId: string;
+        role?: string;
+        parent_id?: string | null;
+      }
+): Promise<ActionResponse<User>> {
+  return handleAsync(async () => {
+    const user = await requireRole(["global_director"]);
+
+    // Parse form data
+    let data: {
+      userId: string;
+      role?: string;
+      parent_id?: string | null;
+    };
+
+    if (formData instanceof FormData) {
+      data = {
+        userId: formData.get("userId") as string,
+        role: formData.get("role") as string | undefined,
+        parent_id: formData.get("parent_id") ? (formData.get("parent_id") as string) : null,
+      };
+    } else {
+      data = formData;
+    }
+
+    // Validate input
+    const validated = activateUserSchema.parse(data);
+
+    // Activate user
+    const activatedUser = await userService.activateUser(user.id, validated);
+
+    // Revalidate users page
+    revalidatePath("/admin/users");
+    revalidatePath("/users");
+
+    return activatedUser;
+  }, "activateUser");
 }

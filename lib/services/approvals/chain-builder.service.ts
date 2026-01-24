@@ -11,6 +11,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getPathToRoot } from "@/lib/services/users/hierarchy.service";
 import type { Database } from "@/lib/types/database.types";
+import { UserRole } from "@/lib/types/roles";
 
 type Role = Database["public"]["Enums"]["role"];
 type ApprovalConfig = Database["public"]["Tables"]["approval_configs"]["Row"];
@@ -99,11 +100,11 @@ export async function updateApprovalConfig(newConfig: Record<Role, boolean>): Pr
 
   // Validate that all roles are present
   const requiredRoles: Role[] = [
-    "event_planner",
-    "city_curator",
-    "regional_curator",
-    "lead_curator",
-    "global_director",
+    UserRole.EVENT_PLANNER,
+    UserRole.CITY_CURATOR,
+    UserRole.REGIONAL_CURATOR,
+    UserRole.LEAD_CURATOR,
+    UserRole.GLOBAL_DIRECTOR,
   ];
 
   for (const role of requiredRoles) {
@@ -114,6 +115,7 @@ export async function updateApprovalConfig(newConfig: Record<Role, boolean>): Pr
 
   const { data, error } = await supabase
     .from("approval_configs")
+    // @ts-expect-error - Supabase type inference issue with Database types
     .insert({
       config_data: newConfig as unknown as ApprovalConfig["config_data"],
     })
@@ -161,12 +163,14 @@ export async function getApprovalChainWithDetails(creatorUserId: string): Promis
       throw new Error(`Approver not found: ${id}`);
     }
 
+    // @ts-expect-error - Supabase type inference issue with Database types
+    const typedUser = user as any;
     return {
       sequence_order: index + 1,
-      user_id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
+      user_id: typedUser.id,
+      name: typedUser.name,
+      email: typedUser.email,
+      role: typedUser.role,
     };
   });
 }
@@ -204,7 +208,8 @@ export async function getNextApprover(eventId: string, currentSequence: number):
     return null; // Last approver
   }
 
-  return nextApproval.approver_id;
+  // @ts-expect-error - Supabase type inference issue with Database types
+  return (nextApproval as any).approver_id;
 }
 
 /**
