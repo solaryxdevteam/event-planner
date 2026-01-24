@@ -1,4 +1,16 @@
-export default function DashboardPage() {
+import { getServerUser } from "@/lib/auth/server";
+import { redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const user = await getServerUser();
+
+  // Redirect pending users to profile page
+  if (user?.dbUser.status === "pending") {
+    redirect("/dashboard/profile");
+  }
+
   return (
     <div className="space-y-4">
       <div>
