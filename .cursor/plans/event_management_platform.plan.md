@@ -2,7 +2,22 @@
 
 ## 5-Week MVP Goal
 
-Deliver working demonstration with complete database, backend (3-layer architecture), and frontend for all features. Desktop-focused polished UI. Defer accessibility, mobile optimization, performance tuning, and security hardening to post-MVP.---
+Deliver working demonstration with complete database, backend (3-layer architecture), and frontend for all features. Desktop-focused polished UI. Defer accessibility, mobile optimization, performance tuning, and security hardening to post-MVP.
+
+## Authentication System
+
+**IMPORTANT:** Authentication has been overhauled to use invitation-based system. See separate plan: `invitation-based_authentication_system.plan.md`
+
+Key changes:
+
+- Magic link authentication disabled for ALL users
+- Invitation-only registration (country-bound, single-use, time-limited)
+- Global Directors create invitations (country required) or directly create users
+- Users register with password (country pre-filled and locked)
+- Global Directors activate users and assign roles
+- Email service uses Supabase email
+
+---
 
 ## Backend Architecture Pattern
 
@@ -288,7 +303,7 @@ Deliver working demonstration with complete database, backend (3-layer architect
 - Review 3 modern admin dashboards (Linear, Notion, Retool)
 - Identify common patterns: navigation, forms, tables, approval workflows
 - Sketch wireframes for 8 key screens:
-- Login with magic link
+- Login with email/password (invitation-based registration)
 - Main dashboard with calendar
 - Event creation form (multi-step)
 - Event list with filters
@@ -433,19 +448,32 @@ Enums:
 
 ### 1.5: Authentication Utilities - Backend
 
-**Files:** `/lib/auth/server.ts`, `/lib/auth/client.ts`Functions:
+**NOTE:** Authentication system has been overhauled. See `invitation-based_authentication_system.plan.md` for complete implementation.
 
-- `getServerUser()` - Get current user server-side
-- `requireAuth()` - Throw error if not authenticated
+**Files:** `/lib/auth/server.ts`, `/lib/auth/client.ts`
+
+Functions:
+
+- `getServerUser()` - Get current user server-side (checks status='active')
+- `requireAuth()` - Throw error if not authenticated or status not 'active'
 - `requireRole(roles[])` - Check user has required role
-- `signInWithMagicLink(email)` - Send magic link
+- `signInWithEmailPassword(email, password)` - Email/password authentication
 - `signOut()` - Sign out user
+
+**Changes:**
+
+- Magic link authentication disabled
+- Email/password authentication only
+- User status enum (pending, active, inactive)
 
 ### 1.6: Authentication UI - Frontend
 
-**Files:** `/app/login/page.tsx`, `/lib/auth/AuthProvider.tsx`
+**NOTE:** Authentication UI has been overhauled. See `invitation-based_authentication_system.plan.md` for complete implementation.
 
-- Login page: Email input form, "Send Magic Link" button, confirmation message
+**Files:** `/app/auth/login/page.tsx`, `/app/auth/register/[token]/page.tsx`, `/lib/auth/AuthProvider.tsx`
+
+- Login page: Email/password form (magic link disabled)
+- Registration page: Invitation token-based registration form (country pre-filled and locked)
 - Auth Provider: React Context for auth state, subscribe to auth changes
 - Wrap app in AuthProvider in root layout
 
@@ -1364,3 +1392,962 @@ Test complete workflows:
 - Review file upload security
 
 ### 20.2: Penetration Testing
+
+---
+
+# CURRENT SPRINT TODO LIST
+
+> **Note:** Template features are excluded from MVP. Google Maps integration pending API key.
+
+> **Testing Strategy:** For each feature, write unit tests, integration tests, and manual test scripts.
+
+## ✅ Completed (Sprint 1)
+
+- [x] S1.1: Design Research & Wireframing (DEV-5)
+- [x] S1.2: Design System Definition (DEV-6)
+- [x] S1.3: Project Configuration Files (DEV-7)
+- [x] S1.4: Next.js Initialization (DEV-8)
+- [x] S1.5: Database Schema Creation (DEV-9)
+- [x] S1.6: PostgreSQL Functions & Triggers (DEV-10)
+- [x] S1.7: RLS Policies (DEV-11) - Note: Using backend authorization instead
+- [x] S1.8: Supabase Clients & Auth Utilities (DEV-12)
+- [x] S1.9: Authentication UI (DEV-13)
+- [x] S1.10: Seed Data (DEV-14)
+
+## 🔄 In Progress
+
+### Testing Infrastructure Setup
+
+- [ ] Install Vitest + @testing-library/react
+- [ ] Install @testing-library/jest-dom
+- [ ] Install @testing-library/user-event
+- [ ] Create vitest.config.ts
+- [ ] Create test setup file
+- [ ] Add test scripts to package.json
+- [ ] Create test utilities and helpers
+
+### User Management Backend (DEV-15) - S1.11
+
+**Status:** In Progress (DEV-35)
+
+**Files:**
+
+- `/lib/data-access/users.dal.ts`
+- `/lib/services/users/user.service.ts`
+- `/lib/validation/users.schema.ts`
+- `/lib/actions/users.ts`
+- `/app/api/users/hierarchy/route.ts`
+
+**Tasks:**
+
+- [ ] Create `users.dal.ts` with CRUD operations
+  - [ ] findAll(subordinateUserIds)
+  - [ ] findById(id, subordinateUserIds)
+  - [ ] findByRole(role)
+  - [ ] findChildren(parentId)
+  - [ ] insert(user)
+  - [ ] update(id, updates)
+  - [ ] deactivate(id)
+- [ ] Create `user.service.ts` with business logic
+  - [ ] getAllUsers(requesterId) - Global Director only
+  - [ ] createUser(requesterId, data) - validate role, check permissions
+  - [ ] updateUser(requesterId, userId, data) - check permissions
+  - [ ] deactivateUser(requesterId, userId) - check permissions
+  - [ ] checkGlobalDirectorPassword(password) - extra confirmation
+  - [ ] Integration with hierarchy.service for validation
+- [ ] Create `users.schema.ts` with Zod validation
+  - [ ] createUserSchema (email, name, role, parent_id, city, region)
+  - [ ] updateUserSchema (partial of createUserSchema)
+  - [ ] Export TypeScript types
+- [ ] Create `users.ts` server actions
+  - [ ] createUser(formData) - validate, call service, revalidatePath
+  - [ ] updateUser(userId, formData) - validate, call service
+  - [ ] deactivateUser(userId) - call service
+  - [ ] getUsers() - fetch users for current user
+  - [ ] checkGlobalDirectorPassword(password) - for confirmation
+- [ ] Create `/app/api/users/hierarchy/route.ts`
+  - [ ] GET endpoint returning hierarchy tree
+  - [ ] Used by hierarchy visualization component
+- [ ] Write unit tests for users.dal.ts
+- [ ] Write unit tests for user.service.ts
+- [ ] Write integration tests for users.ts actions
+- [ ] Write API tests for hierarchy route
+- [ ] Manual testing: Create, update, deactivate users
+
+## 📋 Sprint 1 Remaining (Week 2-3)
+
+### User Management Frontend (DEV-16) - S1.12
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/app/(dashboard)/layout.tsx`
+- `/app/(dashboard)/users/page.tsx`
+- `/components/users/UserTable.tsx`
+- `/components/users/UserFormDialog.tsx`
+- `/components/users/HierarchyTree.tsx`
+- `/components/users/UserActions.tsx`
+
+**Tasks:**
+
+- [ ] Update dashboard layout with navigation
+- [ ] Create users page (Server Component)
+  - [ ] Fetch users
+  - [ ] Display table
+  - [ ] Search bar
+  - [ ] "Add User" button
+- [ ] Build UserTable component
+  - [ ] Columns: name, email, role, parent, city, status, actions
+  - [ ] Sorting
+  - [ ] Filtering
+- [ ] Build UserFormDialog component
+  - [ ] Form with react-hook-form + Zod
+  - [ ] Role selector
+  - [ ] Parent selector (filtered by role hierarchy)
+  - [ ] City/region inputs
+  - [ ] Extra confirmation for Global Director
+  - [ ] Create/Edit modes
+- [ ] Build HierarchyTree component
+  - [ ] Fetch from /api/users/hierarchy
+  - [ ] Display tree visualization
+  - [ ] Expand/collapse nodes
+- [ ] Build UserActions component
+  - [ ] Dropdown menu: Edit, Deactivate
+  - [ ] Permission checks
+- [ ] Install shadcn/ui components needed
+  - [ ] table, dialog, form, select, dropdown-menu
+- [ ] Connect TanStack Query for mutations
+- [ ] Add optimistic updates
+- [ ] Add toast notifications
+- [ ] Write component tests
+- [ ] Manual testing: Full user management workflow
+
+### Profile & Permissions (DEV-17) - S1.13
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/data-access/storage.dal.ts`
+- `/lib/services/storage/storage.service.ts`
+- `/lib/actions/profile.ts`
+- `/lib/permissions/pyramid.ts`
+- `/lib/permissions/roles.ts`
+- `/lib/permissions/guards.ts`
+- `/app/(dashboard)/profile/page.tsx`
+- `/components/profile/AvatarUpload.tsx`
+- `/components/profile/ProfileForm.tsx`
+
+**Tasks:**
+
+- [ ] Create Supabase Storage buckets
+  - [ ] avatars (public read, auth write, 2MB, image/*)
+  - [ ] reports (conditional read, auth write, 50MB, image/*, video/*)
+- [ ] Create `storage.dal.ts`
+  - [ ] uploadFile(bucket, path, file)
+  - [ ] deleteFile(bucket, path)
+  - [ ] getPublicUrl(bucket, path)
+- [ ] Create `storage.service.ts`
+  - [ ] uploadAvatar(userId, file) - upload & return URL
+  - [ ] deleteAvatar(userId, url) - delete old avatar
+  - [ ] uploadReportMedia(eventId, file) - for later phase
+- [ ] Create `profile.ts` actions
+  - [ ] updateProfile(formData) - update name, notification prefs
+  - [ ] uploadAvatar(formData) - upload and update user.avatar_url
+  - [ ] getCurrentUserProfile() - fetch current user
+- [ ] Create `pyramid.ts` permission helpers
+  - [ ] canViewData(userId, targetUserId) - pyramid visibility check
+  - [ ] canViewEvent(userId, eventId)
+  - [ ] canEditEvent(userId, eventId)
+  - [ ] canApproveEvent(userId, eventId)
+  - [ ] getVisibleUserIds(userId) - return array of visible user IDs
+- [ ] Create `roles.ts` helpers
+  - [ ] hasRole(userId, roles[])
+  - [ ] isGlobalDirector(userId)
+  - [ ] getRoleLevel(role) - return numeric level
+- [ ] Create `guards.ts` with error-throwing guards
+  - [ ] requireCanViewEvent(userId, eventId)
+  - [ ] requireCanEditEvent(userId, eventId)
+  - [ ] requireCanApprove(userId, eventId)
+- [ ] Build profile page
+  - [ ] Server Component fetch profile
+  - [ ] Display sections
+- [ ] Build AvatarUpload component
+  - [ ] Image upload with preview
+  - [ ] Call uploadAvatar action
+  - [ ] Show loading state
+- [ ] Build ProfileForm component
+  - [ ] Form: name, notification preferences
+  - [ ] Email on/off, frequency dropdown
+  - [ ] Display read-only: role, city, parent name
+- [ ] Write tests for permission helpers
+- [ ] Write tests for profile actions
+- [ ] Write component tests
+- [ ] Manual testing: Profile update, avatar upload
+
+## 📋 Sprint 2 Tasks (Weeks 3-4)
+
+### Venue Schema Update & Migration
+
+**Priority:** HIGH (Blocks Venues Management)
+
+**Files:**
+
+- `/db/migrations/002_update_venues_schema.sql`
+
+**Tasks:**
+
+- [ ] Create migration file
+  - [ ] Add `country` VARCHAR(100)
+  - [ ] Add `region` VARCHAR(100) (Note: may conflict with existing field)
+  - [ ] Add `city` VARCHAR(100) (Note: may conflict with existing field)
+  - [ ] Add `location` JSONB with structure: {lat: number, lng: number}
+  - [ ] Add index on location (GiST index for spatial queries if needed)
+  - [ ] Update findDuplicate logic to use new fields
+- [ ] Apply migration to Supabase
+- [ ] Update database.types.ts
+- [ ] Test migration rollback
+
+### Venues Management (DEV-18) - S2.1
+
+**Priority:** HIGH
+
+**Dependencies:** Venue schema update
+
+**Files:**
+
+- Update existing `/lib/data-access/venues.dal.ts`
+- Update existing `/lib/services/venues/venue.service.ts`
+- Update existing `/lib/validation/venues.schema.ts`
+- Update existing `/lib/actions/venues.ts`
+- `/app/(dashboard)/venues/page.tsx`
+- Existing `/components/venues/*`
+
+**Tasks:**
+
+- [ ] Update `venues.dal.ts` for new schema
+  - [ ] Update findDuplicate to check country, region, city
+  - [ ] Update search to include new fields
+  - [ ] Add type definitions for location field
+- [ ] Update `venues.schema.ts`
+  - [ ] Add country, region, city fields (required)
+  - [ ] Add location field (lat/lng) (required)
+  - [ ] Validation: lat between -90 and 90, lng between -180 and 180
+- [ ] Update `venue.service.ts`
+  - [ ] Update createVenue to handle new fields
+  - [ ] Update duplicate detection logic
+  - [ ] Add audit logging
+- [ ] Update `venues.ts` actions
+  - [ ] Update all actions to pass new fields
+- [ ] **DEFERRED:** Google Maps integration (waiting for API key)
+  - [ ] Add location picker component
+  - [ ] Autocomplete for address
+  - [ ] Show map preview
+- [ ] Create venues page
+  - [ ] Server Component fetch venues
+  - [ ] Display VenueTable
+  - [ ] Search bar
+  - [ ] "Add Venue" button
+- [ ] Update VenueFormDialog
+  - [ ] Add country field
+  - [ ] Add region/city fields (or use existing)
+  - [ ] Add location picker (manual entry for now)
+  - [ ] Duplicate warning if similar venue found
+- [ ] Update VenueActions
+  - [ ] Edit, Delete, Ban (Global Director only)
+- [ ] Write tests for updated DAL
+- [ ] Write tests for updated service
+- [ ] Write tests for actions
+- [ ] Write component tests
+- [ ] Manual testing: Full venue CRUD workflow
+
+### Events Backend - DAL & Services (DEV-19) - S2.2
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/data-access/events.dal.ts`
+- `/lib/data-access/event-versions.dal.ts`
+- `/lib/data-access/event-approvals.dal.ts`
+- `/lib/data-access/audit-logs.dal.ts`
+- `/lib/services/events/event.service.ts`
+- `/lib/services/events/draft.service.ts`
+- `/lib/services/audit/audit.service.ts`
+
+**Tasks:**
+
+- [ ] Create `events.dal.ts`
+  - [ ] findById(id, subordinateUserIds)
+  - [ ] findByCreator(creatorId, status?)
+  - [ ] findPyramidVisible(userId, filters) - filtered events
+  - [ ] insert(event)
+  - [ ] update(id, updates)
+  - [ ] delete(id) - hard delete for drafts only
+- [ ] Create `event-versions.dal.ts`
+  - [ ] findByEventId(eventId)
+  - [ ] findPendingVersion(eventId)
+  - [ ] insert(version)
+  - [ ] update(id, updates)
+  - [ ] delete(id)
+- [ ] Create `event-approvals.dal.ts`
+  - [ ] findByEventId(eventId)
+  - [ ] findPendingForUser(userId)
+  - [ ] insert(approval)
+  - [ ] updateStatus(id, status, comment)
+  - [ ] createChain(eventId, approvers[], type)
+- [ ] Create `audit-logs.dal.ts`
+  - [ ] findByEventId(eventId)
+  - [ ] findByUser(userId)
+  - [ ] filterLogs(criteria)
+  - [ ] insert(logEntry)
+- [ ] Create `event.service.ts`
+  - [ ] getEventById(userId, eventId) - with permission check
+  - [ ] getEventsForUser(userId, filters) - pyramid visible
+  - [ ] submitForApproval(userId, eventId) - validate, build chain, notify
+  - [ ] createFromRejected(userId, rejectedEventId) - copy to new draft
+- [ ] Create `draft.service.ts`
+  - [ ] createDraft(userId, data) - create draft event
+  - [ ] updateDraft(userId, eventId, data) - auto-save
+  - [ ] deleteDraft(userId, eventId) - check ownership
+  - [ ] getDrafts(userId) - fetch user's drafts
+  - [ ] hasDraft(userId) - check if user has existing draft
+- [ ] Create `audit.service.ts`
+  - [ ] log(entry) - insert audit log
+  - [ ] getEventAuditLog(eventId)
+  - [ ] filterLogs(filters)
+- [ ] Write unit tests for all DALs
+- [ ] Write unit tests for all services
+- [ ] Manual testing with seed data
+
+### Approval Chain Builder (DEV-20) - S2.3
+
+**Priority:** HIGH
+
+**Files:**
+
+- Update existing `/lib/services/approvals/chain-builder.service.ts`
+- `/lib/services/approvals/approval.service.ts`
+- `/lib/data-access/approval-configs.dal.ts`
+
+**Tasks:**
+
+- [ ] Create `approval-configs.dal.ts`
+  - [ ] get() - fetch current config
+  - [ ] update(config) - update config
+- [ ] Update `chain-builder.service.ts`
+  - [ ] buildChain(userId) - walk up hierarchy
+  - [ ] Filter by approval_configs (which roles required)
+  - [ ] Return array of approver IDs in order
+  - [ ] getApprovalConfig() - fetch config
+- [ ] Create `approval.service.ts`
+  - [ ] approveEvent(userId, eventId, comment)
+    - [ ] Mark approval as approved
+    - [ ] If last in chain: set event status to approved_scheduled
+    - [ ] Else: notify next approver
+    - [ ] Log audit
+  - [ ] rejectEvent(userId, eventId, comment)
+    - [ ] Mark approval as rejected
+    - [ ] Set event status to rejected
+    - [ ] Notify creator
+    - [ ] Log audit
+  - [ ] getPendingApprovals(userId) - fetch events awaiting approval
+  - [ ] notifyNextApprover(eventId) - send email (stub for now)
+- [ ] Write tests for chain builder logic
+- [ ] Write tests for approval service
+- [ ] Test various hierarchy configurations
+
+### Events Actions & Validation (DEV-21) - S2.4
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/validation/events.schema.ts`
+- `/lib/actions/events.ts`
+
+**Tasks:**
+
+- [ ] Create `events.schema.ts`
+  - [ ] createEventSchema - title, description, event_date, event_time, venue_id, expected_attendance, budget, notes
+  - [ ] updateEventSchema - partial
+  - [ ] submitEventSchema - eventId
+  - [ ] approveEventSchema - eventId, comment
+  - [ ] rejectEventSchema - eventId, comment
+  - [ ] Export TypeScript types
+- [ ] Create `events.ts` actions (excluding templates)
+  - [ ] createEventDraft(formData)
+  - [ ] updateEventDraft(eventId, formData)
+  - [ ] deleteDraft(eventId)
+  - [ ] submitEventForApproval(eventId)
+  - [ ] getEventById(eventId)
+  - [ ] getDraftEvents()
+  - [ ] getEventsInReview()
+  - [ ] getRejectedEvents()
+  - [ ] createFromRejected(rejectedEventId)
+- [ ] Write validation tests
+- [ ] Write action tests
+- [ ] Integration tests
+
+### Event Creation UI (DEV-22) - S2.5
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/app/(dashboard)/events/new/page.tsx`
+- `/components/events/EventFormSteps.tsx`
+- `/components/events/DraftDialog.tsx`
+- `/components/venues/VenueSelect.tsx`
+
+**Tasks:**
+
+- [ ] Create event creation page
+  - [ ] Multi-step form (4 steps)
+  - [ ] Step 1: Title, description, event date, event time
+  - [ ] Step 2: Venue selection (dropdown)
+  - [ ] Step 3: Expected attendance, budget, notes
+  - [ ] Step 4: Review and submit
+  - [ ] Auto-save draft every 30 seconds (debounced)
+  - [ ] On mount: check for existing draft, prompt user
+- [ ] Build EventFormSteps component
+  - [ ] Step indicators
+  - [ ] Navigation: Next, Back, Submit buttons
+  - [ ] Form validation per step
+  - [ ] Progress indicator
+- [ ] Build DraftDialog component
+  - [ ] "Continue draft" or "Start new" options
+  - [ ] Show draft preview
+- [ ] Build VenueSelect component
+  - [ ] Searchable dropdown
+  - [ ] Quick-add inline option (optional)
+  - [ ] Display venue details
+- [ ] Install shadcn/ui components: steps, multi-step form
+- [ ] Connect with TanStack Query
+- [ ] Add toast notifications
+- [ ] Write component tests
+- [ ] Manual testing: Full event creation flow
+
+### Event Requests UI (DEV-23) - S2.6
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/app/(dashboard)/events/requests/page.tsx`
+- `/components/events/EventCard.tsx`
+- `/components/events/EventList.tsx`
+- `/components/events/EventActions.tsx`
+
+**Tasks:**
+
+- [ ] Create event requests page
+  - [ ] Tabbed view: Drafts / In Review / Rejected
+  - [ ] Server Component fetch events
+- [ ] Build EventCard component
+  - [ ] Display: title, date, venue, status badge
+  - [ ] Click to view details
+  - [ ] Actions menu
+- [ ] Build EventList component
+  - [ ] Grid or list view toggle
+  - [ ] Filter options
+  - [ ] Pagination
+- [ ] Build EventActions component
+  - [ ] For drafts: Edit, Delete, Submit
+  - [ ] For in review: View only
+  - [ ] For rejected: View, Create new from
+- [ ] Install shadcn/ui: tabs, card
+- [ ] Write component tests
+- [ ] Manual testing: Navigate through tabs
+
+### Approval Dashboard Backend (DEV-24) - S2.7
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/actions/approvals.ts`
+
+**Tasks:**
+
+- [ ] Create `approvals.ts` actions
+  - [ ] getPendingEventApprovals() - fetch events pending approval
+  - [ ] approveEvent(eventId, comment) - validate comment, call service
+  - [ ] rejectEvent(eventId, comment) - validate comment, call service
+  - [ ] All return ActionResponse
+  - [ ] Revalidate /approvals path after mutations
+- [ ] Write action tests
+- [ ] Integration tests
+
+### Approval Dashboard UI (DEV-25) - S2.8
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/app/(dashboard)/approvals/page.tsx`
+- `/components/approvals/ApprovalList.tsx`
+- `/components/approvals/ApprovalCard.tsx`
+- `/components/approvals/ApprovalDialog.tsx`
+- `/components/approvals/ApprovalChainProgress.tsx`
+
+**Tasks:**
+
+- [ ] Create approvals page
+  - [ ] Tabbed view (Events / Modifications / Cancellations / Reports)
+  - [ ] Initially: Events tab only
+  - [ ] Server Component fetch pending approvals
+- [ ] Build ApprovalList component
+  - [ ] List of pending approvals
+  - [ ] Filter/sort options
+- [ ] Build ApprovalCard component
+  - [ ] Show event info
+  - [ ] Show approval chain progress
+  - [ ] Approve/Reject buttons
+- [ ] Build ApprovalDialog component
+  - [ ] Modal with full event details
+  - [ ] Approval chain stepper
+  - [ ] Comment textarea (mandatory)
+  - [ ] Approve/Reject buttons
+- [ ] Build ApprovalChainProgress component
+  - [ ] Stepper showing approval chain
+  - [ ] Completed/pending/current indicators
+- [ ] Write component tests
+- [ ] Manual testing: Approve/reject workflow
+
+### Current & Past Events Views (DEV-26) - S2.9
+
+**Priority:** MEDIUM
+
+**Files:**
+
+- Update `/lib/actions/events.ts`
+- `/app/api/export/events/route.ts`
+- `/app/(dashboard)/events/current/page.tsx`
+- `/app/(dashboard)/events/past/page.tsx`
+- `/components/events/EventFilters.tsx`
+- `/components/events/EventTable.tsx`
+- `/components/events/EventExportButton.tsx`
+
+**Tasks:**
+
+- [ ] Add actions to `events.ts`
+  - [ ] getCurrentEvents(filters) - status='approved_scheduled'
+  - [ ] getCompletedEvents() - status='completed_awaiting_report'
+  - [ ] getArchivedEvents() - status='completed_archived'
+  - [ ] getCancelledRejectedEvents() - status IN ('cancelled', 'rejected')
+- [ ] Create export API route
+  - [ ] GET endpoint with query params
+  - [ ] Fetch events
+  - [ ] Convert to CSV
+  - [ ] Return downloadable file
+- [ ] Create current events page
+  - [ ] Display approved_scheduled events
+  - [ ] Filter sidebar
+  - [ ] View toggle: Cards / Table
+  - [ ] Export CSV button
+- [ ] Create past events page
+  - [ ] Tabs: Completed / Archived / Cancelled-Rejected
+  - [ ] Same filters as current
+- [ ] Build EventFilters component
+  - [ ] Multi-select: city, region, date range, creator, venue, status
+- [ ] Build EventTable component
+  - [ ] Table view with sorting
+  - [ ] Columns: title, date, venue, creator, status, actions
+- [ ] Build EventExportButton component
+  - [ ] Trigger CSV export
+  - [ ] Show loading state
+- [ ] Auto status transition trigger/cron
+  - [ ] Database trigger OR Supabase Edge Function
+  - [ ] Update events where event_date < today AND status='approved_scheduled'
+  - [ ] Set status to 'completed_awaiting_report'
+  - [ ] Create audit log entries
+- [ ] Write tests
+- [ ] Manual testing: View events, export CSV
+
+## 📋 Sprint 3 Tasks (Weeks 4-5)
+
+### Modifications Workflow (DEV-27) - S3.1
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/services/modifications/modification.service.ts`
+- `/lib/validation/modifications.schema.ts`
+- `/lib/actions/modifications.ts`
+- `/components/events/RequestModificationButton.tsx`
+- `/components/events/ModificationForm.tsx`
+- `/components/events/ModificationDiff.tsx`
+
+**Tasks:**
+
+- [ ] Create `modification.service.ts`
+  - [ ] requestModification(userId, eventId, changes)
+  - [ ] getPendingModifications(userId)
+  - [ ] approveModification(userId, versionId, comment)
+  - [ ] rejectModification(userId, versionId, comment)
+  - [ ] hasPendingModification(eventId)
+- [ ] Create `modifications.schema.ts`
+  - [ ] requestModificationSchema
+  - [ ] approveModificationSchema
+  - [ ] rejectModificationSchema
+- [ ] Create `modifications.ts` actions
+  - [ ] requestModification(eventId, formData)
+  - [ ] getPendingModifications()
+  - [ ] approveModification(versionId, comment)
+  - [ ] rejectModification(versionId, comment)
+- [ ] Build RequestModificationButton
+  - [ ] Show only for creator, approved_scheduled events, no pending mod
+- [ ] Build ModificationForm
+  - [ ] Pre-filled with current data
+  - [ ] Show diff of changes
+- [ ] Build ModificationDiff
+  - [ ] Display old → new for changed fields
+- [ ] Update Approvals page - add Modifications tab
+- [ ] Update EventCard to show "Modification pending" badge
+- [ ] Write tests
+- [ ] Manual testing: Request, approve, reject modifications
+
+### Cancellations Workflow (DEV-28) - S3.2
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/services/cancellations/cancellation.service.ts`
+- `/lib/validation/cancellations.schema.ts`
+- `/lib/actions/cancellations.ts`
+- `/components/events/RequestCancellationButton.tsx`
+- `/components/events/CancellationDialog.tsx`
+
+**Tasks:**
+
+- [ ] Create `cancellation.service.ts`
+  - [ ] canRequestCancellation(userId, eventId)
+  - [ ] requestCancellation(userId, eventId, reason)
+  - [ ] getPendingCancellations(userId)
+  - [ ] approveCancellation(userId, eventId, comment)
+  - [ ] rejectCancellation(userId, eventId, comment)
+  - [ ] hasPendingCancellation(eventId)
+- [ ] Create `cancellations.schema.ts`
+  - [ ] requestCancellationSchema
+  - [ ] approveCancellationSchema
+  - [ ] rejectCancellationSchema
+- [ ] Create `cancellations.ts` actions
+  - [ ] canRequestCancellation(eventId)
+  - [ ] requestCancellation(eventId, reason)
+  - [ ] getPendingCancellations()
+  - [ ] approveCancellation(eventId, comment)
+  - [ ] rejectCancellation(eventId, comment)
+- [ ] Build RequestCancellationButton
+  - [ ] Check permissions
+  - [ ] Show only if no pending cancellation
+- [ ] Build CancellationDialog
+  - [ ] Warning message
+  - [ ] Reason textarea (mandatory)
+  - [ ] Confirm button
+- [ ] Update Approvals page - add Cancellations tab
+- [ ] Update EventCard to show "Cancellation pending" badge
+- [ ] Write tests
+- [ ] Manual testing: Request, approve, reject cancellations
+
+### Post-Event Reporting (DEV-29) - S3.3
+
+**Priority:** HIGH
+
+**Files:**
+
+- `/lib/data-access/reports.dal.ts`
+- `/lib/services/reports/report.service.ts`
+- `/lib/validation/reports.schema.ts`
+- `/lib/actions/reports.ts`
+- `/components/reports/ReportForm.tsx`
+- `/components/reports/MediaUploader.tsx`
+- `/components/reports/ReportViewer.tsx`
+- `/components/reports/ReportApprovalCard.tsx`
+
+**Tasks:**
+
+- [ ] Add reports table to schema (if not exists)
+  - [ ] id, event_id, attendance_count, summary, feedback
+  - [ ] media_urls (jsonb), external_links (jsonb)
+  - [ ] status, created_at, updated_at
+- [ ] Create `reports.dal.ts`
+  - [ ] findByEventId(eventId)
+  - [ ] insert(report)
+  - [ ] update(id, updates)
+- [ ] Create `report.service.ts`
+  - [ ] submitReport(userId, eventId, reportData, mediaFiles)
+  - [ ] updateReport(userId, reportId, reportData, mediaFiles)
+  - [ ] getReportByEventId(eventId)
+  - [ ] getPendingReports(userId)
+  - [ ] approveReport(userId, reportId, comment)
+  - [ ] rejectReport(userId, reportId, comment)
+- [ ] Create `reports.schema.ts`
+  - [ ] submitReportSchema
+  - [ ] approveReportSchema
+  - [ ] rejectReportSchema
+- [ ] Create `reports.ts` actions
+  - [ ] submitReport(eventId, formData)
+  - [ ] updateReport(reportId, formData)
+  - [ ] getReportByEventId(eventId)
+  - [ ] getPendingReports()
+  - [ ] approveReport(reportId, comment)
+  - [ ] rejectReport(reportId, comment)
+- [ ] Build ReportForm
+  - [ ] Attendance count
+  - [ ] Summary textarea
+  - [ ] Feedback
+  - [ ] Media upload (drag-and-drop)
+  - [ ] External links
+  - [ ] Submit button
+- [ ] Build MediaUploader
+  - [ ] Multi-file drag-and-drop
+  - [ ] Progress bars
+  - [ ] Thumbnail previews
+  - [ ] Remove file button
+- [ ] Build ReportViewer
+  - [ ] Display report details
+  - [ ] Media gallery with lightbox
+  - [ ] External links
+- [ ] Build ReportApprovalCard
+  - [ ] Show report details
+  - [ ] Show media
+  - [ ] Approve/Reject buttons
+- [ ] Update Approvals page - add Reports tab
+- [ ] Show ReportForm on event detail when status='completed_awaiting_report' and user is creator
+- [ ] Write tests
+- [ ] Manual testing: Submit, approve, reject reports
+
+### Audit Logs & Event History (DEV-30) - S3.4
+
+**Priority:** MEDIUM
+
+**Files:**
+
+- `/lib/actions/audit.ts`
+- `/lib/services/events/version-compare.service.ts`
+- `/components/audit/AuditTimeline.tsx`
+- `/components/audit/AuditFilters.tsx`
+- `/components/audit/VersionCompare.tsx`
+
+**Tasks:**
+
+- [ ] Create `audit.ts` actions
+  - [ ] getEventAuditLog(eventId)
+  - [ ] filterAuditLogs(filters)
+- [ ] Create `version-compare.service.ts`
+  - [ ] compareVersions(v1Id, v2Id) - return structured diff
+  - [ ] getVersionHistory(eventId) - fetch all versions
+- [ ] Add action: compareEventVersions(v1Id, v2Id)
+- [ ] Build AuditTimeline component
+  - [ ] Vertical timeline visualization
+  - [ ] Each entry: timestamp, user avatar+name, action type, comment
+  - [ ] Color-coded badges
+  - [ ] Expandable metadata (JSON diff)
+- [ ] Build AuditFilters component
+  - [ ] Filter: action type, date range, user
+- [ ] Build VersionCompare component
+  - [ ] Side-by-side diff view
+  - [ ] Highlight changed fields
+- [ ] Add to event detail page: "View History" accordion
+- [ ] Add to modification approval dialog: "View Changes" button
+- [ ] Write tests
+- [ ] Manual testing: View history, compare versions
+
+### Dashboard & Calendar (DEV-31) - S3.5
+
+**Priority:** MEDIUM
+
+**Files:**
+
+- `/lib/services/dashboard/dashboard.service.ts`
+- `/lib/actions/dashboard.ts`
+- `/lib/actions/calendar.ts`
+- `/app/(dashboard)/dashboard/page.tsx`
+- `/components/dashboard/StatCard.tsx`
+- `/components/dashboard/ActivityFeed.tsx`
+- `/components/calendar/EventCalendar.tsx`
+
+**Tasks:**
+
+- [ ] Create `dashboard.service.ts`
+  - [ ] getDashboardStats(userId) - pending approvals, upcoming events, drafts, recent activity
+  - [ ] getUpcomingEvents(userId, days)
+  - [ ] getActivityFeed(userId, limit)
+- [ ] Create `dashboard.ts` actions
+  - [ ] getDashboardStats()
+  - [ ] getUpcomingEvents(days)
+  - [ ] getActivityFeed(limit)
+- [ ] Create `calendar.ts` actions
+  - [ ] getEventsForCalendar(startDate, endDate)
+- [ ] Build dashboard page
+  - [ ] Grid layout: stat cards + calendar + activity feed
+- [ ] Build StatCard component
+  - [ ] Icon, label, count
+  - [ ] Clickable → navigate to relevant page
+- [ ] Build ActivityFeed component
+  - [ ] List of recent actions
+  - [ ] User, action type, time ago
+- [ ] Build EventCalendar component
+  - [ ] Monthly calendar view
+  - [ ] Use library: react-big-calendar or custom
+  - [ ] Color-coded by status
+  - [ ] Click event → detail modal
+  - [ ] Navigation: prev/next month, today
+- [ ] Install calendar library if needed
+- [ ] Write tests
+- [ ] Manual testing: Dashboard interactions
+
+### Email Notifications (DEV-32) - S3.6
+
+**Priority:** MEDIUM
+
+**Files:**
+
+- `/lib/services/email/email.service.ts`
+- `/lib/services/email/templates.service.ts`
+
+**Tasks:**
+
+- [ ] Configure Supabase email or SMTP
+- [ ] Create `email.service.ts`
+  - [ ] sendMagicLink(email, token) - handled by Supabase
+  - [ ] sendApprovalNotification(userId, eventId, type)
+  - [ ] sendApprovalResultNotification(userId, eventId, approved)
+  - [ ] sendModificationNotification(userId, eventId)
+  - [ ] sendCancellationNotification(userId, eventId)
+  - [ ] sendReportNotification(userId, eventId)
+  - [ ] sendReportResultNotification(userId, eventId, approved)
+  - [ ] Check user notification preferences before sending
+- [ ] Create `templates.service.ts`
+  - [ ] renderApprovalRequest(event, approver) - return HTML
+  - [ ] renderApprovalResult(event, creator, approved, comment)
+  - [ ] renderModificationRequest(event, changes, approver)
+  - [ ] renderCancellationRequest(event, reason, approver)
+  - [ ] renderReportRequest(event, report, approver)
+  - [ ] Templates: header, content, CTA button, footer, unsubscribe
+- [ ] Integrate email sending in services
+  - [ ] After submitForApproval → email first approver
+  - [ ] After approveEvent → email next approver or creator
+  - [ ] After rejectEvent → email creator
+  - [ ] Similar for modifications, cancellations, reports
+- [ ] Create branded email templates (HTML files or in Supabase)
+- [ ] Write email tests (check sending, not actual delivery)
+- [ ] Manual testing: Trigger emails, verify content
+
+### Error Handling & UI Polish (DEV-33) - S3.7
+
+**Priority:** MEDIUM
+
+**Files:**
+
+- `/components/shared/ErrorBoundary.tsx`
+- `/components/shared/LoadingSpinner.tsx`
+- `/components/shared/ConfirmDialog.tsx`
+- `/components/shared/PageHeader.tsx`
+- `/components/shared/EmptyState.tsx`
+- `/components/ui/skeletons/*`
+
+**Tasks:**
+
+- [ ] Create ErrorBoundary component
+  - [ ] Wrap app
+  - [ ] User-friendly error messages
+  - [ ] "Try again" button
+- [ ] Ensure all server actions return ActionResponse<T>
+- [ ] Add toast notifications on all mutations (success/error)
+- [ ] Create skeleton components
+  - [ ] TableSkeleton
+  - [ ] CardSkeleton
+  - [ ] FormSkeleton
+  - [ ] CalendarSkeleton
+- [ ] Use React Suspense for streaming
+- [ ] Add loading spinners on buttons during mutations
+- [ ] Create ConfirmDialog component
+  - [ ] Use shadcn/ui AlertDialog
+  - [ ] For: delete draft, deactivate user, ban venue, request cancellation, reject approval
+- [ ] Create PageHeader component
+  - [ ] Title, breadcrumbs, actions
+- [ ] Create EmptyState component
+  - [ ] Icon, message, CTA button
+- [ ] Review all pages for visual consistency
+  - [ ] Spacing
+  - [ ] Button styles
+  - [ ] Form layouts
+  - [ ] Table/card layouts
+- [ ] Add hover states on interactive elements
+- [ ] Ensure focus states are visible
+- [ ] Write tests
+- [ ] Manual testing: All error scenarios
+
+### Final Testing & Bug Fixes (DEV-34) - S3.8
+
+**Priority:** HIGH
+
+**Estimated:** 16 hours (2 days)
+
+**Functional Testing:**
+
+- [ ] **Event Lifecycle:** Create draft → Submit → Multi-level Approval → Scheduled → Modify → Approve Mod → Complete → Report → Approve Report → Archived
+- [ ] **Rejection Flow:** Create → Submit → Reject → Create new from rejected
+- [ ] **Cancellation Flow:** Create → Approve → Request Cancel → Approve Cancellation
+- [ ] **Pyramid Visibility:** Test with users at different levels
+- [ ] **Approval Chains:** Test with different configs, test skip logic
+
+**Edge Cases:**
+
+- [ ] Concurrent modifications to same event
+- [ ] User deactivated mid-approval chain
+- [ ] Event date passes while in approval
+- [ ] Duplicate venue creation
+- [ ] Orphaned users (parent deleted)
+- [ ] Multiple drafts management
+
+**UI/UX Testing:**
+
+- [ ] All forms with validation errors
+- [ ] All buttons and links
+- [ ] All modals and dialogs
+- [ ] Navigation flow
+- [ ] Desktop browsers (Chrome, Firefox, Safari)
+
+**Bug Fixes:**
+
+- [ ] Fix bugs found during testing
+- [ ] Refine error messages
+- [ ] Improve loading states
+- [ ] Polish animations/transitions
+
+**Demo Preparation:**
+
+- [ ] Seed demo data (realistic events, users, approvals)
+- [ ] Prepare demo script
+- [ ] Test demo flow
+- [ ] Document known issues for post-MVP
+
+## 🚫 Excluded from MVP
+
+- [ ] Template features (all)
+  - [ ] Template CRUD
+  - [ ] Save as template
+  - [ ] Load from template
+- [ ] Google Maps integration (pending API key)
+- [ ] Mobile responsive design
+- [ ] Accessibility audit
+- [ ] Performance optimization
+- [ ] Security hardening
+- [ ] Rate limiting
+- [ ] Advanced analytics
+- [ ] Batch operations
+- [ ] Advanced search
+
+## 📝 Notes
+
+- **Testing:** Write tests alongside each feature
+- **Database:** Migrations applied incrementally
+- **Git:** Commit after each completed task
+- **Linear:** Update issue status after completion
+- **Demo:** Keep demo environment up to date

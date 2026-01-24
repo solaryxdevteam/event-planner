@@ -20,7 +20,7 @@ alwaysApply: true
 
 **Benefits:**
 - Zero JavaScript sent to client
-- Direct database access via Server Actions
+- Direct database access via API routes
 - Better performance
 - SEO-friendly
 
@@ -446,23 +446,262 @@ export function BackButton() {
 }
 ```
 
+## API Routes Pattern
+
+**CRITICAL:** All database operations from client components MUST go through API routes, NOT server actions.
+
+### Architecture
+
+```
+Client Component
+    ↓ uses
+React Query Hook (lib/hooks/use-[resource].ts)
+    ↓ calls
+Client Service (lib/services/client/[resource].client.service.ts)
+    ↓ uses
+API Client (lib/services/client/api-client.ts)
+    ↓ fetch()
+API Route (/app/api/*/route.ts)
+    ↓ calls
+Backend Service Layer (lib/services/*/*.service.ts)
+    ↓ calls
+DAL Layer (lib/data-access/*.dal.ts)
+    ↓ queries
+Database
+```
+
+### Client Services Layer
+
+**Purpose:** Encapsulate API calls, provide type safety, and centralize request logic.
+
+**Location:** `/lib/services/client/[resource].client.service.ts`
+
+**Rules:**
+- One client service per domain (e.g., `venues.client.service.ts`, `users.client.service.ts`)
+- Use `apiClient` wrapper for all requests
+- Export types for filters and inputs
+- Do NOT access database directly
+- Do NOT contain business logic (that's in backend services)
+
+**Pattern:**
+```typescript
+// lib/services/client/venues.client.service.ts
+import { apiClient } from "./api-client";
+import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
+import type { CreateVenueInput } from "@/lib/validation/venues.schema";
+
+export interface VenueFilters {
+  search?: string;
+  status?: "all" | "active" | "banned";
+  page?: number;
+  pageSize?: number;
+}
+
+export async function fetchVenues(filters: VenueFilters): Promise<PaginatedVenues> {
+  return apiClient.get<PaginatedVenues>("/api/venues", {
+    params: filters as Record<string, string | number | boolean | null | undefined>,
+  });
+}
+
+export async function createVenue(input: CreateVenueInput): Promise<VenueWithCreator> {
+  return apiClient.post<VenueWithCreator>("/api/venues", input);
+}
+```
+
+### API Client
+
+**Purpose:** Centralized fetch wrapper with error handling, authentication, and response parsing.
+
+**Location:** `/lib/services/client/api-client.ts`
+
+**Features:**
+- Automatic error handling
+- Toast notifications on errors
+- Consistent request/response format
+- Cookie-based authentication
+- Query parameter building
+
+### API Route Structure
+
+**Location:** `/app/api/[resource]/route.ts` or `/app/api/[resource]/[id]/route.ts`
+
+**Pattern:**
+```typescript
+// app/api/venues/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/server";
+import { UnauthorizedError, ForbiddenError } from "@/lib/utils/errors";
+import * as venueService from "@/lib/services/venues/venue.service";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest) {
+  try {
+    await requireAuth();
+    
+    const { searchParams } = new URL(request.url);
+    // Parse query params
+    
+    const result = await venueService.getVenuesWithFilters(filters);
+    
+    return NextResponse.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    // Handle errors with proper status codes
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 401 }
+      );
+    }
+    // ... other error handling
+  }
+}
+```
+
+### React Query Hooks
+
+**Location:** `/lib/hooks/use-[resource].ts`
+
+**Rules:**
+- Use client services for all API calls (NOT direct fetch)
+- Re-export types from client services
+- Handle loading, error, and success states
+- Invalidate queries after mutations
+- Show toast notifications
+
+**Pattern:**
+```typescript
+// lib/hooks/use-venues.ts
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import * as venueClientService from "@/lib/services/client/venues.client.service";
+import { toast } from "sonner";
+
+// Re-export types from client service
+export type { VenueFilters } from "@/lib/services/client/venues.client.service";
+import type { VenueFilters } from "@/lib/services/client/venues.client.service";
+
+export function useVenues(filters: VenueFilters) {
+  return useQuery({
+    queryKey: ["venues", filters],
+    queryFn: () => venueClientService.fetchVenues(filters),
+    staleTime: 30 * 1000, // 30 seconds
+  });
+}
+
+export function useCreateVenue() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: venueClientService.createVenue,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["venues"] });
+      toast.success("Venue created successfully");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to create venue", {
+        description: error.message,
+      });
+    },
+  });
+}
+```
+
+### Client Component Usage
+
+**Pattern:**
+```typescript
+"use client";
+
+import { useVenues, useCreateVenue } from "@/lib/hooks/use-venues";
+
+export default function VenuesPage() {
+  const [filters, setFilters] = useState({ status: "all" });
+  
+  // Use React Query hooks (which use client services internally)
+  const { data: venuesData, isLoading, error } = useVenues(filters);
+  const createVenueMutation = useCreateVenue();
+  
+  const handleCreate = async (input) => {
+    try {
+      await createVenueMutation.mutateAsync(input);
+      // Success toast handled by hook
+    } catch (error) {
+      // Error toast handled by hook
+    }
+  };
+  
+  if (isLoading) return <Skeleton />;
+  if (error) return <ErrorMessage error={error} />;
+  
+  return (
+    <div>
+      <VenueList venues={venuesData?.data} />
+      <Button 
+        onClick={handleCreate}
+        disabled={createVenueMutation.isPending}
+      >
+        {createVenueMutation.isPending ? "Creating..." : "Create Venue"}
+      </Button>
+    </div>
+  );
+}
+```
+
+### Response Format
+
+All API routes return standardized format:
+```typescript
+{
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+```
+
+### Error Handling
+
+- Use proper HTTP status codes (401, 403, 404, 500)
+- Return consistent error format
+- Use custom error classes (UnauthorizedError, ForbiddenError, NotFoundError)
+
+### Caching Strategy
+
+- Use React Query for automatic caching
+- Set appropriate `staleTime` based on data volatility
+- Invalidate queries after mutations
+- Use query keys for cache management
+
 ## Best Practices
 
 ✅ **Do:**
 - Default to Server Components
 - Push "use client" boundary down
-- Use Server Actions for mutations
-- Use TanStack Query for server state
+- Use API routes for all client-side database operations
+- Use client services (`lib/services/client/*.client.service.ts`) for API calls
+- Use React Query hooks (`lib/hooks/use-*.ts`) for data fetching and mutations
+- Use `apiClient` wrapper for all fetch requests
+- Use TanStack Query for server state management
 - Use Suspense for loading states
-- Handle errors gracefully
+- Handle errors gracefully with proper HTTP status codes
 - Show loading indicators
 - Provide user feedback (toasts)
+- Use enums (UserRole, etc.) consistently
+- Re-export types from client services in hooks
 
 ❌ **Don't:**
 - Add "use client" to entire page files
-- Fetch data in Client Components (use Server Components)
-- Use useEffect for data fetching (use TanStack Query)
+- Call server actions directly from client components
+- Use direct `fetch()` calls in hooks (use client services)
+- Use `useEffect` for data fetching (use React Query hooks)
+- Fetch data in Client Components without API routes
+- Access database directly from client services
+- Put business logic in client services (that's in backend services)
 - Forget error handling
 - Ignore loading states
 - Skip input validation
+- Mix server actions and API routes (use API routes for client components)
 
