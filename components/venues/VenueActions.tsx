@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +14,13 @@ import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 
 interface VenueActionsProps {
   venue: VenueWithCreator;
-  onEdit: () => void;
+  onEdit?: () => void;
+  editHref?: string;
   onDelete: () => void;
   onBan?: () => void;
 }
 
-export function VenueActions({ venue, onEdit, onDelete, onBan }: VenueActionsProps) {
+export function VenueActions({ venue, onEdit, editHref, onDelete, onBan }: VenueActionsProps) {
   // venue is part of the interface but not currently used in the component
   void venue;
   return (
@@ -30,10 +32,19 @@ export function VenueActions({ venue, onEdit, onDelete, onBan }: VenueActionsPro
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onEdit}>
-          <PencilIcon className="mr-2 h-4 w-4" />
-          Edit
-        </DropdownMenuItem>
+        {editHref ? (
+          <DropdownMenuItem asChild>
+            <Link href={editHref}>
+              <PencilIcon className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem onClick={onEdit}>
+            <PencilIcon className="mr-2 h-4 w-4" />
+            Edit
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={onDelete} variant="destructive">
           <TrashIcon className="mr-2 h-4 w-4" />
           Delete

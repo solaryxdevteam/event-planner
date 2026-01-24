@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Role } from "@/lib/types/database.types";
+import { UserRole } from "@/lib/types/roles";
 
 interface ProtectedContentProps {
   children: React.ReactNode;
@@ -36,30 +37,38 @@ export function ProtectedContent({ children, allowedRoles, minimumRole, fallback
 
         // Get user from database
         const supabase = getSupabaseClient();
-        const { data: dbUser } = await supabase.from("users").select("*").eq("id", supabaseUser.id).single();
+        const { data: dbUser, error: dbError } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", supabaseUser.id)
+          .single();
 
-        if (!dbUser) {
+        if (dbError || !dbUser) {
           setHasAccess(false);
           return;
         }
 
+        // Type assertion for dbUser
+        const userData = dbUser as { role: Role; [key: string]: unknown };
+
         // Check allowed roles
         if (allowedRoles && allowedRoles.length > 0) {
-          setHasAccess(allowedRoles.includes(dbUser.role));
+          setHasAccess(allowedRoles.includes(userData.role));
           return;
         }
 
         // Check minimum role
         if (minimumRole) {
           const roleHierarchy: Record<Role, number> = {
-            event_planner: 1,
-            city_curator: 2,
-            regional_curator: 3,
-            lead_curator: 4,
-            global_director: 5,
+            [UserRole.EVENT_PLANNER]: 1,
+            [UserRole.CITY_CURATOR]: 2,
+            [UserRole.REGIONAL_CURATOR]: 3,
+            [UserRole.LEAD_CURATOR]: 4,
+            [UserRole.GLOBAL_DIRECTOR]: 5,
           };
 
-          const userRoleLevel = roleHierarchy[dbUser.role];
+          const userRole = userData.role;
+          const userRoleLevel = roleHierarchy[userRole];
           const minimumRoleLevel = roleHierarchy[minimumRole];
           setHasAccess(userRoleLevel >= minimumRoleLevel);
           return;

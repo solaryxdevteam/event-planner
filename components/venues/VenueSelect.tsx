@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getVenues } from "@/lib/actions/venues";
+import { useVenuesWithSearch } from "@/lib/hooks/use-venues";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -31,49 +31,27 @@ export function VenueSelect({
   required = false,
   disabled = false,
 }: VenueSelectProps) {
-  const [venues, setVenues] = useState<VenueWithCreator[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  // Use React Query to fetch venues with search
+  const { data: venues = [], isLoading, error } = useVenuesWithSearch(searchQuery || undefined);
 
-    async function loadVenues() {
-      setIsLoading(true);
-      setError(null);
+  // Filter venues client-side for better UX (search is already done server-side, but we can refine)
+  const filteredVenues = useMemo(() => {
+    if (!searchQuery) return venues;
 
-      const result = await getVenues({ search: searchQuery });
-
-      if (cancelled) return;
-
-      if (result.success) {
-        setVenues(result.data);
-      } else {
-        setError(result.error);
-        setVenues([]);
-      }
-
-      setIsLoading(false);
-    }
-
-    loadVenues();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [searchQuery]);
-
-  const filteredVenues = searchQuery
-    ? venues.filter(
-        (venue) =>
-          venue.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          venue.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          venue.address.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : venues;
+    const query = searchQuery.toLowerCase();
+    return venues.filter(
+      (venue) =>
+        venue.name.toLowerCase().includes(query) ||
+        venue.city.toLowerCase().includes(query) ||
+        venue.address.toLowerCase().includes(query)
+    );
+  }, [venues, searchQuery]);
 
   const selectedVenue = venues.find((v) => v.id === value);
+
+  const errorMessage = error instanceof Error ? error.message : error ? String(error) : null;
 
   return (
     <div className="space-y-2">
@@ -112,8 +90,8 @@ export function VenueSelect({
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {error ? (
-              <div className="p-2 text-sm text-destructive">{error}</div>
+            {errorMessage ? (
+              <div className="p-2 text-sm text-destructive">{errorMessage}</div>
             ) : filteredVenues.length === 0 ? (
               <div className="p-2 text-sm text-muted-foreground text-center">
                 {searchQuery ? "No venues found" : "No venues available"}
@@ -125,7 +103,8 @@ export function VenueSelect({
                     <span className="font-medium">{venue.name}</span>
                     <span className="text-xs text-muted-foreground">
                       {venue.address}, {venue.city}
-                      {venue.capacity && ` • Capacity: ${venue.capacity.toLocaleString()}`}
+                      {(venue.capacity_standing || venue.capacity_seated) &&
+                        ` • Capacity: ${Math.max(venue.capacity_standing || 0, venue.capacity_seated || 0).toLocaleString()}`}
                     </span>
                   </div>
                 </SelectItem>
@@ -141,9 +120,10 @@ export function VenueSelect({
             <span>
               <strong>Address:</strong> {selectedVenue.address}
             </span>
-            {selectedVenue.capacity && (
+            {(selectedVenue.capacity_standing || selectedVenue.capacity_seated) && (
               <span>
-                <strong>Capacity:</strong> {selectedVenue.capacity.toLocaleString()}
+                <strong>Capacity:</strong>{" "}
+                {Math.max(selectedVenue.capacity_standing || 0, selectedVenue.capacity_seated || 0).toLocaleString()}
               </span>
             )}
           </div>
