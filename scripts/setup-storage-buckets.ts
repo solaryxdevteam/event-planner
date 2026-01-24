@@ -78,8 +78,8 @@ async function createBucket(config: BucketConfig): Promise<boolean> {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${supabaseServiceRoleKey}`,
-        apikey: supabaseServiceRoleKey,
-      },
+        apikey: supabaseServiceRoleKey || "",
+      } as HeadersInit,
       body: JSON.stringify({
         name: config.name,
         public: config.public,
