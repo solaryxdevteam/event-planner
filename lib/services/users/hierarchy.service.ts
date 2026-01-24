@@ -59,12 +59,10 @@ export async function getSubordinateUserIds(userId: string): Promise<string[]> {
     const subordinates = [currentUserId];
 
     // Find all direct children
-    // @ts-expect-error - Supabase type inference issue with Database types
     const children = allUsers.filter((u) => (u as any).parent_id === currentUserId);
 
     // Recursively collect children's subordinates
     for (const child of children) {
-      // @ts-expect-error - Supabase type inference issue with Database types
       subordinates.push(...collectSubordinates((child as any).id, visited));
     }
 
@@ -98,11 +96,9 @@ export async function getHierarchyTree(): Promise<HierarchyNode[]> {
 
   // Build the tree structure
   const buildTree = (parentId: string | null): HierarchyNode[] => {
-    // @ts-expect-error - Supabase type inference issue with Database types
     return users
       .filter((u) => (u as any).parent_id === parentId)
       .map((user) => {
-        // @ts-expect-error - Supabase type inference issue with Database types
         const typedUser = user as any;
         const fullName = typedUser.last_name ? `${typedUser.first_name} ${typedUser.last_name}` : typedUser.first_name;
         return {
@@ -153,7 +149,6 @@ export async function validateParentAssignment(
   }
 
   // Build parent map
-  // @ts-expect-error - Supabase type inference issue with Database types
   const parentMap = new Map(users.map((u) => [(u as any).id, (u as any).parent_id]));
 
   // Walk up from newParentId to see if we encounter userId
@@ -219,7 +214,6 @@ export async function getPathToRoot(userId: string): Promise<User[]> {
     }
     visited.add(currentId);
 
-    // @ts-expect-error - Supabase type inference issue with Database types
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
@@ -231,9 +225,9 @@ export async function getPathToRoot(userId: string): Promise<User[]> {
       break;
     }
 
-    path.push(user);
-    // @ts-expect-error - Supabase type inference issue with Database types
-    currentId = (user as any)?.parent_id;
+    const typedUser = user as any;
+    path.push(typedUser);
+    currentId = typedUser?.parent_id;
   }
 
   return path;

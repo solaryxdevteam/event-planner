@@ -26,7 +26,6 @@ export async function hasRole(userId: string, roles: Role[]): Promise<boolean> {
     return false;
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   return roles.includes((user as { role: Role }).role);
 }
 
@@ -57,7 +56,6 @@ export async function hasMinimumRole(userId: string, minimumRole: Role): Promise
     return false;
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   return getRoleLevel((user as { role: Role }).role) >= getRoleLevel(minimumRole);
 }
 
@@ -109,7 +107,6 @@ export async function getUserRole(userId: string): Promise<Role | null> {
     return null;
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   return (user as { role: Role }).role;
 }
 

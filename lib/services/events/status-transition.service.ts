@@ -68,7 +68,6 @@ export async function transitionCompletedEvents(): Promise<{
         transitioned++;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
-        // @ts-expect-error - Supabase type inference issue with Database types
         const typedEvent = event as any;
         errors.push(`Failed to transition event ${typedEvent.id}: ${message}`);
         console.error("Event transition error:", { eventId: typedEvent.id, error });
@@ -105,7 +104,6 @@ async function transitionSingleEvent(event: Event): Promise<void> {
     .update({
       status: "completed_awaiting_report" as EventStatus,
     })
-    // @ts-expect-error - Supabase type inference issue with Database types
     .eq("id", (event as any).id);
 
   if (updateError) {
@@ -115,7 +113,6 @@ async function transitionSingleEvent(event: Event): Promise<void> {
   // 2. Log to audit trail
   // @ts-expect-error - Supabase type inference issue with Database types
   const { error: auditError } = await supabase.from("audit_logs").insert({
-    // @ts-expect-error - Supabase type inference issue with Database types
     event_id: (event as any).id,
     user_id: null, // System action
     action_type: "update_event",
@@ -167,7 +164,6 @@ async function notifyCreatorReportDue(event: Event): Promise<void> {
 
   // TODO: Send email notification
   // This should be integrated with your email service (e.g., Resend, SendGrid)
-  // @ts-expect-error - Supabase type inference issue with Database types
   const typedCreator = creator as any;
   const typedEvent = event as any;
   console.log("TODO: Send email notification", {
@@ -202,7 +198,6 @@ export async function manuallyTransitionEvent(
       return { success: false, error: "Event not found" };
     }
 
-    // @ts-expect-error - Supabase type inference issue with Database types
     const typedEvent = event as any;
     if (typedEvent.status !== "approved_scheduled") {
       return {

@@ -46,7 +46,6 @@ export async function canViewEvent(userId: string, eventId: string): Promise<boo
   }
 
   // Check if user can view event creator's data
-  // @ts-expect-error - Supabase type inference issue with Database types
   return canViewData(userId, (event as { creator_id: string }).creator_id);
 }
 
@@ -69,7 +68,6 @@ export async function canEditEvent(userId: string, eventId: string): Promise<boo
   }
 
   // Only creator can edit
-  // @ts-expect-error - Supabase type inference issue with Database types
   return userId === (event as { creator_id: string }).creator_id;
 }
 
@@ -129,7 +127,6 @@ export async function canViewVenue(userId: string, venueId: string): Promise<boo
   }
 
   // Check if user can view venue creator's data
-  // @ts-expect-error - Supabase type inference issue with Database types
   return canViewData(userId, (venue as { creator_id: string }).creator_id);
 }
 
@@ -150,17 +147,18 @@ export async function canEditVenue(userId: string, venueId: string): Promise<boo
     supabase.from("venues").select("creator_id").eq("id", venueId).single(),
   ]);
 
-  if (userResult.error || venueResult.error || !userResult.data || !venueResult.data) {
+  if (userResult.error || !userResult.data || venueResult.error || !venueResult.data) {
     return false;
   }
 
+  const userData = (userResult as any).data as { role: string };
+  const venueData = (venueResult as any).data as { creator_id: string };
+
   // Global Directors can edit any venue
-  // @ts-expect-error - Supabase type inference issue with Database types
-  if ((userResult.data as { role: string })?.role === "global_director") {
+  if (userData.role === "global_director") {
     return true;
   }
 
   // Creators can edit their own venues
-  // @ts-expect-error - Supabase type inference issue with Database types
-  return userId === (venueResult.data as { creator_id: string })?.creator_id;
+  return userId === venueData.creator_id;
 }

@@ -163,7 +163,6 @@ export async function getApprovalChainWithDetails(creatorUserId: string): Promis
       throw new Error(`Approver not found: ${id}`);
     }
 
-    // @ts-expect-error - Supabase type inference issue with Database types
     const typedUser = user as any;
     return {
       sequence_order: index + 1,
@@ -208,7 +207,6 @@ export async function getNextApprover(eventId: string, currentSequence: number):
     return null; // Last approver
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   return (nextApproval as any).approver_id;
 }
 

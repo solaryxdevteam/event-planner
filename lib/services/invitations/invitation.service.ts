@@ -41,7 +41,6 @@ export async function createInvitation(creatorId: string, data: CreateInvitation
     throw new Error("Failed to verify permissions");
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((creator as any).role !== "global_director") {
     throw new Error("Only Global Directors can create invitations");
   }
@@ -82,7 +81,6 @@ export async function createInvitation(creatorId: string, data: CreateInvitation
 
   // Send invitation email
   try {
-    // @ts-expect-error - Supabase type inference issue with Database types
     await emailService.sendInvitationEmail(invitation, (country as any).name);
   } catch (error) {
     // Log error but don't fail invitation creation
@@ -152,7 +150,6 @@ export async function revokeInvitation(creatorId: string, invitationId: string):
     throw new Error("Failed to verify permissions");
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((creator as any).role !== "global_director") {
     throw new Error("Only Global Directors can revoke invitations");
   }

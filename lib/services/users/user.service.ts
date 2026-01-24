@@ -45,7 +45,6 @@ export async function getAllUsers(requesterId: string): Promise<User[]> {
     throw new Error("Failed to verify permissions");
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can view all users");
   }
@@ -81,7 +80,6 @@ export async function getAllUsersPaginated(
     throw new Error("Failed to verify permissions");
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can view all users");
   }
@@ -119,7 +117,6 @@ export async function createUser(requesterId: string, data: CreateUserInput): Pr
   }
 
   // Only Global Directors can create users
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can create users");
   }
@@ -165,7 +162,6 @@ export async function createUser(requesterId: string, data: CreateUserInput): Pr
     if (!usCountry) {
       throw new Error("US country not found in locations table");
     }
-    // @ts-expect-error - Supabase type inference issue with Database types
     countryId = (usCountry as any).id;
   }
 
@@ -217,7 +213,6 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
   }
 
   // Only Global Directors can update users (for now)
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can update users");
   }
@@ -239,10 +234,8 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
   }
 
   // Role-based validation
-  // @ts-expect-error - Supabase type inference issue with Database types
   if (data.role && data.role !== (userToUpdate as any).role) {
     // Prevent removing the last Global Director
-    // @ts-expect-error - Supabase type inference issue with Database types
     if ((userToUpdate as any).role === UserRole.GLOBAL_DIRECTOR) {
       const { data: globalDirectors } = await supabase
         .from("users")
@@ -256,7 +249,6 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
     }
 
     // Ensure role change is compatible with parent
-    // @ts-expect-error - Supabase type inference issue with Database types
     if (data.role === UserRole.GLOBAL_DIRECTOR && (userToUpdate as any).parent_id) {
       throw new Error("Global Director cannot have a parent");
     }
@@ -306,7 +298,6 @@ export async function deactivateUser(requesterId: string, userId: string): Promi
   }
 
   // Only Global Directors can deactivate users
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can deactivate users");
   }
@@ -328,7 +319,6 @@ export async function deactivateUser(requesterId: string, userId: string): Promi
   }
 
   // Prevent deactivating the last Global Director
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((userToDeactivate as any).role === UserRole.GLOBAL_DIRECTOR) {
     const { data: globalDirectors } = await supabase
       .from("users")
@@ -392,7 +382,6 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
     throw new Error("Failed to verify permissions");
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((creator as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can create users directly");
   }
@@ -434,7 +423,6 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
     if (!usCountry) {
       throw new Error("US country not found in locations table");
     }
-    // @ts-expect-error - Supabase type inference issue with Database types
     countryId = (usCountry as any).id;
   }
 
@@ -473,7 +461,6 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
 
   // Send congratulation email
   try {
-    // @ts-expect-error - Supabase type inference issue with Database types
     const typedCreator = creatorData as any;
     const creatorName = typedCreator
       ? typedCreator.last_name
@@ -589,7 +576,6 @@ export async function activateUser(creatorId: string, data: ActivateUserInput): 
     throw new Error("Failed to verify permissions");
   }
 
-  // @ts-expect-error - Supabase type inference issue with Database types
   if ((creator as any).role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can activate users");
   }
@@ -606,7 +592,7 @@ export async function activateUser(creatorId: string, data: ActivateUserInput): 
   }
 
   // Update user: activate and assign role/permissions
-  const updates: UpdateUserInput = {
+  const updates: Partial<UpdateUserInput> = {
     status: "active",
     is_active: true,
   };
