@@ -11,10 +11,11 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  createUserSchema,
-  updateUserSchema,
+  createUserFormSchema,
+  updateUserFormSchema,
   type CreateUserInput,
   type UpdateUserInput,
+  type UserFormInput,
 } from "@/lib/validation/users.schema";
 import { createUserDirectly, updateUser, checkGlobalDirectorPassword, getPotentialParents } from "@/lib/actions/users";
 import { useCountries, useStatesByCountry, useDefaultCountry } from "@/lib/hooks/use-locations";
@@ -53,11 +54,11 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
   >([]);
   const [isLoadingParents, setIsLoadingParents] = useState(false);
 
-  // Form type - use CreateUserInput for create, UpdateUserInput for edit
-  type FormData = (CreateUserInput | UpdateUserInput) & { password?: string };
+  // Form type - use UserFormInput which works for both create and edit
+  type FormData = UserFormInput;
 
   const form = useForm<FormData>({
-    resolver: zodResolver(mode === "create" ? createUserSchema : updateUserSchema),
+    resolver: zodResolver(mode === "create" ? createUserFormSchema : updateUserFormSchema) as any,
     defaultValues: {
       email: "",
       first_name: "",
@@ -247,7 +248,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
         }
 
         // Prepare update data (only include changed fields)
-        const updateData: UpdateUserInput = {};
+        const updateData: Partial<UpdateUserInput> = {};
         if (data.email !== undefined && data.email !== user.email) updateData.email = data.email;
         if (data.first_name !== undefined && data.first_name !== user.first_name)
           updateData.first_name = data.first_name;
@@ -282,7 +283,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
           }
         }
 
-        const response = await updateUser(user.id, updateData);
+        const response = await updateUser(user.id, updateData as UpdateUserInput);
 
         if (response.success) {
           const fullName = data.last_name ? `${data.first_name} ${data.last_name}` : data.first_name;
