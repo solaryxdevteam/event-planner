@@ -154,7 +154,6 @@ export async function findByShortId(
   }
 
   // Transform data to construct creator name
-  // @ts-expect-error - Supabase type inference issue with Database types
   if (data && includeCreator && (data as any).creator) {
     const typedData = data as any;
     return {
@@ -213,7 +212,6 @@ export async function findById(
   }
 
   // Transform data to construct creator name
-  // @ts-expect-error - Supabase type inference issue with Database types
   if (data && includeCreator && (data as any).creator) {
     const typedData = data as any;
     return {

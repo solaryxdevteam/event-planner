@@ -164,7 +164,7 @@ export async function updateUser(userId: string, formData: FormData | UpdateUser
     const user = await requireRole([UserRole.GLOBAL_DIRECTOR]);
 
     // Parse form data or use object directly
-    let data: UpdateUserInput;
+    let data: Partial<UpdateUserInput>;
     if (formData instanceof FormData) {
       data = {};
       const email = formData.get("email");
@@ -191,7 +191,7 @@ export async function updateUser(userId: string, formData: FormData | UpdateUser
     }
 
     // Validate input
-    const validated = updateUserSchema.parse(data);
+    const validated = updateUserSchema.parse(data as UpdateUserInput);
 
     // Update user
     const updatedUser = await userService.updateUser(user.id, userId, validated);

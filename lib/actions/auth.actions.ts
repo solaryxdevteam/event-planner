@@ -164,7 +164,6 @@ export async function completeUserProfile(data: {
       if (countryError || !usCountry) {
         throw new Error("US country not found in locations table");
       }
-      // @ts-expect-error - Supabase type inference issue with Database types
       countryId = (usCountry as { id: string }).id;
     }
 
