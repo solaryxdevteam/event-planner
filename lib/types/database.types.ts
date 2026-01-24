@@ -47,6 +47,8 @@ export type ActionType =
   | "delete_venue"
   | "ban_venue";
 
+export type UserStatus = "pending" | "active" | "inactive";
+
 // =============================================
 // TABLE TYPES
 // =============================================
@@ -54,28 +56,56 @@ export type ActionType =
 export interface User {
   id: string;
   email: string;
-  name: string;
+  first_name: string;
+  last_name: string | null;
   role: Role;
   parent_id: string | null;
+  country_id: string;
+  state_id: string | null;
   city: string | null;
-  region: string | null;
+  phone: string | null;
+  company: string | null;
+  status: UserStatus;
   is_active: boolean;
   avatar_url: string | null;
-  notification_prefs: {
+  notification_prefs?: {
     email_enabled: boolean;
     frequency: "instant" | "daily" | "weekly";
-  };
+  } | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface Venue {
   id: string;
+  short_id: string | null; // Unique short identifier for URL
   name: string;
-  address: string;
+  address: string; // Full address (kept for backward compatibility)
+  street: string | null; // Street address
   city: string;
-  capacity: number | null;
-  notes: string | null;
+  state: string | null; // State/Province (pre-filled from user)
+  country: string; // Country (pre-filled from user)
+  location_lat: number | null;
+  location_lng: number | null;
+  // Step 2 fields
+  capacity_standing: number | null;
+  capacity_seated: number | null;
+  available_rooms_halls: string | null;
+  technical_specs: {
+    sound?: boolean;
+    lights?: boolean;
+    screens?: boolean;
+    [key: string]: unknown;
+  } | null;
+  availability_start_date: string | null; // ISO date string
+  availability_end_date: string | null; // ISO date string
+  base_pricing: number | null; // DECIMAL as number
+  // Step 3 fields
+  contact_person_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  restrictions: string | null;
+  images: string[] | null; // Array of image URLs
   creator_id: string;
   is_active: boolean;
   created_at: string;
@@ -164,6 +194,28 @@ export interface ApprovalConfig {
   updated_at: string;
 }
 
+export interface Location {
+  id: string;
+  name: string;
+  type: "country" | "state" | "city";
+  parent_id: string | null;
+  code: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Invitation {
+  id: string;
+  token: string;
+  email: string;
+  country_id: string;
+  created_by: string;
+  expires_at: string;
+  used_at: string | null;
+  created_at: string;
+}
+
 // =============================================
 // DATABASE SCHEMA TYPE
 // =============================================
@@ -249,6 +301,23 @@ export interface Database {
         };
         Update: Partial<Omit<ApprovalConfig, "id" | "created_at">>;
       };
+      invitations: {
+        Row: Invitation;
+        Insert: Omit<Invitation, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<Invitation, "id" | "created_at">>;
+      };
+      locations: {
+        Row: Location;
+        Insert: Omit<Location, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<Location, "id" | "created_at">>;
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -258,6 +327,7 @@ export interface Database {
       approval_status: ApprovalStatus;
       approval_type: ApprovalType;
       action_type: ActionType;
+      user_status: UserStatus;
     };
   };
 }

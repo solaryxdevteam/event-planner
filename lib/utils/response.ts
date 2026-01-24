@@ -21,7 +21,7 @@ export function errorResponse(error: string | Error | unknown, details?: unknown
   return {
     success: false,
     error: errorMessage,
-    ...(details && { details }),
+    ...(details ? { details } : {}),
   };
 }
 
