@@ -882,7 +882,7 @@ OR
     ↓
 [Select Parent] → Must be valid for role hierarchy
     ↓
-[Create User] → Send magic link invitation
+[Create User] → User is immediately active (if created directly) OR [Create Invitation] → User registers → Status: Pending → Global activates
     ↓
 [User Receives Email]
     ↓
@@ -893,7 +893,70 @@ OR
 
 ### Detailed User Management Flow
 
-#### 1. **Create User**
+#### 1. **Create Invitation (Step 1)**
+
+**Who Can Create**: Global Director only
+
+**Interface**: `/admin/users` page
+
+**Process**:
+
+1. Click "Create Invitation" button
+2. Fill form:
+   - Email (required, unique)
+   - **Country (REQUIRED - must select before creating)**
+   - Expiration days (optional, default: 7)
+3. Submit form
+4. Backend validates:
+   - Email format
+   - Country ID exists
+   - No active invitation for this email
+5. Generate secure invitation token
+6. Create invitation record in database:
+   - token (unique, cryptographically secure)
+   - email
+   - country_id (from selection)
+   - expires_at (calculated from expiration days)
+   - created_by (Global Director ID)
+7. Send invitation email via Supabase email service with registration link
+8. Display invitation link (copyable)
+9. Show toast: "Invitation created and email sent"
+
+**Invitation Link Format**: `/auth/register?token={token}`
+
+#### 2. **User Registration (Step 2)**
+
+**Process**:
+
+1. User receives invitation email with registration link
+2. Clicks link → navigates to `/auth/register/[token]`
+3. System validates token:
+   - Token exists
+   - Not expired
+   - Not already used
+4. Registration form (pre-filled and locked):
+   - Email (pre-filled, locked)
+   - Country (pre-filled from invitation, locked)
+5. User fills:
+   - Name (required)
+   - Phone (optional, E.164 format)
+   - Company (optional)
+   - Password (required, min 8 characters)
+   - Confirm Password
+6. Submit registration
+7. Backend:
+   - Creates Supabase Auth user with password
+   - Creates user record in database:
+     - status = 'pending'
+     - is_active = false
+     - country_id from invitation
+     - role = 'event_planner' (default, can be changed on activation)
+   - Marks invitation as used
+8. Send congratulation email (status: pending)
+9. Show message: "Registration successful, awaiting activation"
+10. Redirect to `/auth/pending` page
+
+#### 3. **Create User Directly (Alternative to Invitation)**
 
 **Who Can Create**: Global Director only
 
@@ -907,8 +970,12 @@ OR
    - Name (required)
    - Role (dropdown: Event Planner → Global Director)
    - Parent (dropdown: filtered by valid parents for role)
-   - City (required for Event Planner, City Curator)
-   - Region (required for Regional Curator)
+   - Country (required)
+   - State (optional)
+   - City (optional)
+   - Phone (optional, E.164 format)
+   - Company (optional)
+   - **Password (required, min 8 characters)**
 3. If role = Global Director:
    - Show extra confirmation
    - Require Global Director password re-entry
@@ -917,33 +984,60 @@ OR
    - Email unique
    - Parent valid for role
    - No circular references
-6. Create user record:
-   - is_active = true by default
-7. Send magic link invitation email via Supabase Auth
-8. Create audit log: "User created: [Name] as [Role]"
-9. Show toast: "User created and invitation sent"
+   - Password meets requirements
+6. Create Supabase Auth user with password
+7. Create user record:
+   - status = 'active'
+   - is_active = true
+   - All fields from form
+8. Send congratulation email (status: active)
+9. Create audit log: "User created: [Name] as [Role]"
+10. Show toast: "User created successfully"
 
-#### 2. **User Accepts Invitation**
+#### 4. **Activate User (Step 3)**
+
+**Who Can Activate**: Global Director only
+
+**Interface**: `/admin/users` page
 
 **Process**:
 
-1. User receives email with magic link
-2. Clicks link
-3. Redirected to login page
-4. Automatically authenticated
-5. Prompted to complete profile (optional avatar, phone)
-6. Redirected to dashboard
+1. View users with status = 'pending'
+2. Click "Activate" button on pending user
+3. Activation dialog shows:
+   - User details (name, email, phone, company, country - read-only)
+   - Role selector (Event Planner, City Curator, Regional Curator, Lead Curator)
+   - Parent selector (if role requires parent)
+   - Country/State/City selectors
+4. Fill activation form:
+   - Role (required)
+   - Parent (if role requires it)
+   - Country (can update)
+   - State (optional)
+   - City (optional)
+5. Submit activation
+6. Backend:
+   - Updates user:
+     - status = 'active'
+     - is_active = true
+     - role, parent_id, location fields
+   - Creates audit log: "User activated: [Name] as [Role]"
+7. Show toast: "User activated successfully"
+8. User can now log in with email/password
 
-#### 3. **Edit User**
+#### 5. **Edit User**
 
 **Who Can Edit**: Global Director
 
 **What Can Be Edited**:
 
 - Name
+- Phone
+- Company
 - Role (with parent update if needed)
 - Parent (validate hierarchy)
-- City, Region
+- Country, State, City
+- Status (active/inactive)
 - Notification preferences (by user themselves)
 
 **Process**:
@@ -956,7 +1050,7 @@ OR
 6. Create audit log: "User updated: [changes]"
 7. Show toast: "User updated"
 
-#### 4. **Deactivate User**
+#### 6. **Deactivate User**
 
 **Who Can Deactivate**: Global Director
 
@@ -967,6 +1061,7 @@ OR
 1. Click "Deactivate" on user
 2. Show confirmation: "This will prevent login and remove from approval chains"
 3. If confirmed:
+   - Set `status = 'inactive'`
    - Set `is_active = false`
    - Remove from future approval chains
    - Existing approvals remain (show as "[User] (Deactivated)")
@@ -974,7 +1069,7 @@ OR
    - Create audit log: "User deactivated: [Name]"
    - Show toast: "User deactivated"
 
-#### 5. **View Hierarchy Tree**
+#### 7. **View Hierarchy Tree**
 
 **Interface**: `/admin/users` page, "Hierarchy" tab
 
@@ -1083,23 +1178,26 @@ OR
 
 ### Email Notification Triggers
 
-| Trigger                      | Recipient               | Email Type                        |
-| ---------------------------- | ----------------------- | --------------------------------- |
-| Event submitted for approval | First approver          | Approval request                  |
-| Event approved (not final)   | Next approver           | Approval request                  |
-| Event approved (final)       | Creator                 | Approval success                  |
-| Event rejected               | Creator                 | Rejection with reason             |
-| Modification requested       | First approver          | Modification approval request     |
-| Modification approved        | Creator                 | Modification approved             |
-| Modification rejected        | Creator                 | Modification rejected with reason |
-| Cancellation requested       | First approver          | Cancellation approval request     |
-| Cancellation approved        | Creator + all approvers | Cancellation confirmed            |
-| Cancellation rejected        | Requester               | Cancellation denied with reason   |
-| Event completed              | Creator                 | Report submission reminder        |
-| Report submitted             | First approver          | Report approval request           |
-| Report approved              | Creator                 | Report approved                   |
-| Report rejected              | Creator                 | Report rejected with feedback     |
-| User created                 | New user                | Magic link invitation             |
+| Trigger                      | Recipient               | Email Type                              |
+| ---------------------------- | ----------------------- | --------------------------------------- |
+| Event submitted for approval | First approver          | Approval request                        |
+| Event approved (not final)   | Next approver           | Approval request                        |
+| Event approved (final)       | Creator                 | Approval success                        |
+| Event rejected               | Creator                 | Rejection with reason                   |
+| Modification requested       | First approver          | Modification approval request           |
+| Modification approved        | Creator                 | Modification approved                   |
+| Modification rejected        | Creator                 | Modification rejected with reason       |
+| Cancellation requested       | First approver          | Cancellation approval request           |
+| Cancellation approved        | Creator + all approvers | Cancellation confirmed                  |
+| Cancellation rejected        | Requester               | Cancellation denied with reason         |
+| Event completed              | Creator                 | Report submission reminder              |
+| Report submitted             | First approver          | Report approval request                 |
+| Report approved              | Creator                 | Report approved                         |
+| Report rejected              | Creator                 | Report rejected with feedback           |
+| User created directly        | New user                | Congratulation email (active)           |
+| Invitation created           | Invited user            | Invitation email with registration link |
+| User registered              | New user                | Congratulation email (pending)          |
+| User activated               | Activated user          | (No email - user can now log in)        |
 
 ### Email Template Structure
 
