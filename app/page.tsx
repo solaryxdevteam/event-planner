@@ -1,31 +1,14 @@
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth/server";
 
-// This page depends on authenticated user state (Supabase cookies), so it must be dynamic.
+// Let middleware handle auth and user status; this page is a simple redirect.
 export const dynamic = "force-dynamic";
 
 /**
  * Main Page
- * Redirects based on authentication status:
- * - Not authenticated → /auth/login
- * - Authenticated → /dashboard
+ * Always redirects to /dashboard.
+ * Middleware then decides whether the user should see dashboard,
+ * login, or a pending/profile page based on auth status.
  */
-export default async function Home() {
-  const user = await getServerUser();
-
-  if (!user) {
-    redirect("/auth/login");
-  }
-
-  // Check user status
-  if (user.dbUser.status !== "active") {
-    if (user.dbUser.status === "pending") {
-      redirect("/dashboard/pending");
-    }
-    // Inactive users also redirected to login
-    redirect("/auth/login");
-  }
-
-  // Authenticated and active user → redirect to dashboard
+export default function Home() {
   redirect("/dashboard");
 }
