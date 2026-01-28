@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/server";
 
+// This page depends on authenticated user state (Supabase cookies), so it must be dynamic.
+export const dynamic = "force-dynamic";
+
 /**
  * Main Page
  * Redirects based on authentication status:
