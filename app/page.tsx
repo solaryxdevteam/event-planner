@@ -1,13 +1,21 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 /**
  * Root Page
  * Middleware handles all redirects for the root path.
- * This is a fallback in case middleware doesn't run.
+ * This is a client-side fallback redirect in case middleware doesn't run.
  */
-export const dynamic = "force-dynamic";
-
 export default function Home() {
-  // Fallback redirect - middleware should handle this before reaching here
-  redirect("/auth/login");
+  const router = useRouter();
+
+  useEffect(() => {
+    // Fallback redirect - middleware should handle this before reaching here
+    router.push("/auth/login");
+  }, [router]);
+
+  // Return null or a loading state since redirect happens immediately
+  return null;
 }
