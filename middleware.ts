@@ -67,6 +67,19 @@ export async function middleware(request: NextRequest) {
     userStatus = dbUser?.status || null;
   }
 
+  // Handle root path redirect based on authentication status
+  if (pathname === "/" && !isApiRoute) {
+    if (user) {
+      // Authenticated users go to dashboard or profile if pending
+      if (userStatus === "pending") {
+        return NextResponse.redirect(new URL("/dashboard/profile", request.url));
+      }
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    // Unauthenticated users go to login
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
+
   // Redirect authenticated users from login/register pages
   // (but not for API routes - they handle their own responses)
   if (

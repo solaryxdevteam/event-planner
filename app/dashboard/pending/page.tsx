@@ -6,17 +6,14 @@
 
 export const dynamic = "force-dynamic";
 
-import { getServerUser } from "@/lib/auth/server";
+import { requireAuth } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Clock } from "lucide-react";
 
 export default async function PendingPage() {
-  const user = await getServerUser();
-
-  if (!user) {
-    redirect("/auth/login");
-  }
+  // Layout already ensures auth, use requireAuth(true) to allow pending users
+  const user = await requireAuth(true);
 
   // If user is active, redirect to dashboard
   if (user.dbUser.status === "active") {

@@ -1,14 +1,16 @@
-import { getServerUser } from "@/lib/auth/server";
+import { requireAuth } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const user = await getServerUser();
+  // Layout already ensures auth, but we need to check status
+  // Use requireAuth(true) to allow pending users (they'll be redirected below)
+  const user = await requireAuth(true);
 
   // Redirect pending users to profile page
-  if (user?.dbUser.status === "pending") {
+  if (user.dbUser.status === "pending") {
     redirect("/dashboard/profile");
   }
 

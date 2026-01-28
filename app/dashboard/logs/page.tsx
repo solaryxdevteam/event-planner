@@ -1,16 +1,13 @@
 import { redirect } from "next/navigation";
-import { getServerUser } from "@/lib/auth/server";
+import { requireAuth } from "@/lib/auth/server";
 import { LogsClient } from "@/components/logs/LogsClient";
 import { UserRole } from "@/lib/types/roles";
 
 export const dynamic = "force-dynamic";
 
 export default async function LogsPage() {
-  const user = await getServerUser();
-
-  if (!user) {
-    redirect("/auth/login");
-  }
+  // Layout already ensures auth, use requireAuth for type safety
+  const user = await requireAuth(true); // Allow pending users (they'll be redirected by middleware)
 
   const role = user.dbUser.role as UserRole;
 

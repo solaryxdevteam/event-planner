@@ -7,7 +7,7 @@
 
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { requireRole } from "@/lib/auth/server";
+import { requireAuth, requireRole } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 import { UserManagementClient } from "@/components/users/UserManagementClient";
@@ -16,11 +16,10 @@ import { ForbiddenError, UnauthorizedError } from "@/lib/utils/errors";
 export default async function UsersPage() {
   // Authentication is handled by layout.tsx via requireAuth()
   // Check user role first - redirect event_planner users immediately
-  const { getServerUser } = await import("@/lib/auth/server");
-  const user = await getServerUser();
+  const user = await requireAuth(true); // Allow pending users (they'll be handled by requireRole below)
 
   // Redirect event_planner users to dashboard
-  if (user?.dbUser.role === "event_planner") {
+  if (user.dbUser.role === "event_planner") {
     redirect("/dashboard");
   }
 
