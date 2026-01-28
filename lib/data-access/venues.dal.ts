@@ -27,7 +27,7 @@ const generateShortId = (): string => {
 };
 
 /**
- * Venue with creator information
+ * Venue with creator and location information
  */
 export interface VenueWithCreator extends Venue {
   creator: {
@@ -36,10 +36,20 @@ export interface VenueWithCreator extends Venue {
     email: string;
     role: string;
   };
+  country_location?: {
+    id: string;
+    name: string;
+    code: string | null;
+  } | null;
+  state_location?: {
+    id: string;
+    name: string;
+    code: string | null;
+  } | null;
 }
 
 /**
- * Raw venue data from Supabase with creator relation
+ * Raw venue data from Supabase with creator and location relations
  */
 interface VenueWithCreatorRaw extends Venue {
   creator?: {
@@ -48,6 +58,16 @@ interface VenueWithCreatorRaw extends Venue {
     last_name: string | null;
     email: string;
     role: string;
+  } | null;
+  country_location?: {
+    id: string;
+    name: string;
+    code: string | null;
+  } | null;
+  state_location?: {
+    id: string;
+    name: string;
+    code: string | null;
   } | null;
 }
 
@@ -78,6 +98,16 @@ export async function findAll(
             last_name,
             email,
             role
+          ),
+          country_location:locations!venues_country_id_fkey (
+            id,
+            name,
+            code
+          ),
+          state_location:locations!venues_state_id_fkey (
+            id,
+            name,
+            code
           )
         `
         : "*"
@@ -95,7 +125,7 @@ export async function findAll(
     throw new Error(`Failed to fetch venues: ${error.message}`);
   }
 
-  // Transform data to construct creator name
+  // Transform data to construct creator name and include locations
   return (data || []).map((venue: VenueWithCreatorRaw) => ({
     ...venue,
     creator: venue.creator
@@ -108,6 +138,8 @@ export async function findAll(
             : venue.creator.first_name,
         }
       : undefined,
+    country_location: venue.country_location || null,
+    state_location: venue.state_location || null,
   })) as VenueWithCreator[];
 }
 
@@ -137,6 +169,16 @@ export async function findByShortId(
             last_name,
             email,
             role
+          ),
+          country_location:locations!venues_country_id_fkey (
+            id,
+            name,
+            code
+          ),
+          state_location:locations!venues_state_id_fkey (
+            id,
+            name,
+            code
           )
         `
         : "*"
@@ -153,19 +195,26 @@ export async function findByShortId(
     throw new Error(`Failed to fetch venue: ${error.message}`);
   }
 
-  // Transform data to construct creator name
-  if (data && includeCreator && (data as any).creator) {
-    const typedData = data as any;
+  // Transform data to construct creator name and include locations
+  if (data) {
+    const typedData = data as VenueWithCreatorRaw;
     return {
       ...typedData,
-      creator: {
-        ...typedData.creator,
-        name: typedData.creator.last_name ? `${typedData.creator.first_name} ${typedData.creator.last_name}` : typedData.creator.first_name,
-      },
+      creator:
+        includeCreator && typedData.creator
+          ? {
+              ...typedData.creator,
+              name: typedData.creator.last_name
+                ? `${typedData.creator.first_name} ${typedData.creator.last_name}`
+                : typedData.creator.first_name,
+            }
+          : undefined,
+      country_location: typedData.country_location || null,
+      state_location: typedData.state_location || null,
     } as VenueWithCreator;
   }
 
-  return data as VenueWithCreator;
+  return null;
 }
 
 /**
@@ -195,6 +244,16 @@ export async function findById(
             last_name,
             email,
             role
+          ),
+          country_location:locations!venues_country_id_fkey (
+            id,
+            name,
+            code
+          ),
+          state_location:locations!venues_state_id_fkey (
+            id,
+            name,
+            code
           )
         `
         : "*"
@@ -211,19 +270,26 @@ export async function findById(
     throw new Error(`Failed to fetch venue: ${error.message}`);
   }
 
-  // Transform data to construct creator name
-  if (data && includeCreator && (data as any).creator) {
-    const typedData = data as any;
+  // Transform data to construct creator name and include locations
+  if (data) {
+    const typedData = data as VenueWithCreatorRaw;
     return {
       ...typedData,
-      creator: {
-        ...typedData.creator,
-        name: typedData.creator.last_name ? `${typedData.creator.first_name} ${typedData.creator.last_name}` : typedData.creator.first_name,
-      },
+      creator:
+        includeCreator && typedData.creator
+          ? {
+              ...typedData.creator,
+              name: typedData.creator.last_name
+                ? `${typedData.creator.first_name} ${typedData.creator.last_name}`
+                : typedData.creator.first_name,
+            }
+          : undefined,
+      country_location: typedData.country_location || null,
+      state_location: typedData.state_location || null,
     } as VenueWithCreator;
   }
 
-  return data as VenueWithCreator;
+  return null;
 }
 
 /**
@@ -399,6 +465,16 @@ export async function search(
             last_name,
             email,
             role
+          ),
+          country_location:locations!venues_country_id_fkey (
+            id,
+            name,
+            code
+          ),
+          state_location:locations!venues_state_id_fkey (
+            id,
+            name,
+            code
           )
         `
         : "*"
@@ -415,7 +491,7 @@ export async function search(
     throw new Error(`Failed to search venues: ${error.message}`);
   }
 
-  // Transform data to construct creator name
+  // Transform data to construct creator name and include locations
   return (data || []).map((venue: VenueWithCreatorRaw) => ({
     ...venue,
     creator: venue.creator
@@ -428,6 +504,8 @@ export async function search(
             : venue.creator.first_name,
         }
       : undefined,
+    country_location: venue.country_location || null,
+    state_location: venue.state_location || null,
   })) as VenueWithCreator[];
 }
 
@@ -496,6 +574,16 @@ export async function findAllWithFilters(
             last_name,
             email,
             role
+          ),
+          country_location:locations!venues_country_id_fkey (
+            id,
+            name,
+            code
+          ),
+          state_location:locations!venues_state_id_fkey (
+            id,
+            name,
+            code
           )
         `
         : "*",
@@ -571,7 +659,7 @@ export async function findAllWithFilters(
     throw new Error(`Failed to fetch venues: ${error.message}`);
   }
 
-  // Transform data to construct creator name
+  // Transform data to construct creator name and include locations
   const transformedData = (data || []).map((venue: VenueWithCreatorRaw) => ({
     ...venue,
     creator: venue.creator
@@ -584,6 +672,8 @@ export async function findAllWithFilters(
             : venue.creator.first_name,
         }
       : undefined,
+    country_location: venue.country_location || null,
+    state_location: venue.state_location || null,
   })) as VenueWithCreator[];
 
   const total = count || 0;

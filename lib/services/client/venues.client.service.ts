@@ -119,3 +119,50 @@ export async function banVenue(id: string, reason?: string): Promise<void> {
 export async function unbanVenue(id: string): Promise<void> {
   return apiClient.post<void>(`/api/venues/${id}/unban`);
 }
+
+// =============================================
+// Venue Templates
+// =============================================
+
+import type { VenueTemplate } from "@/lib/data-access/venue-templates.dal";
+
+/**
+ * Fetch all venue templates for the current user
+ */
+export async function fetchVenueTemplates(): Promise<VenueTemplate[]> {
+  return apiClient.get<VenueTemplate[]>("/api/venues/templates");
+}
+
+/**
+ * Fetch a single venue template by ID
+ */
+export async function fetchVenueTemplate(id: string): Promise<VenueTemplate> {
+  return apiClient.get<VenueTemplate>(`/api/venues/templates/${id}`);
+}
+
+/**
+ * Save a venue as a template
+ */
+export async function saveVenueAsTemplate(name: string, templateData: CreateVenueInput): Promise<VenueTemplate> {
+  return apiClient.post<VenueTemplate>("/api/venues/templates", {
+    name,
+    template_data: templateData,
+  });
+}
+
+/**
+ * Update a venue template
+ */
+export async function updateVenueTemplate(
+  id: string,
+  updates: { name?: string; template_data?: CreateVenueInput }
+): Promise<VenueTemplate> {
+  return apiClient.put<VenueTemplate>(`/api/venues/templates/${id}`, updates);
+}
+
+/**
+ * Delete a venue template
+ */
+export async function deleteVenueTemplate(id: string): Promise<void> {
+  await apiClient.delete<void>(`/api/venues/templates/${id}`);
+}

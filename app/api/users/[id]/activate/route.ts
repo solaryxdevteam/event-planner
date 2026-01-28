@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRole } from "@/lib/auth/server";
+import { requireRole } from "@/lib/auth/server";
 import { UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/utils/errors";
 import * as userService from "@/lib/services/users/user.service";
 import { activateUserSchema } from "@/lib/validation/users.schema";

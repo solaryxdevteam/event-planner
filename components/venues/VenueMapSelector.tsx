@@ -17,7 +17,7 @@ interface VenueMapSelectorProps {
 }
 
 // Component to handle map click events - must be inside MapContainer
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+
 function MapClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number, lng: number) => void }) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { useMapEvents } = require("react-leaflet");

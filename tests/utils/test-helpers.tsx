@@ -207,8 +207,9 @@ export const mockEvents = {
 /**
  * Create mock Supabase query builder with proper chaining
  */
-export function createMockSupabaseQuery(data: any, error: any = null) {
-  const query: any = {
+// Generic helper to avoid `any` while keeping tests flexible
+export function createMockSupabaseQuery<TData = unknown, TError = unknown>(data: TData, error: TError | null = null) {
+  const query = {
     select: vi.fn(),
     insert: vi.fn(),
     update: vi.fn(),
@@ -239,9 +240,9 @@ export function createMockSupabaseQuery(data: any, error: any = null) {
 
   // Terminal methods that end the chain and return promises
   const promise = Promise.resolve({ data, error });
-  query.then = promise.then.bind(promise);
-  query.catch = promise.catch.bind(promise);
-  query.finally = promise.finally.bind(promise);
+  (query as any).then = promise.then.bind(promise);
+  (query as any).catch = promise.catch.bind(promise);
+  (query as any).finally = promise.finally.bind(promise);
 
   return query;
 }

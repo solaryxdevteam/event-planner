@@ -49,7 +49,12 @@ export async function middleware(request: NextRequest) {
     "/auth/pending",
     "/auth/onboarding",
   ];
-  const isPublicRoute = publicRoutes.some((route) => request.nextUrl.pathname.startsWith(route));
+
+  const { pathname } = request.nextUrl;
+
+  // Special-case the root path so that "/" being public doesn't make every route public
+  const isPublicRoute =
+    pathname === "/" || publicRoutes.filter((route) => route !== "/").some((route) => pathname.startsWith(route));
 
   // API routes handle their own authentication, but we still refresh the session above
   // This allows API routes to use requireAuth() which will throw if not authenticated

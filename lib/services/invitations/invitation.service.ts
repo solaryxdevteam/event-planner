@@ -35,13 +35,13 @@ export async function createInvitation(creatorId: string, data: CreateInvitation
     .from("users")
     .select("role")
     .eq("id", creatorId)
-    .single();
+    .single<{ role: string }>();
 
   if (creatorError || !creator) {
     throw new Error("Failed to verify permissions");
   }
 
-  if ((creator as any).role !== "global_director") {
+  if (creator.role !== "global_director") {
     throw new Error("Only Global Directors can create invitations");
   }
 
@@ -51,7 +51,7 @@ export async function createInvitation(creatorId: string, data: CreateInvitation
     .select("id, name")
     .eq("id", data.country_id)
     .eq("type", "country")
-    .single();
+    .single<{ id: string; name: string }>();
 
   if (countryError || !country) {
     throw new Error("Invalid country ID");
@@ -81,7 +81,7 @@ export async function createInvitation(creatorId: string, data: CreateInvitation
 
   // Send invitation email
   try {
-    await emailService.sendInvitationEmail(invitation, (country as any).name);
+    await emailService.sendInvitationEmail(invitation, country.name);
   } catch (error) {
     // Log error but don't fail invitation creation
     console.error("Failed to send invitation email:", error);
@@ -144,13 +144,13 @@ export async function revokeInvitation(creatorId: string, invitationId: string):
     .from("users")
     .select("role")
     .eq("id", creatorId)
-    .single();
+    .single<{ role: string }>();
 
   if (creatorError || !creator) {
     throw new Error("Failed to verify permissions");
   }
 
-  if ((creator as any).role !== "global_director") {
+  if (creator.role !== "global_director") {
     throw new Error("Only Global Directors can revoke invitations");
   }
 

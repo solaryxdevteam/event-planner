@@ -23,6 +23,8 @@ export const venueStep1Schema = z.object({
   city: z.string().min(1, "City is required").max(100, "City must be less than 100 characters").trim(),
   state: z.string().max(100, "State must be less than 100 characters").trim().nullable().optional(),
   country: z.string().min(1, "Country is required").max(100, "Country must be less than 100 characters").trim(),
+  country_id: z.string().uuid("Invalid country ID").nullable().optional(),
+  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   location_lat: z
     .number()
     .min(-90, "Latitude must be between -90 and 90")
@@ -178,6 +180,8 @@ export const updateVenueSchema = z.object({
     .max(100, "Country must be less than 100 characters")
     .trim()
     .optional(),
+  country_id: z.string().uuid("Invalid country ID").nullable().optional(),
+  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   location_lat: z
     .number()
     .min(-90, "Latitude must be between -90 and 90")

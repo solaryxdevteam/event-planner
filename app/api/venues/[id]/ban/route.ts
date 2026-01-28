@@ -21,9 +21,8 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     // Require authentication
-    let authUser;
     try {
-      authUser = await requireAuth();
+      await requireAuth();
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });

@@ -18,7 +18,7 @@ export default async function UsersPage() {
   // Check user role first - redirect event_planner users immediately
   const { getServerUser } = await import("@/lib/auth/server");
   const user = await getServerUser();
-  
+
   // Redirect event_planner users to dashboard
   if (user?.dbUser.role === "event_planner") {
     redirect("/dashboard");

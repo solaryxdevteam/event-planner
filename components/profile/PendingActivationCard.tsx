@@ -20,8 +20,8 @@ export function PendingActivationCard() {
           You will receive an email notification once your account has been activated.
         </p>
         <p className="text-xs text-muted-foreground text-center pt-2">
-          All dashboard features are disabled until your account is activated. You can sign out using the menu in the top
-          right.
+          All dashboard features are disabled until your account is activated. You can sign out using the menu in the
+          top right.
         </p>
       </CardContent>
     </Card>

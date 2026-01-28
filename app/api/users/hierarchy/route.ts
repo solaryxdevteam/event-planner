@@ -6,11 +6,11 @@
  * Used by hierarchy visualization components
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/server";
 import * as hierarchyService from "@/lib/services/users/hierarchy.service";
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Require authentication
     await requireAuth();

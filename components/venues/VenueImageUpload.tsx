@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { X, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 interface VenueImageUploadProps {
   images: string[];
@@ -326,6 +327,9 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
       {/* Image View Dialog */}
       <Dialog open={selectedImageIndex !== null} onOpenChange={(open) => !open && setSelectedImageIndex(null)}>
         <DialogContent className="!max-w-4xl !w-full p-0" showCloseButton={false}>
+          <VisuallyHidden.Root>
+            <DialogTitle>Venue Image {selectedImageIndex !== null ? selectedImageIndex + 1 : ""}</DialogTitle>
+          </VisuallyHidden.Root>
           {selectedImageIndex !== null && images[selectedImageIndex] && (
             <div className="relative w-full">
               <img

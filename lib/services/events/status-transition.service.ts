@@ -46,12 +46,12 @@ export async function transitionCompletedEvents(): Promise<{
   let transitioned = 0;
 
   try {
-    // Find all approved events where event_date has passed
+    // Find all approved events where starts_at has passed
     const { data: events, error: fetchError } = await supabase
       .from("events")
       .select("*")
       .eq("status", "approved_scheduled")
-      .lt("event_date", new Date().toISOString().split("T")[0]); // date < today
+      .lt("starts_at", new Date().toISOString()); // starts_at < now
 
     if (fetchError) {
       throw new Error(`Failed to fetch events: ${fetchError.message}`);
@@ -62,15 +62,14 @@ export async function transitionCompletedEvents(): Promise<{
     }
 
     // Transition each event
-    for (const event of events) {
+    for (const event of events as Event[]) {
       try {
         await transitionSingleEvent(event);
         transitioned++;
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
-        const typedEvent = event as any;
-        errors.push(`Failed to transition event ${typedEvent.id}: ${message}`);
-        console.error("Event transition error:", { eventId: typedEvent.id, error });
+        errors.push(`Failed to transition event ${event.id}: ${message}`);
+        console.error("Event transition error:", { eventId: event.id, error });
       }
     }
 
@@ -104,7 +103,7 @@ async function transitionSingleEvent(event: Event): Promise<void> {
     .update({
       status: "completed_awaiting_report" as EventStatus,
     })
-    .eq("id", (event as any).id);
+    .eq("id", event.id);
 
   if (updateError) {
     throw new Error(`Failed to update event: ${updateError.message}`);
@@ -113,7 +112,7 @@ async function transitionSingleEvent(event: Event): Promise<void> {
   // 2. Log to audit trail
   // @ts-expect-error - Supabase type inference issue with Database types
   const { error: auditError } = await supabase.from("audit_logs").insert({
-    event_id: (event as any).id,
+    event_id: event.id,
     user_id: null, // System action
     action_type: "update_event",
     comment: "Event automatically transitioned to awaiting report after event date passed",
@@ -121,7 +120,7 @@ async function transitionSingleEvent(event: Event): Promise<void> {
       automated: true,
       old_status: "approved_scheduled",
       new_status: "completed_awaiting_report",
-      event_date: event.event_date,
+      starts_at: event.starts_at,
       transition_date: new Date().toISOString(),
     },
   });
@@ -153,7 +152,7 @@ async function notifyCreatorReportDue(event: Event): Promise<void> {
     .from("users")
     .select("id, name, email")
     .eq("id", event.creator_id)
-    .single();
+    .single<{ id: string; name: string | null; email: string | null }>();
 
   if (error || !creator) {
     throw new Error("Failed to fetch creator details");
@@ -164,13 +163,11 @@ async function notifyCreatorReportDue(event: Event): Promise<void> {
 
   // TODO: Send email notification
   // This should be integrated with your email service (e.g., Resend, SendGrid)
-  const typedCreator = creator as any;
-  const typedEvent = event as any;
   console.log("TODO: Send email notification", {
-    to: typedCreator.email,
+    to: creator.email,
     subject: "Event Report Required",
-    eventTitle: typedEvent.title,
-    eventDate: typedEvent.event_date,
+    eventTitle: event.title,
+    startsAt: event.starts_at,
   });
 
   // For now, just log that notification should be sent
@@ -192,17 +189,20 @@ export async function manuallyTransitionEvent(
 
   try {
     // Verify event exists and is in correct status
-    const { data: event, error: fetchError } = await supabase.from("events").select("*").eq("id", eventId).single();
+    const { data: event, error: fetchError } = await supabase
+      .from("events")
+      .select("*")
+      .eq("id", eventId)
+      .single<Event>();
 
     if (fetchError || !event) {
       return { success: false, error: "Event not found" };
     }
 
-    const typedEvent = event as any;
-    if (typedEvent.status !== "approved_scheduled") {
+    if (event.status !== "approved_scheduled") {
       return {
         success: false,
-        error: `Cannot transition event with status: ${typedEvent.status}`,
+        error: `Cannot transition event with status: ${event.status}`,
       };
     }
 
@@ -244,7 +244,7 @@ export async function getEventsNeedingTransition(): Promise<number> {
     .from("events")
     .select("*", { count: "exact", head: true })
     .eq("status", "approved_scheduled")
-    .lt("event_date", new Date().toISOString().split("T")[0]);
+    .lt("starts_at", new Date().toISOString());
 
   if (error) {
     console.error("Error counting events:", error);
@@ -337,7 +337,7 @@ export async function _testGetEventsReadyForTransition(): Promise<Event[]> {
     .from("events")
     .select("*")
     .eq("status", "approved_scheduled")
-    .lt("event_date", new Date().toISOString().split("T")[0]);
+    .lt("starts_at", new Date().toISOString());
 
   return data || [];
 }

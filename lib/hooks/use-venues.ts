@@ -166,3 +166,99 @@ export function useUnbanVenue() {
     },
   });
 }
+
+// =============================================
+// Venue Templates Hooks
+// =============================================
+
+import type { VenueTemplate } from "@/lib/data-access/venue-templates.dal";
+
+/**
+ * React Query hook: Get venue templates
+ */
+export function useVenueTemplates() {
+  return useQuery({
+    queryKey: ["venue-templates"],
+    queryFn: () => venueClientService.fetchVenueTemplates(),
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * React Query hook: Get a single venue template by ID
+ */
+export function useVenueTemplate(id: string | null) {
+  return useQuery({
+    queryKey: ["venue-template", id],
+    queryFn: () =>
+      id ? venueClientService.fetchVenueTemplate(id) : Promise.reject(new Error("No template ID provided")),
+    enabled: !!id,
+    staleTime: 60 * 1000, // 1 minute
+  });
+}
+
+/**
+ * React Query hook: Save venue as template mutation
+ */
+export function useSaveVenueAsTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ name, templateData }: { name: string; templateData: CreateVenueInput }) =>
+      venueClientService.saveVenueAsTemplate(name, templateData),
+    onSuccess: () => {
+      // Invalidate templates queries to refetch
+      queryClient.invalidateQueries({ queryKey: ["venue-templates"] });
+      toast.success("Venue template saved successfully");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to save venue template", {
+        description: error.message,
+      });
+    },
+  });
+}
+
+/**
+ * React Query hook: Update venue template mutation
+ */
+export function useUpdateVenueTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: { name?: string; template_data?: CreateVenueInput } }) =>
+      venueClientService.updateVenueTemplate(id, updates),
+    onSuccess: (data, variables) => {
+      // Invalidate templates queries
+      queryClient.invalidateQueries({ queryKey: ["venue-templates"] });
+      queryClient.invalidateQueries({ queryKey: ["venue-template", variables.id] });
+      toast.success("Venue template updated successfully");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to update venue template", {
+        description: error.message,
+      });
+    },
+  });
+}
+
+/**
+ * React Query hook: Delete venue template mutation
+ */
+export function useDeleteVenueTemplate() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: venueClientService.deleteVenueTemplate,
+    onSuccess: () => {
+      // Invalidate templates queries to refetch
+      queryClient.invalidateQueries({ queryKey: ["venue-templates"] });
+      toast.success("Venue template deleted successfully");
+    },
+    onError: (error: Error) => {
+      toast.error("Failed to delete venue template", {
+        description: error.message,
+      });
+    },
+  });
+}

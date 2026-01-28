@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
 
     // Decrypt password before validation (or use plain text if in development)
     let decryptedPassword: string;
-    
+
     // Check if password is plain text (development fallback)
     if (typeof body.password === "string" && body.password.startsWith("__PLAIN__")) {
       // Development mode: use plain text password
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       // Production mode: decrypt password
       try {
         decryptedPassword = decryptPassword(body.password);
-      } catch (error) {
+      } catch {
         return NextResponse.json(
           {
             success: false,

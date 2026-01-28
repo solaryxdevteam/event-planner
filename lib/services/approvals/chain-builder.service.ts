@@ -146,7 +146,13 @@ export async function getApprovalChainWithDetails(creatorUserId: string): Promis
   }
 
   // Fetch user details for all approvers
-  const { data: users, error } = await supabase.from("users").select("id, name, email, role").in("id", approverIds);
+  const { data: users, error } = (await supabase
+    .from("users")
+    .select("id, name, email, role")
+    .in("id", approverIds)) as {
+    data: { id: string; name: string; email: string; role: Role }[] | null;
+    error: Error | null;
+  };
 
   if (error) {
     throw new Error(`Failed to fetch approver details: ${error.message}`);
@@ -158,18 +164,17 @@ export async function getApprovalChainWithDetails(creatorUserId: string): Promis
 
   // Map back to the original order with sequence numbers
   return approverIds.map((id, index) => {
-    const user = users.find((u: { id: string; name: string; email: string; role: Role }) => u.id === id);
+    const user = users.find((u) => u.id === id);
     if (!user) {
       throw new Error(`Approver not found: ${id}`);
     }
 
-    const typedUser = user as any;
     return {
       sequence_order: index + 1,
-      user_id: typedUser.id,
-      name: typedUser.name,
-      email: typedUser.email,
-      role: typedUser.role,
+      user_id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
     };
   });
 }
@@ -191,23 +196,29 @@ export async function canApprove(userId: string, eventCreatorId: string): Promis
  *
  * @param eventId - The event being approved
  * @param currentSequence - Current approver's sequence number
+ * @param approvalType - The approval type (event, modification, cancellation, report)
  * @returns Next approver's user ID or null if this was the last approver
  */
-export async function getNextApprover(eventId: string, currentSequence: number): Promise<string | null> {
+export async function getNextApprover(
+  eventId: string,
+  currentSequence: number,
+  approvalType: "event" | "modification" | "cancellation" | "report" = "event"
+): Promise<string | null> {
   const supabase = await createClient();
 
   const { data: nextApproval, error } = await supabase
     .from("event_approvals")
     .select("approver_id")
     .eq("event_id", eventId)
+    .eq("approval_type", approvalType)
     .eq("sequence_order", currentSequence + 1)
-    .single();
+    .single<{ approver_id: string }>();
 
   if (error || !nextApproval) {
     return null; // Last approver
   }
 
-  return (nextApproval as any).approver_id;
+  return nextApproval.approver_id;
 }
 
 /**
@@ -215,10 +226,15 @@ export async function getNextApprover(eventId: string, currentSequence: number):
  *
  * @param eventId - The event being approved
  * @param currentSequence - Current approver's sequence number
+ * @param approvalType - The approval type (event, modification, cancellation, report)
  * @returns true if this is the last approver
  */
-export async function isLastApprover(eventId: string, currentSequence: number): Promise<boolean> {
-  const nextApprover = await getNextApprover(eventId, currentSequence);
+export async function isLastApprover(
+  eventId: string,
+  currentSequence: number,
+  approvalType: "event" | "modification" | "cancellation" | "report" = "event"
+): Promise<boolean> {
+  const nextApprover = await getNextApprover(eventId, currentSequence, approvalType);
   return nextApprover === null;
 }
 

@@ -83,8 +83,10 @@ export interface Venue {
   address: string; // Full address (kept for backward compatibility)
   street: string | null; // Street address
   city: string;
-  state: string | null; // State/Province (pre-filled from user)
-  country: string; // Country (pre-filled from user)
+  state: string | null; // State/Province (kept for backward compatibility)
+  country: string; // Country (kept for backward compatibility)
+  country_id: string | null; // Country ID from locations table
+  state_id: string | null; // State ID from locations table
   location_lat: number | null;
   location_lng: number | null;
   // Step 2 fields
@@ -114,15 +116,17 @@ export interface Venue {
 
 export interface Event {
   id: string;
+  short_id: string;
   title: string;
   description: string | null;
-  event_date: string; // Date string (YYYY-MM-DD)
-  event_time: string | null; // Time string (HH:MM:SS)
+  starts_at: string | null; // ISO datetime string
+  ends_at: string | null; // ISO datetime string
   venue_id: string | null;
   creator_id: string;
   status: EventStatus;
   expected_attendance: number | null;
-  budget: number | null; // Decimal as number
+  budget_amount: number | null;
+  budget_currency: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;

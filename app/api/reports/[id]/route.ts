@@ -1,0 +1,123 @@
+/**
+ * Report Update API Route
+ *
+ * PUT /api/reports/[id]
+ * Update a rejected report (resubmission)
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/auth/server";
+import { UnauthorizedError, ForbiddenError, NotFoundError } from "@/lib/utils/errors";
+import * as reportService from "@/lib/services/reports/report.service";
+import { updateReportSchema } from "@/lib/validation/reports.schema";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * PUT /api/reports/[id]
+ * Update a rejected report for resubmission
+ */
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    // Require authentication
+    let authUser;
+    try {
+      authUser = await requireAuth();
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+      }
+      throw error;
+    }
+
+    const { id } = await params;
+    const formData = await request.formData();
+
+    // Extract form data
+    const attendance_count = parseInt(formData.get("attendance_count") as string, 10);
+    const summary = formData.get("summary") as string;
+    const feedback = formData.get("feedback") as string | null;
+    const external_links_json = formData.get("external_links") as string | null;
+
+    // Parse external links
+    let external_links = null;
+    if (external_links_json) {
+      try {
+        external_links = JSON.parse(external_links_json);
+      } catch {
+        external_links = null;
+      }
+    }
+
+    // Extract media files
+    const mediaFiles: File[] = [];
+    const fileEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith("media_"));
+    for (const [, file] of fileEntries) {
+      if (file instanceof File) {
+        mediaFiles.push(file);
+      }
+    }
+
+    // Validate input
+    const validatedInput = updateReportSchema.parse({
+      reportId: id,
+      attendance_count,
+      summary,
+      feedback,
+      external_links,
+    });
+
+    // Update report
+    const report = await reportService.updateReport(
+      authUser.id,
+      validatedInput.reportId,
+      {
+        attendance_count: validatedInput.attendance_count,
+        summary: validatedInput.summary,
+        feedback: validatedInput.feedback,
+        external_links: validatedInput.external_links,
+      },
+      mediaFiles.length > 0 ? mediaFiles : undefined
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: report,
+    });
+  } catch (error) {
+    console.error("Failed to update report:", error);
+
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 401 });
+    }
+
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
+
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 404 });
+    }
+
+    // Handle validation errors
+    if (error && typeof error === "object" && "issues" in error) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Validation failed",
+          details: error,
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to update report",
+      },
+      { status: 500 }
+    );
+  }
+}

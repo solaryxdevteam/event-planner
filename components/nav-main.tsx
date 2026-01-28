@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { ChevronRight, type LucideIcon } from "lucide-react";
 
@@ -13,7 +14,61 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
+// Component for collapsed menu items with submenus
+function CollapsedMenuItem({
+  item,
+  itemDisabled,
+}: {
+  item: {
+    title: string;
+    url: string;
+    icon?: LucideIcon;
+    isActive?: boolean;
+    items?: {
+      title: string;
+      url: string;
+    }[];
+  };
+  itemDisabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <SidebarMenuItem>
+        <PopoverTrigger asChild>
+          <SidebarMenuButton tooltip={item.title} disabled={itemDisabled} isActive={item.isActive}>
+            {item.icon && <item.icon />}
+            <span>{item.title}</span>
+          </SidebarMenuButton>
+        </PopoverTrigger>
+        <PopoverContent side="right" align="start" className="w-56 p-1">
+          <div className="space-y-1">
+            {item.items?.map((subItem) => (
+              <div key={subItem.title}>
+                {itemDisabled ? (
+                  <div className="px-3 py-2 text-sm rounded-md cursor-not-allowed opacity-50">{subItem.title}</div>
+                ) : (
+                  <Link
+                    href={subItem.url}
+                    className="block px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
+                    onClick={() => setOpen(false)}
+                  >
+                    {subItem.title}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+        </PopoverContent>
+      </SidebarMenuItem>
+    </Popover>
+  );
+}
 
 export function NavMain({
   items,
@@ -32,6 +87,9 @@ export function NavMain({
   }[];
   disabled?: boolean;
 }) {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Menu</SidebarGroupLabel>
@@ -39,13 +97,20 @@ export function NavMain({
         {items.map((item) => {
           const itemDisabled = item.disabled !== undefined ? item.disabled : disabled;
 
-          // If item has sub-items, render as collapsible
+          // If item has sub-items, render as collapsible or popover based on sidebar state
           if (item.items && item.items.length > 0) {
+            // When collapsed, show popover on click
+            if (isCollapsed) {
+              // Use a sub-component to manage popover state per item
+              return <CollapsedMenuItem key={item.title} item={item} itemDisabled={itemDisabled} />;
+            }
+
+            // When expanded, use collapsible as before
             return (
               <Collapsible key={item.title} asChild defaultOpen={item.isActive} className="group/collapsible">
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
-                    <SidebarMenuButton tooltip={item.title} disabled={itemDisabled}>
+                    <SidebarMenuButton tooltip={item.title} disabled={itemDisabled} isActive={item.isActive}>
                       {item.icon && <item.icon />}
                       <span>{item.title}</span>
                       <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />

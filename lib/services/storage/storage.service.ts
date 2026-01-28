@@ -5,7 +5,6 @@
  */
 
 import * as storageDal from "@/lib/data-access/storage.dal";
-import * as usersDal from "@/lib/data-access/users.dal";
 
 /**
  * Upload user avatar

@@ -34,10 +34,13 @@ export async function getSubordinateUserIds(userId: string): Promise<string[]> {
   const supabase = await createClient();
 
   // Fetch all active users (we'll build the tree in memory)
-  const { data: allUsers, error } = await supabase
+  const { data: allUsers, error } = (await supabase
     .from("users")
     .select("id, parent_id, is_active")
-    .eq("is_active", true);
+    .eq("is_active", true)) as {
+    data: { id: string; parent_id: string | null; is_active: boolean }[] | null;
+    error: Error | null;
+  };
 
   if (error) {
     throw new Error(`Failed to fetch users: ${error.message}`);
@@ -59,11 +62,11 @@ export async function getSubordinateUserIds(userId: string): Promise<string[]> {
     const subordinates = [currentUserId];
 
     // Find all direct children
-    const children = allUsers.filter((u) => (u as any).parent_id === currentUserId);
+    const children = allUsers.filter((u) => u.parent_id === currentUserId);
 
     // Recursively collect children's subordinates
     for (const child of children) {
-      subordinates.push(...collectSubordinates((child as any).id, visited));
+      subordinates.push(...collectSubordinates(child.id, visited));
     }
 
     return subordinates;
@@ -80,11 +83,24 @@ export async function getSubordinateUserIds(userId: string): Promise<string[]> {
 export async function getHierarchyTree(): Promise<HierarchyNode[]> {
   const supabase = await createClient();
 
-  const { data: users, error } = await supabase
+  const { data: users, error } = (await supabase
     .from("users")
     .select("id, first_name, last_name, email, role, parent_id, is_active")
     .eq("is_active", true)
-    .order("first_name");
+    .order("first_name")) as {
+    data:
+      | {
+          id: string;
+          first_name: string;
+          last_name: string | null;
+          email: string;
+          role: Role;
+          parent_id: string | null;
+          is_active: boolean;
+        }[]
+      | null;
+    error: Error | null;
+  };
 
   if (error) {
     throw new Error(`Failed to fetch users: ${error.message}`);
@@ -95,18 +111,27 @@ export async function getHierarchyTree(): Promise<HierarchyNode[]> {
   }
 
   // Build the tree structure
+  const typedUsers = (users ?? []) as {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    email: string;
+    role: Role;
+    parent_id: string | null;
+    is_active: boolean;
+  }[];
+
   const buildTree = (parentId: string | null): HierarchyNode[] => {
-    return users
-      .filter((u) => (u as any).parent_id === parentId)
+    return typedUsers
+      .filter((u) => u.parent_id === parentId)
       .map((user) => {
-        const typedUser = user as any;
-        const fullName = typedUser.last_name ? `${typedUser.first_name} ${typedUser.last_name}` : typedUser.first_name;
+        const fullName = user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name;
         return {
-          id: typedUser.id,
+          id: user.id,
           name: fullName,
-          email: typedUser.email,
-          role: typedUser.role,
-          children: buildTree(typedUser.id),
+          email: user.email,
+          role: user.role,
+          children: buildTree(user.id),
         };
       });
   };
@@ -138,7 +163,10 @@ export async function validateParentAssignment(
   const supabase = await createClient();
 
   // Get all users
-  const { data: users, error } = await supabase.from("users").select("id, parent_id").eq("is_active", true);
+  const { data: users, error } = (await supabase.from("users").select("id, parent_id").eq("is_active", true)) as {
+    data: { id: string; parent_id: string | null }[] | null;
+    error: Error | null;
+  };
 
   if (error) {
     throw new Error(`Failed to fetch users: ${error.message}`);
@@ -149,7 +177,7 @@ export async function validateParentAssignment(
   }
 
   // Build parent map
-  const parentMap = new Map(users.map((u) => [(u as any).id, (u as any).parent_id]));
+  const parentMap = new Map<string, string | null>(users.map((u) => [u.id, u.parent_id]));
 
   // Walk up from newParentId to see if we encounter userId
   let currentId: string | null = newParentId;
@@ -214,7 +242,7 @@ export async function getPathToRoot(userId: string): Promise<User[]> {
     }
     visited.add(currentId);
 
-    const { data: user, error } = await supabase
+    const { data: user, error }: { data: User | null; error: Error | null } = await supabase
       .from("users")
       .select("*")
       .eq("id", currentId)
@@ -225,9 +253,8 @@ export async function getPathToRoot(userId: string): Promise<User[]> {
       break;
     }
 
-    const typedUser = user as any;
-    path.push(typedUser);
-    currentId = typedUser?.parent_id;
+    path.push(user);
+    currentId = user.parent_id;
   }
 
   return path;

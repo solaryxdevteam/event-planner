@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GET } from "../route";
 import { NextRequest } from "next/server";
 import * as hierarchyService from "@/lib/services/users/hierarchy.service";
+import type { HierarchyNode } from "@/lib/services/users/hierarchy.service";
 
 // Mock dependencies using vi.hoisted
 const { mockRequireAuth } = vi.hoisted(() => ({
@@ -49,7 +50,7 @@ describe("GET /api/users/hierarchy", () => {
       },
     ];
 
-    vi.mocked(hierarchyService.getHierarchyTree).mockResolvedValue(mockTree as any);
+    vi.mocked(hierarchyService.getHierarchyTree).mockResolvedValue(mockTree as HierarchyNode[]);
 
     const request = new NextRequest("http://localhost:3000/api/users/hierarchy");
     const response = await GET(request);

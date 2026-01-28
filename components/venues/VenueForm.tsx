@@ -29,9 +29,13 @@ import { getCountryCoordinates, getStateCoordinates } from "@/lib/utils/country-
 import { getCountryCode } from "@/lib/utils/country-to-code";
 import { MAX_TEXTAREA_LENGTH } from "@/lib/validation/venues.schema";
 import { toast } from "sonner";
-import { ArrowLeft, ArrowRight, Loader2, Home, User, CreditCard, ChevronRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Home, User, CreditCard, ChevronRight, Save, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { useVenueTemplates, useVenueTemplate } from "@/lib/hooks/use-venues";
+import { SaveVenueTemplateDialog } from "./SaveVenueTemplateDialog";
+import { UseVenueTemplateDialog } from "./UseVenueTemplateDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface VenueFormProps {
   mode: "create" | "edit";
@@ -144,10 +148,17 @@ export function VenueForm({
   const [currentStep, setCurrentStep] = useState(1);
   const [venueId, setVenueId] = useState<string | undefined>(venue?.id);
   const [selectedStateId, setSelectedStateId] = useState<string | undefined>(defaultStateId);
+  const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
+  const [showUseTemplateDialog, setShowUseTemplateDialog] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   // React Query mutations
   const createVenueMutation = useCreateVenue();
   const updateVenueMutation = useUpdateVenue();
+
+  // Template queries
+  const { data: templates = [], isLoading: templatesLoading } = useVenueTemplates();
+  const { data: selectedTemplate, isLoading: isLoadingTemplate } = useVenueTemplate(selectedTemplateId);
   const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([]);
   const [availabilityStartDate, setAvailabilityStartDate] = useState<Date | undefined>(
     venue?.availability_start_date ? new Date(venue.availability_start_date) : undefined
@@ -190,6 +201,8 @@ export function VenueForm({
           city: venue.city,
           state: venue.state || defaultState || null,
           country: venue.country || defaultCountry,
+          country_id: venue.country_id || defaultCountryId || null,
+          state_id: venue.state_id || defaultStateId || null,
           location_lat: venue.location_lat ?? undefined,
           location_lng: venue.location_lng ?? undefined,
           capacity_standing: venue.capacity_standing ?? undefined,
@@ -218,6 +231,8 @@ export function VenueForm({
       : {
           state: defaultState || null,
           country: defaultCountry,
+          country_id: defaultCountryId || null,
+          state_id: defaultStateId || null,
           technical_specs: {
             sound: false,
             lights: false,
@@ -227,15 +242,82 @@ export function VenueForm({
         },
   });
 
-  // Update state when stateId changes
+  // Update state and state_id when stateId changes
   useEffect(() => {
     if (selectedStateId && states.length > 0) {
       const selectedState = states.find((s) => s.id === selectedStateId);
       if (selectedState) {
         form.setValue("state", selectedState.name);
+        form.setValue("state_id", selectedState.id);
       }
+    } else if (!selectedStateId) {
+      form.setValue("state", null);
+      form.setValue("state_id", null);
     }
   }, [selectedStateId, states, form]);
+
+  // Set country_id when form initializes or country changes
+  useEffect(() => {
+    if (defaultCountryId) {
+      form.setValue("country_id", defaultCountryId);
+    }
+  }, [defaultCountryId, form]);
+
+  // Load template data when a template is selected
+  useEffect(() => {
+    if (selectedTemplate && !isEditing) {
+      const templateData = selectedTemplate.template_data;
+
+      // Load template data into form
+      if (templateData.name) form.setValue("name", templateData.name);
+      if (templateData.street) form.setValue("street", templateData.street);
+      if (templateData.city) form.setValue("city", templateData.city);
+      if (templateData.state) {
+        form.setValue("state", templateData.state);
+        // Try to find matching state ID
+        if (templateData.state_id) {
+          setSelectedStateId(templateData.state_id);
+          form.setValue("state_id", templateData.state_id);
+        } else if (templateData.state) {
+          const matchingState = states.find((s) => s.name === templateData.state);
+          if (matchingState) {
+            setSelectedStateId(matchingState.id);
+            form.setValue("state_id", matchingState.id);
+          }
+        }
+      }
+      if (templateData.country) form.setValue("country", templateData.country);
+      if (templateData.country_id) form.setValue("country_id", templateData.country_id);
+      if (templateData.location_lat !== undefined) form.setValue("location_lat", templateData.location_lat);
+      if (templateData.location_lng !== undefined) form.setValue("location_lng", templateData.location_lng);
+      if (templateData.capacity_standing !== undefined)
+        form.setValue("capacity_standing", templateData.capacity_standing);
+      if (templateData.capacity_seated !== undefined) form.setValue("capacity_seated", templateData.capacity_seated);
+      if (templateData.available_rooms_halls !== undefined)
+        form.setValue("available_rooms_halls", templateData.available_rooms_halls);
+      if (templateData.technical_specs) form.setValue("technical_specs", templateData.technical_specs);
+      if (templateData.availability_start_date) {
+        const startDate = new Date(templateData.availability_start_date);
+        setAvailabilityStartDate(startDate);
+        form.setValue("availability_start_date", format(startDate, "yyyy-MM-dd"));
+      }
+      if (templateData.availability_end_date) {
+        const endDate = new Date(templateData.availability_end_date);
+        setAvailabilityEndDate(endDate);
+        form.setValue("availability_end_date", format(endDate, "yyyy-MM-dd"));
+      }
+      if (templateData.base_pricing !== undefined) form.setValue("base_pricing", templateData.base_pricing);
+      if (templateData.contact_person_name) form.setValue("contact_person_name", templateData.contact_person_name);
+      if (templateData.contact_email) form.setValue("contact_email", templateData.contact_email);
+      if (templateData.contact_phone) form.setValue("contact_phone", templateData.contact_phone);
+      if (templateData.restrictions !== undefined) form.setValue("restrictions", templateData.restrictions);
+      if (templateData.images) form.setValue("images", templateData.images);
+
+      // Close the dialog after template is loaded
+      setShowUseTemplateDialog(false);
+      toast.success(`Template "${selectedTemplate.name}" loaded`);
+    }
+  }, [selectedTemplate, form, states, isEditing]);
 
   // Calculate step errors for visual feedback (only after submission)
   // Since validation only happens on onSubmit, errors only exist after form submission
@@ -458,14 +540,77 @@ export function VenueForm({
       const matchingState = states.find((s) => s.name.toLowerCase().includes(region.toLowerCase()));
       if (matchingState) {
         setSelectedStateId(matchingState.id);
+        form.setValue("state_id", matchingState.id);
       }
     }
     // Don't update country - it's locked
+    // country_id is already set via useEffect
   };
 
-  const handleLocationSelect = (lat: number, lng: number) => {
+  const handleLocationSelect = async (lat: number, lng: number) => {
     form.setValue("location_lat", lat);
     form.setValue("location_lng", lng);
+
+    // Reverse geocode to get address from coordinates
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
+        {
+          headers: {
+            "User-Agent": "EventPlannerApp/1.0", // Required by Nominatim
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch address");
+      }
+
+      const data = await response.json();
+
+      if (data && data.address) {
+        // Build street address from the address components
+        const addressParts: string[] = [];
+
+        // Add house number and road (street name)
+        if (data.address.house_number) {
+          addressParts.push(data.address.house_number);
+        }
+        if (data.address.road) {
+          addressParts.push(data.address.road);
+        }
+
+        // If we have a street address, use it; otherwise use display_name
+        const streetAddress = addressParts.length > 0 ? addressParts.join(" ") : data.display_name || "";
+
+        // Update street address
+        if (streetAddress) {
+          form.setValue("street", streetAddress);
+        }
+
+        // Update city if available
+        const city = data.address.city || data.address.town || data.address.village || "";
+        if (city) {
+          form.setValue("city", city);
+        }
+
+        // Update state if available
+        const region = data.address.state || "";
+        if (region) {
+          form.setValue("state", region);
+          // Try to find matching state in the list
+          const matchingState = states.find((s) => s.name.toLowerCase().includes(region.toLowerCase()));
+          if (matchingState) {
+            setSelectedStateId(matchingState.id);
+            form.setValue("state_id", matchingState.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error reverse geocoding address:", error);
+      // Don't show error to user - just silently fail
+      // The coordinates are still set, which is the main requirement
+    }
   };
 
   // Get today's date and max date (1 year from now)
@@ -508,394 +653,505 @@ export function VenueForm({
     return maxDate;
   }, [availabilityStartDate, maxDate]);
 
+  // Handle template selection from dialog
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+  };
+
+  // Handle save as template
+  const handleSaveAsTemplate = () => {
+    const formData = form.getValues();
+    setShowSaveTemplateDialog(true);
+  };
+
+  // Get current form data for template saving
+  const getCurrentFormData = (): CreateVenueInput => {
+    const formData = form.getValues();
+    return {
+      ...formData,
+      availability_start_date: availabilityStartDate ? format(availabilityStartDate, "yyyy-MM-dd") : undefined,
+      availability_end_date: availabilityEndDate ? format(availabilityEndDate, "yyyy-MM-dd") : undefined,
+    };
+  };
+
   return (
-    <form onSubmit={form.handleSubmit(onSubmit as Parameters<typeof form.handleSubmit>[0])} className="space-y-6">
-      {/* Step Indicator */}
-      <StepIndicator currentStep={currentStep} totalSteps={3} onStepClick={handleStepClick} stepErrors={stepErrors} />
-
-      {/* Step 1: Basic Information */}
-      {currentStep === 1 && (
-        <Card>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              {/* Venue Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name">
-                  Venue Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="name"
-                  {...form.register("name")}
-                  placeholder="Conference Center"
-                  aria-invalid={!!form.formState.errors.name}
-                />
-                {form.formState.errors.name && (
-                  <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-                )}
+    <>
+      <form onSubmit={form.handleSubmit(onSubmit as Parameters<typeof form.handleSubmit>[0])} className="space-y-6">
+        {/* Use Template - Only show in create mode */}
+        {!isEditing && (
+          <Card>
+            <CardContent className="flex items-center justify-between gap-4 pt-6">
+              <div className="space-y-1">
+                <div className="text-sm font-medium">Use a saved template</div>
+                <p className="text-xs text-muted-foreground">
+                  Quickly pre-fill this form from one of your venue templates. You can still edit everything after.
+                </p>
               </div>
-
-              {/* Country - Locked */}
-              <div className="space-y-2">
-                <Label htmlFor="country">
-                  Country <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="country"
-                  {...form.register("country")}
-                  value={defaultCountry}
-                  disabled
-                  className="bg-muted cursor-not-allowed"
-                  aria-invalid={!!form.formState.errors.country}
-                />
-                {form.formState.errors.country && (
-                  <p className="text-sm text-destructive">{form.formState.errors.country.message}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUseTemplateDialog(true)}
+                disabled={templatesLoading || isLoadingTemplate}
+              >
+                {isLoadingTemplate ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading template...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Use template
+                  </>
                 )}
-              </div>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
-              {/* State - Using LocationCombobox */}
-              <div className="space-y-2">
-                <LocationCombobox
-                  value={selectedStateId}
-                  onValueChange={(value) => {
-                    setSelectedStateId(value);
-                    if (value) {
-                      const selectedState = states.find((s) => s.id === value);
-                      if (selectedState) {
-                        form.setValue("state", selectedState.name);
+        {/* Loading Template Banner */}
+        {!isEditing && isLoadingTemplate && selectedTemplateId && (
+          <Card className="border-primary/50 bg-primary/5">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <div className="flex-1">
+                <div className="text-sm font-medium">Loading template...</div>
+                <p className="text-xs text-muted-foreground">
+                  Please wait while we load your template and apply it to the form.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step Indicator */}
+        <StepIndicator currentStep={currentStep} totalSteps={3} onStepClick={handleStepClick} stepErrors={stepErrors} />
+
+        {/* Step 1: Basic Information */}
+        {currentStep === 1 && (
+          <Card>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                {/* Venue Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    Venue Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    {...form.register("name")}
+                    placeholder="Conference Center"
+                    aria-invalid={!!form.formState.errors.name}
+                  />
+                  {form.formState.errors.name && (
+                    <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                  )}
+                </div>
+
+                {/* Country - Locked */}
+                <div className="space-y-2">
+                  <Label htmlFor="country">
+                    Country <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="country"
+                    {...form.register("country")}
+                    value={defaultCountry}
+                    disabled
+                    className="bg-muted cursor-not-allowed"
+                    aria-invalid={!!form.formState.errors.country}
+                  />
+                  {form.formState.errors.country && (
+                    <p className="text-sm text-destructive">{form.formState.errors.country.message}</p>
+                  )}
+                </div>
+
+                {/* State - Using LocationCombobox */}
+                <div className="space-y-2">
+                  <LocationCombobox
+                    value={selectedStateId}
+                    onValueChange={(value) => {
+                      setSelectedStateId(value);
+                      if (value) {
+                        const selectedState = states.find((s) => s.id === value);
+                        if (selectedState) {
+                          form.setValue("state", selectedState.name);
+                          form.setValue("state_id", selectedState.id);
+                        }
+                      } else {
+                        form.setValue("state", null);
+                        form.setValue("state_id", null);
                       }
-                    } else {
-                      form.setValue("state", null);
-                    }
-                  }}
-                  options={states.map((s) => ({ id: s.id, name: s.name }))}
-                  placeholder="Select state"
-                  disabled={!defaultCountryId || loadingStates}
-                  loading={loadingStates}
-                  label="State"
-                  error={form.formState.errors.state?.message}
+                    }}
+                    options={states.map((s) => ({ id: s.id, name: s.name }))}
+                    placeholder="Select state"
+                    disabled={!defaultCountryId || loadingStates}
+                    loading={loadingStates}
+                    label="State"
+                    error={form.formState.errors.state?.message}
+                  />
+                </div>
+
+                {/* City */}
+                <div className="space-y-2">
+                  <Label htmlFor="city">
+                    City <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="city"
+                    {...form.register("city")}
+                    placeholder="San Francisco"
+                    aria-invalid={!!form.formState.errors.city}
+                  />
+                  {form.formState.errors.city && (
+                    <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Street Address */}
+              <div className="space-y-2">
+                <Label htmlFor="street">
+                  Street Address <span className="text-destructive">*</span>
+                </Label>
+                <AddressAutocomplete
+                  id="street"
+                  value={form.watch("street") || ""}
+                  onChange={handleAddressChange}
+                  placeholder="Enter street address (autocomplete enabled)"
+                  error={form.formState.errors.street?.message}
                 />
               </div>
 
-              {/* City */}
+              {/* Map Selector */}
+              <VenueMapSelector
+                lat={form.watch("location_lat") ?? null}
+                lng={form.watch("location_lng") ?? null}
+                onLocationSelect={handleLocationSelect}
+                countryCenter={countryCenter}
+                stateCenter={stateCenter}
+                error={form.formState.errors.location_lat?.message || form.formState.errors.location_lng?.message}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Capacity & Features */}
+        {currentStep === 2 && (
+          <Card>
+            <CardContent className="space-y-4">
+              {/* Capacity Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="capacity_standing">Standing Capacity</Label>
+                  <Input
+                    id="capacity_standing"
+                    type="number"
+                    min="0"
+                    max="99999999"
+                    {...form.register("capacity_standing", { valueAsNumber: true })}
+                    placeholder="0"
+                    aria-invalid={!!form.formState.errors.capacity_standing}
+                  />
+                  {form.formState.errors.capacity_standing && (
+                    <p className="text-sm text-destructive">{form.formState.errors.capacity_standing.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="capacity_seated">Seated Capacity</Label>
+                  <Input
+                    id="capacity_seated"
+                    type="number"
+                    min="0"
+                    max="99999999"
+                    {...form.register("capacity_seated", { valueAsNumber: true })}
+                    placeholder="0"
+                    aria-invalid={!!form.formState.errors.capacity_seated}
+                  />
+                  {form.formState.errors.capacity_seated && (
+                    <p className="text-sm text-destructive">{form.formState.errors.capacity_seated.message}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Available Rooms/Halls */}
               <div className="space-y-2">
-                <Label htmlFor="city">
-                  City <span className="text-destructive">*</span>
+                <Label htmlFor="available_rooms_halls">Available Rooms / Halls</Label>
+                <textarea
+                  id="available_rooms_halls"
+                  {...form.register("available_rooms_halls")}
+                  maxLength={MAX_TEXTAREA_LENGTH}
+                  placeholder="Main Hall, Conference Room A, Conference Room B..."
+                  className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-invalid={!!form.formState.errors.available_rooms_halls}
+                />
+                <CharacterCounter
+                  current={(form.watch("available_rooms_halls") || "").length}
+                  max={MAX_TEXTAREA_LENGTH}
+                />
+                {form.formState.errors.available_rooms_halls && (
+                  <p className="text-sm text-destructive">{form.formState.errors.available_rooms_halls.message}</p>
+                )}
+              </div>
+
+              {/* Technical Specs */}
+              <div className="space-y-2">
+                <Label>Technical Specs</Label>
+                <div className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="sound"
+                      checked={form.watch("technical_specs")?.sound || false}
+                      onCheckedChange={(checked) => {
+                        form.setValue("technical_specs", {
+                          ...form.watch("technical_specs"),
+                          sound: checked === true,
+                        });
+                      }}
+                    />
+                    <Label htmlFor="sound" className="font-normal cursor-pointer">
+                      Sound
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="lights"
+                      checked={form.watch("technical_specs")?.lights || false}
+                      onCheckedChange={(checked) => {
+                        form.setValue("technical_specs", {
+                          ...form.watch("technical_specs"),
+                          lights: checked === true,
+                        });
+                      }}
+                    />
+                    <Label htmlFor="lights" className="font-normal cursor-pointer">
+                      Lights
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="screens"
+                      checked={form.watch("technical_specs")?.screens || false}
+                      onCheckedChange={(checked) => {
+                        form.setValue("technical_specs", {
+                          ...form.watch("technical_specs"),
+                          screens: checked === true,
+                        });
+                      }}
+                    />
+                    <Label htmlFor="screens" className="font-normal cursor-pointer">
+                      Screens
+                    </Label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Availability Dates - Editable Calendar */}
+              <div className="grid grid-cols-2 gap-4">
+                <DateInput
+                  value={availabilityStartDate}
+                  onChange={handleStartDateChange}
+                  min={today}
+                  max={maxDate}
+                  placeholder="Pick a date"
+                  label="Availability Start Date"
+                  error={form.formState.errors.availability_start_date?.message}
+                />
+
+                <DateInput
+                  value={availabilityEndDate}
+                  onChange={handleEndDateChange}
+                  min={availabilityStartDate || today}
+                  max={maxEndDate}
+                  placeholder="Pick a date"
+                  label="Availability End Date"
+                  error={form.formState.errors.availability_end_date?.message}
+                  disabled={!availabilityStartDate}
+                />
+              </div>
+
+              {/* Base Pricing with thousand separator formatting */}
+              <div className="space-y-2">
+                <Label htmlFor="base_pricing">Base Pricing</Label>
+                <PriceInput
+                  id="base_pricing"
+                  value={form.watch("base_pricing")}
+                  onChange={(value) => form.setValue("base_pricing", value, { shouldValidate: false })}
+                  placeholder="0.00"
+                  aria-invalid={!!form.formState.errors.base_pricing}
+                />
+                {form.formState.errors.base_pricing && (
+                  <p className="text-sm text-destructive">{form.formState.errors.base_pricing.message}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Contact & Media */}
+        {currentStep === 3 && (
+          <Card>
+            <CardContent className="space-y-4">
+              {/* Contact Person Name */}
+              <div className="space-y-2">
+                <Label htmlFor="contact_person_name">
+                  Contact Person Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  id="city"
-                  {...form.register("city")}
-                  placeholder="San Francisco"
-                  aria-invalid={!!form.formState.errors.city}
+                  id="contact_person_name"
+                  {...form.register("contact_person_name")}
+                  placeholder="John Doe"
+                  aria-invalid={!!form.formState.errors.contact_person_name}
                 />
-                {form.formState.errors.city && (
-                  <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Street Address */}
-            <div className="space-y-2">
-              <Label htmlFor="street">
-                Street Address <span className="text-destructive">*</span>
-              </Label>
-              <AddressAutocomplete
-                id="street"
-                value={form.watch("street") || ""}
-                onChange={handleAddressChange}
-                placeholder="Enter street address (autocomplete enabled)"
-                error={form.formState.errors.street?.message}
-              />
-            </div>
-
-            {/* Map Selector */}
-            <VenueMapSelector
-              lat={form.watch("location_lat") ?? null}
-              lng={form.watch("location_lng") ?? null}
-              onLocationSelect={handleLocationSelect}
-              countryCenter={countryCenter}
-              stateCenter={stateCenter}
-              error={form.formState.errors.location_lat?.message || form.formState.errors.location_lng?.message}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 2: Capacity & Features */}
-      {currentStep === 2 && (
-        <Card>
-          <CardContent className="space-y-4">
-            {/* Capacity Fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="capacity_standing">Standing Capacity</Label>
-                <Input
-                  id="capacity_standing"
-                  type="number"
-                  min="0"
-                  max="99999999"
-                  {...form.register("capacity_standing", { valueAsNumber: true })}
-                  placeholder="0"
-                  aria-invalid={!!form.formState.errors.capacity_standing}
-                />
-                {form.formState.errors.capacity_standing && (
-                  <p className="text-sm text-destructive">{form.formState.errors.capacity_standing.message}</p>
+                {form.formState.errors.contact_person_name && (
+                  <p className="text-sm text-destructive">{form.formState.errors.contact_person_name.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="capacity_seated">Seated Capacity</Label>
-                <Input
-                  id="capacity_seated"
-                  type="number"
-                  min="0"
-                  max="99999999"
-                  {...form.register("capacity_seated", { valueAsNumber: true })}
-                  placeholder="0"
-                  aria-invalid={!!form.formState.errors.capacity_seated}
-                />
-                {form.formState.errors.capacity_seated && (
-                  <p className="text-sm text-destructive">{form.formState.errors.capacity_seated.message}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Available Rooms/Halls */}
-            <div className="space-y-2">
-              <Label htmlFor="available_rooms_halls">Available Rooms / Halls</Label>
-              <textarea
-                id="available_rooms_halls"
-                {...form.register("available_rooms_halls")}
-                maxLength={MAX_TEXTAREA_LENGTH}
-                placeholder="Main Hall, Conference Room A, Conference Room B..."
-                className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                aria-invalid={!!form.formState.errors.available_rooms_halls}
-              />
-              <CharacterCounter
-                current={(form.watch("available_rooms_halls") || "").length}
-                max={MAX_TEXTAREA_LENGTH}
-              />
-              {form.formState.errors.available_rooms_halls && (
-                <p className="text-sm text-destructive">{form.formState.errors.available_rooms_halls.message}</p>
-              )}
-            </div>
-
-            {/* Technical Specs */}
-            <div className="space-y-2">
-              <Label>Technical Specs</Label>
-              <div className="flex gap-6">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="sound"
-                    checked={form.watch("technical_specs")?.sound || false}
-                    onCheckedChange={(checked) => {
-                      form.setValue("technical_specs", {
-                        ...form.watch("technical_specs"),
-                        sound: checked === true,
-                      });
-                    }}
+              {/* Contact Email and Phone */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="contact_email">Contact Email</Label>
+                  <Input
+                    id="contact_email"
+                    type="email"
+                    {...form.register("contact_email")}
+                    placeholder="contact@venue.com"
+                    aria-invalid={!!form.formState.errors.contact_email}
                   />
-                  <Label htmlFor="sound" className="font-normal cursor-pointer">
-                    Sound
-                  </Label>
+                  {form.formState.errors.contact_email && (
+                    <p className="text-sm text-destructive">{form.formState.errors.contact_email.message}</p>
+                  )}
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="lights"
-                    checked={form.watch("technical_specs")?.lights || false}
-                    onCheckedChange={(checked) => {
-                      form.setValue("technical_specs", {
-                        ...form.watch("technical_specs"),
-                        lights: checked === true,
-                      });
-                    }}
+
+                <div className="space-y-2">
+                  <Label htmlFor="contact_phone">Contact Phone</Label>
+                  <PhoneInput
+                    id="contact_phone"
+                    value={form.watch("contact_phone") || undefined}
+                    onChange={(value) => form.setValue("contact_phone", value && value.trim() ? value : null)}
+                    placeholder="Enter phone number"
+                    defaultCountry={phoneDefaultCountry as "US" | "CA" | "GB" | undefined}
+                    className="w-full"
                   />
-                  <Label htmlFor="lights" className="font-normal cursor-pointer">
-                    Lights
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="screens"
-                    checked={form.watch("technical_specs")?.screens || false}
-                    onCheckedChange={(checked) => {
-                      form.setValue("technical_specs", {
-                        ...form.watch("technical_specs"),
-                        screens: checked === true,
-                      });
-                    }}
-                  />
-                  <Label htmlFor="screens" className="font-normal cursor-pointer">
-                    Screens
-                  </Label>
+                  {form.formState.errors.contact_phone && (
+                    <p className="text-sm text-destructive">{form.formState.errors.contact_phone.message}</p>
+                  )}
                 </div>
               </div>
-            </div>
 
-            {/* Availability Dates - Editable Calendar */}
-            <div className="grid grid-cols-2 gap-4">
-              <DateInput
-                value={availabilityStartDate}
-                onChange={handleStartDateChange}
-                min={today}
-                max={maxDate}
-                placeholder="Pick a date"
-                label="Availability Start Date"
-                error={form.formState.errors.availability_start_date?.message}
-              />
-
-              <DateInput
-                value={availabilityEndDate}
-                onChange={handleEndDateChange}
-                min={availabilityStartDate || today}
-                max={maxEndDate}
-                placeholder="Pick a date"
-                label="Availability End Date"
-                error={form.formState.errors.availability_end_date?.message}
-                disabled={!availabilityStartDate}
-              />
-            </div>
-
-            {/* Base Pricing with thousand separator formatting */}
-            <div className="space-y-2">
-              <Label htmlFor="base_pricing">Base Pricing</Label>
-              <PriceInput
-                id="base_pricing"
-                value={form.watch("base_pricing")}
-                onChange={(value) => form.setValue("base_pricing", value, { shouldValidate: false })}
-                placeholder="0.00"
-                aria-invalid={!!form.formState.errors.base_pricing}
-              />
-              {form.formState.errors.base_pricing && (
-                <p className="text-sm text-destructive">{form.formState.errors.base_pricing.message}</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 3: Contact & Media */}
-      {currentStep === 3 && (
-        <Card>
-          <CardContent className="space-y-4">
-            {/* Contact Person Name */}
-            <div className="space-y-2">
-              <Label htmlFor="contact_person_name">
-                Contact Person Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="contact_person_name"
-                {...form.register("contact_person_name")}
-                placeholder="John Doe"
-                aria-invalid={!!form.formState.errors.contact_person_name}
-              />
-              {form.formState.errors.contact_person_name && (
-                <p className="text-sm text-destructive">{form.formState.errors.contact_person_name.message}</p>
-              )}
-            </div>
-
-            {/* Contact Email and Phone */}
-            <div className="grid grid-cols-2 gap-4">
+              {/* Restrictions with character counter */}
               <div className="space-y-2">
-                <Label htmlFor="contact_email">Contact Email</Label>
-                <Input
-                  id="contact_email"
-                  type="email"
-                  {...form.register("contact_email")}
-                  placeholder="contact@venue.com"
-                  aria-invalid={!!form.formState.errors.contact_email}
+                <Label htmlFor="restrictions">Restrictions</Label>
+                <textarea
+                  id="restrictions"
+                  {...form.register("restrictions")}
+                  maxLength={MAX_TEXTAREA_LENGTH}
+                  placeholder="Noise restrictions, time limits, catering rules..."
+                  className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-invalid={!!form.formState.errors.restrictions}
                 />
-                {form.formState.errors.contact_email && (
-                  <p className="text-sm text-destructive">{form.formState.errors.contact_email.message}</p>
+                <CharacterCounter current={(form.watch("restrictions") || "").length} max={MAX_TEXTAREA_LENGTH} />
+                {form.formState.errors.restrictions && (
+                  <p className="text-sm text-destructive">{form.formState.errors.restrictions.message}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="contact_phone">Contact Phone</Label>
-                <PhoneInput
-                  id="contact_phone"
-                  value={form.watch("contact_phone") || undefined}
-                  onChange={(value) => form.setValue("contact_phone", value && value.trim() ? value : null)}
-                  placeholder="Enter phone number"
-                  defaultCountry={phoneDefaultCountry as "US" | "CA" | "GB" | undefined}
-                  className="w-full"
-                />
-                {form.formState.errors.contact_phone && (
-                  <p className="text-sm text-destructive">{form.formState.errors.contact_phone.message}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Restrictions with character counter */}
-            <div className="space-y-2">
-              <Label htmlFor="restrictions">Restrictions</Label>
-              <textarea
-                id="restrictions"
-                {...form.register("restrictions")}
-                maxLength={MAX_TEXTAREA_LENGTH}
-                placeholder="Noise restrictions, time limits, catering rules..."
-                className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                aria-invalid={!!form.formState.errors.restrictions}
+              {/* Image Upload */}
+              <VenueImageUpload
+                images={form.watch("images") || []}
+                onImagesChange={(images) => form.setValue("images", images)}
+                venueId={venueId}
+                error={form.formState.errors.images?.message}
+                onFilesChange={setUploadedImageFiles}
               />
-              <CharacterCounter current={(form.watch("restrictions") || "").length} max={MAX_TEXTAREA_LENGTH} />
-              {form.formState.errors.restrictions && (
-                <p className="text-sm text-destructive">{form.formState.errors.restrictions.message}</p>
-              )}
-            </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Image Upload */}
-            <VenueImageUpload
-              images={form.watch("images") || []}
-              onImagesChange={(images) => form.setValue("images", images)}
-              venueId={venueId}
-              error={form.formState.errors.images?.message}
-              onFilesChange={setUploadedImageFiles}
-            />
-          </CardContent>
-        </Card>
-      )}
+        {/* Navigation Buttons */}
+        <div className="flex items-center justify-between pt-4">
+          <div>
+            {currentStep > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={(e) => handlePrevious(e)}
+                disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
+              </Button>
+            )}
+          </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex items-center justify-between pt-4">
-        <div>
-          {currentStep > 1 && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={(e) => handlePrevious(e)}
-              disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Previous
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {/* Save as Template button - Only show in step 3 and when form has data */}
+            {currentStep === 3 && !isEditing && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAsTemplate}
+                disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save as Template
+              </Button>
+            )}
+            {currentStep < 3 ? (
+              <Button
+                type="button"
+                onClick={(e) => handleNext(e)}
+                disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
+              >
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            ) : (
+              <Button type="submit" disabled={createVenueMutation.isPending || updateVenueMutation.isPending}>
+                {createVenueMutation.isPending || updateVenueMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditing ? "Updating..." : "Creating..."}
+                  </>
+                ) : isEditing ? (
+                  "Update Venue"
+                ) : (
+                  "Create Venue"
+                )}
+              </Button>
+            )}
+          </div>
         </div>
+      </form>
 
-        <div className="flex gap-2">
-          {currentStep < 3 ? (
-            <Button
-              type="button"
-              onClick={(e) => handleNext(e)}
-              disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
-            >
-              Next
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button type="submit" disabled={createVenueMutation.isPending || updateVenueMutation.isPending}>
-              {createVenueMutation.isPending || updateVenueMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditing ? "Updating..." : "Creating..."}
-                </>
-              ) : isEditing ? (
-                "Update Venue"
-              ) : (
-                "Create Venue"
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
-    </form>
+      {/* Save Template Dialog */}
+      <SaveVenueTemplateDialog
+        open={showSaveTemplateDialog}
+        onOpenChange={setShowSaveTemplateDialog}
+        venueData={getCurrentFormData()}
+        onSuccess={() => {
+          setShowSaveTemplateDialog(false);
+        }}
+      />
+
+      {/* Use Template Dialog */}
+      {!isEditing && (
+        <UseVenueTemplateDialog
+          open={showUseTemplateDialog}
+          onOpenChange={(open) => {
+            setShowUseTemplateDialog(open);
+            // Reset selected template when dialog closes
+            if (!open && !isLoadingTemplate) {
+              setSelectedTemplateId(null);
+            }
+          }}
+          onSelectTemplate={handleTemplateSelect}
+          isLoadingTemplate={isLoadingTemplate}
+        />
+      )}
+    </>
   );
 }

@@ -38,6 +38,7 @@ export default function EditVenuePage({ params }: EditVenuePageProps) {
   const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
   const isEventPlanner = profile?.role === UserRole.EVENT_PLANNER;
   const canDelete = isGlobalDirector || isEventPlanner;
+  const canEditVenue = isGlobalDirector || isEventPlanner;
 
   if (loading) {
     return (
@@ -54,6 +55,26 @@ export default function EditVenuePage({ params }: EditVenuePageProps) {
       <div className="container mx-auto pt-4 pb-8 max-w-5xl">
         <div className="flex items-center justify-center py-12">
           <p className="text-destructive">Venue not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has permission to edit venues
+  if (!canEditVenue) {
+    return (
+      <div className="container mx-auto pt-4 pb-8 max-w-5xl">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <p className="text-destructive text-lg font-semibold mb-2">Access Denied</p>
+            <p className="text-muted-foreground mb-4">Only Event Planners and Global Directors can edit venues.</p>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/venues">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Venues
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -96,8 +117,8 @@ export default function EditVenuePage({ params }: EditVenuePageProps) {
         venue={venue}
         defaultState={venue.state || ""}
         defaultCountry={venue.country || "United States"}
-        defaultCountryId={undefined}
-        defaultStateId={undefined}
+        defaultCountryId={venue.country_id || undefined}
+        defaultStateId={venue.state_id || undefined}
       />
 
       {/* Delete and Ban Actions */}

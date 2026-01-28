@@ -39,7 +39,10 @@ export function UserCombobox({
 }: UserComboboxProps) {
   const [open, setOpen] = React.useState(false);
 
-  const selectedOption = options.find((option) => option.id === value);
+  // Ensure options is always an array
+  const safeOptions = Array.isArray(options) ? options : [];
+
+  const selectedOption = safeOptions.find((option) => option.id === value);
 
   const displayText = selectedOption
     ? `${selectedOption.first_name} ${selectedOption.last_name} (${selectedOption.email}) - ${selectedOption.role.replace(/_/g, " ")}`
@@ -79,11 +82,11 @@ export function UserCombobox({
                   <div className="flex items-center justify-center py-6">
                     <Loader2 className="h-4 w-4 animate-spin" />
                   </div>
-                ) : options.length === 0 ? (
+                ) : safeOptions.length === 0 ? (
                   <CommandEmpty>No users found.</CommandEmpty>
                 ) : (
                   <CommandGroup>
-                    {options.map((option) => {
+                    {safeOptions.map((option) => {
                       const optionText = `${option.first_name} ${option.last_name} (${option.email})`;
                       return (
                         <CommandItem

@@ -18,12 +18,11 @@ export const dynamic = "force-dynamic";
  * GET /api/users/profile
  * Get current user's profile
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Require authentication (allows pending users)
-    let authUser;
     try {
-      authUser = await requireAuth(true); // Allow pending users
+      await requireAuth(true); // Allow pending users
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
@@ -67,9 +66,8 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Require authentication
-    let authUser;
     try {
-      authUser = await requireAuth();
+      await requireAuth();
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });

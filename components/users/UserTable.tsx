@@ -102,7 +102,7 @@ export function UserTable({
   // Calculate adjusted total (excluding Global Directors from count)
   const globalDirectorCount = users.filter((user) => user.role === UserRole.GLOBAL_DIRECTOR).length;
   const adjustedTotalUsers = totalUsers - globalDirectorCount;
-  
+
   // Calculate pagination based on filtered users
   const totalPages = Math.ceil(adjustedTotalUsers / pageSize);
   const startIndex = adjustedTotalUsers === 0 ? 0 : (currentPage - 1) * pageSize + 1;

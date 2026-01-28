@@ -16,7 +16,6 @@ import type { CreateVenueInput, UpdateVenueInput } from "@/lib/validation/venues
 import type { Database } from "@/lib/types/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { requireActiveUser } from "@/lib/auth/server";
-import type { AuthUser } from "@/lib/auth/server";
 import { UserRole } from "@/lib/types/roles";
 
 type Venue = Database["public"]["Tables"]["venues"]["Row"];
@@ -91,6 +90,7 @@ export async function getVenueById(id: string): Promise<VenueWithCreator> {
 
 /**
  * Create a new venue
+ * - Only event_planner and global_director can create venues
  * - Checks for duplicates (same name, address, city, country)
  * - Logs audit trail
  */
@@ -98,6 +98,11 @@ export async function createVenue(
   input: CreateVenueInput
 ): Promise<{ venue: Venue; isDuplicate: boolean; duplicateVenue?: Venue }> {
   const user = await requireActiveUser();
+
+  // Check if user has permission to create venues
+  if (user.dbUser.role !== UserRole.EVENT_PLANNER && user.dbUser.role !== UserRole.GLOBAL_DIRECTOR) {
+    throw new ForbiddenError("Only Event Planners and Global Directors can create venues");
+  }
 
   // Check for duplicates
   const duplicate = await venueDAL.findDuplicate(input.name, input.street, input.city, input.country);
@@ -124,6 +129,8 @@ export async function createVenue(
     city: input.city,
     state: input.state ?? null,
     country: input.country || "United States",
+    country_id: input.country_id ?? null,
+    state_id: input.state_id ?? null,
     location_lat: input.location_lat ?? null,
     location_lng: input.location_lng ?? null,
     capacity_standing: input.capacity_standing ?? null,
@@ -157,12 +164,18 @@ export async function createVenue(
 
 /**
  * Update an existing venue
+ * - Only event_planner and global_director can update venues
  * - Checks ownership or hierarchy permissions via backend authorization
  * - Checks for duplicates if name/address/city changed
  * - Logs audit trail
  */
 export async function updateVenue(id: string, input: UpdateVenueInput): Promise<Venue> {
   const user = await requireActiveUser();
+
+  // Check if user has permission to update venues
+  if (user.dbUser.role !== UserRole.EVENT_PLANNER && user.dbUser.role !== UserRole.GLOBAL_DIRECTOR) {
+    throw new ForbiddenError("Only Event Planners and Global Directors can update venues");
+  }
 
   // Get subordinate user IDs for authorization
   const subordinateIds = await getSubordinateUserIds(user.id);
@@ -210,6 +223,8 @@ export async function updateVenue(id: string, input: UpdateVenueInput): Promise<
     city: input.city,
     state: input.state ?? null,
     country: input.country,
+    country_id: input.country_id,
+    state_id: input.state_id,
     location_lat: input.location_lat,
     location_lng: input.location_lng,
     capacity_standing: input.capacity_standing,
@@ -346,10 +361,26 @@ export async function unbanVenue(id: string): Promise<void> {
 /**
  * Helper: Check if user has permission to modify a venue
  * User can modify if:
- * 1. They are the creator
- * 2. They are a superior of the creator in the hierarchy
+ * 1. They are the creator (and have event_planner or global_director role)
+ * 2. They are a superior of the creator in the hierarchy (and have event_planner or global_director role)
  */
 async function checkVenuePermission(userId: string, creatorId: string): Promise<void> {
+  const supabase = await createClient();
+
+  // Get user role
+  const { data: userData, error: userError } = await supabase.from("users").select("role").eq("id", userId).single();
+
+  if (userError || !userData) {
+    throw new ForbiddenError("You do not have permission to modify this venue");
+  }
+
+  const typedUser = userData as { role: UserRole };
+
+  // Check if user has required role (event_planner or global_director)
+  if (typedUser.role !== UserRole.EVENT_PLANNER && typedUser.role !== UserRole.GLOBAL_DIRECTOR) {
+    throw new ForbiddenError("Only Event Planners and Global Directors can modify venues");
+  }
+
   // If user is the creator, allow
   if (userId === creatorId) {
     return;

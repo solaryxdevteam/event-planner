@@ -58,10 +58,7 @@ export const updateUserSchema = z.object({
   password: z
     .string()
     .optional()
-    .refine(
-      (val) => !val || val === "" || val.length >= 8,
-      "Password must be at least 8 characters"
-    )
+    .refine((val) => !val || val === "" || val.length >= 8, "Password must be at least 8 characters")
     .transform((val) => (val && val.trim() !== "" ? val : undefined)),
   status: z.enum(["pending", "active", "inactive"]).optional(),
   is_active: z.boolean().optional(),
@@ -144,10 +141,7 @@ export const userFormSchema = z.object({
   password: z
     .string()
     .optional()
-    .refine(
-      (val) => !val || val === "" || val.length >= 8,
-      "Password must be at least 8 characters"
-    )
+    .refine((val) => !val || val === "" || val.length >= 8, "Password must be at least 8 characters")
     .transform((val) => (val && val.trim() !== "" ? val : undefined)),
 });
 

@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, CheckSquare, Building2, Users, User, CalendarCheck } from "lucide-react";
+import { LayoutDashboard, Calendar, CheckSquare, Building2, Users, User, FileText, Clock } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -40,33 +41,117 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
     avatar: null,
   };
 
-  // Base navigation items
+  // Check if user is curator or higher (can see approvals)
+  const isCurator =
+    userRole && ["city_curator", "regional_curator", "lead_curator", "global_director"].includes(userRole);
+
+  // Check if user can create events (event planners)
+  const canCreateEvents = userRole === "event_planner" || isCurator;
+
+  // Base navigation items with nested structure
   const baseNavMain = [
     {
       title: "Dashboard",
       url: "/dashboard",
       icon: LayoutDashboard,
     },
+    // Event Requests - only for users who can create events
+    ...(canCreateEvents
+      ? [
+          {
+            title: "Event Requests",
+            url: "/dashboard/events/requests?tab=drafts", // Default to first sub-item
+            icon: FileText,
+            items: [
+              {
+                title: "Drafts",
+                url: "/dashboard/events/requests?tab=drafts",
+              },
+              {
+                title: "In Review",
+                url: "/dashboard/events/requests?tab=in-review",
+              },
+              {
+                title: "Rejected",
+                url: "/dashboard/events/requests?tab=rejected",
+              },
+            ],
+          },
+        ]
+      : []),
+    // Events - for all users
     {
       title: "Events",
-      url: "/dashboard/events",
+      url: "/dashboard/events?tab=current", // Default to first sub-item
       icon: Calendar,
+      items: [
+        {
+          title: "Current",
+          url: "/dashboard/events?tab=current",
+        },
+        {
+          title: "Past",
+          url: "/dashboard/events?tab=past",
+        },
+        {
+          title: "Cancelled/Rejected",
+          url: "/dashboard/events?tab=cancelled",
+        },
+      ],
     },
-    {
-      title: "Approvals",
-      url: "/dashboard/approvals",
-      icon: CheckSquare,
-    },
+    // Pending Approvals - only for curators and global
+    ...(isCurator
+      ? [
+          {
+            title: "Pending Approvals",
+            url: "/dashboard/approvals?type=event", // Default to first sub-item
+            icon: CheckSquare,
+            items: [
+              {
+                title: "Event Approvals",
+                url: "/dashboard/approvals?type=event",
+              },
+              {
+                title: "Modifications",
+                url: "/dashboard/approvals?type=modification",
+              },
+              {
+                title: "Cancellations",
+                url: "/dashboard/approvals?type=cancellation",
+              },
+              {
+                title: "Reports",
+                url: "/dashboard/approvals?type=report",
+              },
+            ],
+          },
+        ]
+      : []),
     {
       title: "Venue Management",
       url: "/dashboard/venues",
       icon: Building2,
     },
-    {
-      title: "User Management",
-      url: "/dashboard/users",
-      icon: Users,
-    },
+    // User Management - only for curators
+    ...(isCurator
+      ? [
+          {
+            title: "User Management",
+            url: "/dashboard/users",
+            icon: Users,
+          },
+        ]
+      : []),
+    // Activity Logs - only for curators and above (non-event-planner)
+    ...(isCurator
+      ? [
+          {
+            title: "Activity Logs",
+            url: "/dashboard/logs",
+            icon: Clock,
+          },
+        ]
+      : []),
     {
       title: "Profile",
       url: "/dashboard/profile",
@@ -74,17 +159,9 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
     },
   ];
 
-  // Filter out User Management for event_planner role
-  const filteredNavMain = baseNavMain.filter((item) => {
-    if (item.title === "User Management" && userRole === "event_planner") {
-      return false;
-    }
-    return true;
-  });
-
   // Map navigation items with active state based on current pathname
   // If disabled (pending user), only enable Profile
-  const navMain = filteredNavMain.map((item) => {
+  const navMain = baseNavMain.map((item) => {
     const isProfile = item.url === "/dashboard/profile";
     const itemDisabled = disabled && !isProfile;
 
@@ -112,22 +189,34 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
             <SidebarMenuButton size="lg" asChild={!disabled} disabled={disabled}>
               {disabled ? (
                 <>
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <CalendarCheck className="size-4" />
+                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg text-sidebar-primary-foreground">
+                    <Image
+                      src="/images/shiraz-house-logo.webp"
+                      alt="Shiraz House logo"
+                      width={22}
+                      height={22}
+                      className="rounded"
+                    />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Event Planner</span>
-                    <span className="truncate text-xs">Management System</span>
+                    <span className="truncate font-semibold">Shiraz House</span>
+                    <span className="truncate text-xs">Event Planner</span>
                   </div>
                 </>
               ) : (
                 <Link href="/dashboard">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <CalendarCheck className="size-4" />
+                  <div className="flex aspect-square size-10 items-center justify-center rounded-lgimary text-sidebar-primary-foreground">
+                    <Image
+                      src="/images/shiraz-house-logo.webp"
+                      alt="Shiraz House logo"
+                      width={36}
+                      height={36}
+                      className="rounded"
+                    />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">Event Planner</span>
-                    <span className="truncate text-xs">Management System</span>
+                    <span className="truncate font-semibold">Shiraz House</span>
+                    <span className="truncate text-xs">Event Planner</span>
                   </div>
                 </Link>
               )}

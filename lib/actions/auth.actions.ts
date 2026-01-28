@@ -204,7 +204,6 @@ export async function completeUserProfile(data: {
 export async function createEvent(data: {
   title: string;
   description: string;
-  event_date: string;
 }): Promise<ActionResponse<{ id: string }>> {
   return handleAsync(async () => {
     // Ensure user is authenticated and active
@@ -212,15 +211,17 @@ export async function createEvent(data: {
     const supabase = await createClient();
 
     const insertData: EventInsert = {
+      short_id: `EVT-${Math.floor(Math.random() * 90000 + 10000)}`,
       title: data.title,
       description: data.description,
-      event_date: data.event_date,
-      event_time: null,
+      starts_at: null,
+      ends_at: null,
       venue_id: null,
       creator_id: user.id,
       status: "draft",
       expected_attendance: null,
-      budget: null,
+      budget_amount: null,
+      budget_currency: "USD",
       notes: null,
     };
     const { data: event, error } = await supabase

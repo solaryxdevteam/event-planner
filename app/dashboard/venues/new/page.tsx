@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { useLocationById } from "@/lib/hooks/use-locations-api";
 import { VenueForm } from "@/components/venues/VenueForm";
+import { UserRole } from "@/lib/types/roles";
 
 export default function NewVenuePage() {
   // Get current user to pre-fill state and country
@@ -35,6 +36,28 @@ export default function NewVenuePage() {
       <div className="container mx-auto pt-4 pb-8 max-w-5xl">
         <div className="flex items-center justify-center py-12">
           <p className="text-destructive">Unable to load user profile</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has permission to create venues
+  const canCreateVenue = user.role === UserRole.EVENT_PLANNER || user.role === UserRole.GLOBAL_DIRECTOR;
+
+  if (!canCreateVenue) {
+    return (
+      <div className="container mx-auto pt-4 pb-8 max-w-5xl">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <p className="text-destructive text-lg font-semibold mb-2">Access Denied</p>
+            <p className="text-muted-foreground mb-4">Only Event Planners and Global Directors can create venues.</p>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/venues">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Venues
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     );

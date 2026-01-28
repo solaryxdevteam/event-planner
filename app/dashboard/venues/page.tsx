@@ -11,6 +11,7 @@ import { VenueCardSkeleton } from "@/components/venues/VenueCardSkeleton";
 import { useVenues, type VenueFilters as VenueFiltersHook } from "@/lib/hooks/use-venues";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { PlusIcon } from "lucide-react";
+import { UserRole } from "@/lib/types/roles";
 
 export default function VenuesPage() {
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,6 +32,7 @@ export default function VenuesPage() {
   // Get user profile for role
   const { data: profile } = useProfile();
   const userRole = profile?.role || "event_planner";
+  const canCreateVenue = profile?.role === UserRole.EVENT_PLANNER || profile?.role === UserRole.GLOBAL_DIRECTOR;
 
   // Prepare filters for API call
   const venueFilters: VenueFiltersHook = useMemo(
@@ -170,12 +172,14 @@ export default function VenuesPage() {
                 {totalVenues} {totalVenues === 1 ? "venue" : "venues"} found
               </p>
             </div>
-            <Button asChild>
-              <Link href="/dashboard/venues/new">
-                <PlusIcon className="mr-2 h-4 w-4" />
-                Add Venue
-              </Link>
-            </Button>
+            {canCreateVenue && (
+              <Button asChild>
+                <Link href="/dashboard/venues/new">
+                  <PlusIcon className="mr-2 h-4 w-4" />
+                  Add Venue
+                </Link>
+              </Button>
+            )}
           </div>
 
           {/* Loading State - Skeleton */}

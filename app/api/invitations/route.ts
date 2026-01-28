@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, requireRole } from "@/lib/auth/server";
+import { requireRole } from "@/lib/auth/server";
 import { UnauthorizedError, ForbiddenError } from "@/lib/utils/errors";
 import * as invitationService from "@/lib/services/invitations/invitation.service";
 import { createInvitationSchema } from "@/lib/validation/invitations.schema";

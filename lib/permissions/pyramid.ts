@@ -132,7 +132,8 @@ export async function canViewVenue(userId: string, venueId: string): Promise<boo
 
 /**
  * Check if userId can edit/delete a venue
- * Only the venue creator or Global Director can edit
+ * Only event_planner and global_director can edit venues
+ * User must be the venue creator or a superior of the creator
  *
  * @param userId - User requesting access
  * @param venueId - Venue ID to check
@@ -142,23 +143,26 @@ export async function canEditVenue(userId: string, venueId: string): Promise<boo
   const supabase = await createClient();
 
   // Get user role and venue creator
-  const [userResult, venueResult] = await Promise.all([
-    supabase.from("users").select("role").eq("id", userId).single(),
-    supabase.from("venues").select("creator_id").eq("id", venueId).single(),
+  const [{ data: userData, error: userError }, { data: venueData, error: venueError }] = await Promise.all([
+    supabase.from("users").select("role").eq("id", userId).single<{ role: string }>(),
+    supabase.from("venues").select("creator_id").eq("id", venueId).single<{ creator_id: string }>(),
   ]);
 
-  if (userResult.error || !userResult.data || venueResult.error || !venueResult.data) {
+  if (userError || !userData || venueError || !venueData) {
     return false;
   }
 
-  const userData = (userResult as any).data as { role: string };
-  const venueData = (venueResult as any).data as { creator_id: string };
+  // Only event_planner and global_director can edit venues
+  if (userData.role !== "event_planner" && userData.role !== "global_director") {
+    return false;
+  }
 
-  // Global Directors can edit any venue
-  if (userData.role === "global_director") {
+  // If user is the creator, allow
+  if (userId === venueData.creator_id) {
     return true;
   }
 
-  // Creators can edit their own venues
-  return userId === venueData.creator_id;
+  // Check if user is a superior of the creator in the hierarchy
+  const subordinateIds = await getSubordinateUserIds(userId);
+  return subordinateIds.includes(venueData.creator_id);
 }

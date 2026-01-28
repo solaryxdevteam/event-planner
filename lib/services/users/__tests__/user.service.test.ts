@@ -20,7 +20,8 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 describe("user.service", () => {
-  let mockSupabase: any;
+  // Using `unknown` here keeps tests flexible while avoiding `any`
+  let mockSupabase: unknown;
 
   beforeEach(() => {
     vi.clearAllMocks();

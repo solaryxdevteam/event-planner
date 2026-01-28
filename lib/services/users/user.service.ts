@@ -39,13 +39,17 @@ export async function getAllUsers(requesterId: string): Promise<User[]> {
   const supabase = await createClient();
 
   // Check if requester is Global Director
-  const { data: requester, error } = await supabase.from("users").select("role").eq("id", requesterId).single();
+  const { data: requester, error } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", requesterId)
+    .single<{ role: UserRole }>();
 
   if (error || !requester) {
     throw new Error("Failed to verify permissions");
   }
 
-  if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (requester.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can view all users");
   }
 
@@ -74,13 +78,17 @@ export async function getAllUsersPaginated(
   const supabase = await createClient();
 
   // Check if requester is Global Director
-  const { data: requester, error } = await supabase.from("users").select("role").eq("id", requesterId).single();
+  const { data: requester, error } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", requesterId)
+    .single<{ role: UserRole }>();
 
   if (error || !requester) {
     throw new Error("Failed to verify permissions");
   }
 
-  if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (requester.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can view all users");
   }
 
@@ -110,14 +118,14 @@ export async function createUser(requesterId: string, data: CreateUserInput): Pr
     .from("users")
     .select("role")
     .eq("id", requesterId)
-    .single();
+    .single<{ role: UserRole }>();
 
   if (requesterError || !requester) {
     throw new Error("Failed to verify permissions");
   }
 
   // Only Global Directors can create users
-  if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (requester.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can create users");
   }
 
@@ -152,7 +160,7 @@ export async function createUser(requesterId: string, data: CreateUserInput): Pr
   // Get default US country ID if country_id not provided
   let countryId = data.country_id;
   if (!countryId) {
-    const { data: usCountry } = await supabase
+    const { data: usCountry }: { data: { id: string } | null } = await supabase
       .from("locations")
       .select("id")
       .eq("type", "country")
@@ -162,7 +170,7 @@ export async function createUser(requesterId: string, data: CreateUserInput): Pr
     if (!usCountry) {
       throw new Error("US country not found in locations table");
     }
-    countryId = (usCountry as any).id;
+    countryId = usCountry.id;
   }
 
   // Create user record (Supabase Auth user will be created when they log in via magic link)
@@ -206,19 +214,23 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
     .from("users")
     .select("role")
     .eq("id", requesterId)
-    .single();
+    .single<{ role: UserRole }>();
 
   if (requesterError || !requester) {
     throw new Error("Failed to verify permissions");
   }
 
   // Only Global Directors can update users (for now)
-  if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (requester.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can update users");
   }
 
   // Get user being updated
-  const { data: userToUpdate, error: userError } = await supabase.from("users").select("*").eq("id", userId).single();
+  const { data: userToUpdate, error: userError }: { data: User | null; error: Error | null } = await supabase
+    .from("users")
+    .select("*")
+    .eq("id", userId)
+    .single();
 
   if (userError || !userToUpdate) {
     throw new Error("User not found");
@@ -234,9 +246,9 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
   }
 
   // Role-based validation
-  if (data.role && data.role !== (userToUpdate as any).role) {
+  if (data.role && data.role !== userToUpdate.role) {
     // Prevent removing the last Global Director
-    if ((userToUpdate as any).role === UserRole.GLOBAL_DIRECTOR) {
+    if (userToUpdate.role === UserRole.GLOBAL_DIRECTOR) {
       const { data: globalDirectors } = await supabase
         .from("users")
         .select("id")
@@ -249,7 +261,7 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
     }
 
     // Ensure role change is compatible with parent
-    if (data.role === UserRole.GLOBAL_DIRECTOR && (userToUpdate as any).parent_id) {
+    if (data.role === UserRole.GLOBAL_DIRECTOR && userToUpdate.parent_id) {
       throw new Error("Global Director cannot have a parent");
     }
   }
@@ -261,7 +273,9 @@ export async function updateUser(requesterId: string, userId: string, data: Upda
   }
 
   // Transform notification_prefs if provided (schema uses 'email', DB uses 'email_enabled')
-  const updateData: typeof userUpdateData & { notification_prefs?: { email_enabled: boolean; frequency: "instant" | "daily" | "weekly" } | null } = {
+  const updateData: typeof userUpdateData & {
+    notification_prefs?: { email_enabled: boolean; frequency: "instant" | "daily" | "weekly" } | null;
+  } = {
     ...userUpdateData,
     ...(notification_prefs
       ? {
@@ -291,14 +305,14 @@ export async function deactivateUser(requesterId: string, userId: string): Promi
     .from("users")
     .select("role")
     .eq("id", requesterId)
-    .single();
+    .single<{ role: UserRole }>();
 
   if (requesterError || !requester) {
     throw new Error("Failed to verify permissions");
   }
 
   // Only Global Directors can deactivate users
-  if ((requester as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (requester.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can deactivate users");
   }
 
@@ -312,14 +326,14 @@ export async function deactivateUser(requesterId: string, userId: string): Promi
     .from("users")
     .select("role")
     .eq("id", userId)
-    .single();
+    .single<{ role: UserRole }>();
 
   if (userError || !userToDeactivate) {
     throw new Error("User not found");
   }
 
   // Prevent deactivating the last Global Director
-  if ((userToDeactivate as any).role === UserRole.GLOBAL_DIRECTOR) {
+  if (userToDeactivate.role === UserRole.GLOBAL_DIRECTOR) {
     const { data: globalDirectors } = await supabase
       .from("users")
       .select("id")
@@ -376,13 +390,13 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
     .from("users")
     .select("role")
     .eq("id", creatorId)
-    .single();
+    .single<{ role: UserRole }>();
 
   if (creatorError || !creator) {
     throw new Error("Failed to verify permissions");
   }
 
-  if ((creator as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (creator.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can create users directly");
   }
 
@@ -413,7 +427,7 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
   // Get default US country ID if country_id not provided
   let countryId = data.country_id;
   if (!countryId) {
-    const { data: usCountry } = await supabase
+    const { data: usCountry }: { data: { id: string } | null } = await supabase
       .from("locations")
       .select("id")
       .eq("type", "country")
@@ -423,7 +437,7 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
     if (!usCountry) {
       throw new Error("US country not found in locations table");
     }
-    countryId = (usCountry as any).id;
+    countryId = usCountry.id;
   }
 
   // Construct full name for auth user metadata
@@ -453,7 +467,7 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
   });
 
   // Get creator name for email
-  const { data: creatorData } = await supabase
+  const { data: creatorData }: { data: { first_name: string; last_name: string | null } | null } = await supabase
     .from("users")
     .select("first_name, last_name")
     .eq("id", creatorId)
@@ -461,11 +475,10 @@ export async function createUserDirectly(creatorId: string, data: CreateUserInpu
 
   // Send congratulation email
   try {
-    const typedCreator = creatorData as any;
-    const creatorName = typedCreator
-      ? typedCreator.last_name
-        ? `${typedCreator.first_name} ${typedCreator.last_name}`
-        : typedCreator.first_name
+    const creatorName = creatorData
+      ? creatorData.last_name
+        ? `${creatorData.first_name} ${creatorData.last_name}`
+        : creatorData.first_name
       : "Administrator";
     await emailService.sendUserCreatedCongratulationEmail(newUser, creatorName);
   } catch (error) {
@@ -570,18 +583,18 @@ export async function activateUser(creatorId: string, data: ActivateUserInput): 
     .from("users")
     .select("role")
     .eq("id", creatorId)
-    .single();
+    .single<{ role: UserRole }>();
 
   if (creatorError || !creator) {
     throw new Error("Failed to verify permissions");
   }
 
-  if ((creator as any).role !== UserRole.GLOBAL_DIRECTOR) {
+  if (creator.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new Error("Only Global Directors can activate users");
   }
 
   // Get user to activate
-  const { data: userToActivate, error: userError } = await supabase
+  const { data: userToActivate, error: userError }: { data: User | null; error: Error | null } = await supabase
     .from("users")
     .select("*")
     .eq("id", data.userId)
@@ -611,7 +624,7 @@ export async function activateUser(creatorId: string, data: ActivateUserInput): 
         updates.parent_id = data.parent_id;
       } else {
         // If no parent_id provided and user doesn't have one, require it
-        if (!(userToActivate as any).parent_id) {
+        if (!userToActivate.parent_id) {
           throw new Error("Non-Global Director roles must have a parent assigned");
         }
         // Keep existing parent_id if not provided
@@ -627,13 +640,15 @@ export async function activateUser(creatorId: string, data: ActivateUserInput): 
 
   // Transform notification_prefs if present (schema uses 'email', DB uses 'email_enabled')
   const { notification_prefs, ...updatesWithoutPrefs } = updates;
-  const finalUpdates: typeof updatesWithoutPrefs & { notification_prefs?: { email_enabled: boolean; frequency: "instant" | "daily" | "weekly" } | null } = {
+  const finalUpdates: typeof updatesWithoutPrefs & {
+    notification_prefs?: { email_enabled: boolean; frequency: "instant" | "daily" | "weekly" } | null;
+  } = {
     ...updatesWithoutPrefs,
     ...(notification_prefs
       ? {
           notification_prefs: {
-            email_enabled: (notification_prefs as any).email,
-            frequency: (notification_prefs as any).frequency,
+            email_enabled: notification_prefs.email,
+            frequency: notification_prefs.frequency,
           },
         }
       : {}),
