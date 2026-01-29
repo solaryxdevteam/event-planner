@@ -120,6 +120,37 @@ export async function unbanVenue(id: string): Promise<void> {
   return apiClient.post<void>(`/api/venues/${id}/unban`);
 }
 
+/**
+ * Check for duplicate venue
+ */
+export interface DuplicateCheckResult {
+  isDuplicate: boolean;
+  duplicateVenue: {
+    id: string;
+    short_id: string | null;
+    name: string;
+    street: string | null;
+    city: string;
+    country: string | null;
+  } | null;
+}
+
+export async function checkVenueDuplicate(
+  name: string,
+  street: string,
+  city: string,
+  country: string,
+  excludeId?: string
+): Promise<DuplicateCheckResult> {
+  return apiClient.post<DuplicateCheckResult>("/api/venues/check-duplicate", {
+    name,
+    street,
+    city,
+    country,
+    excludeId,
+  });
+}
+
 // =============================================
 // Venue Templates
 // =============================================
