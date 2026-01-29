@@ -126,6 +126,28 @@ export function useDeleteVenue() {
 }
 
 /**
+ * React Query hook: Check venue duplicate mutation
+ * Returns mutation for checking if a venue with same name, street, city, country exists
+ */
+export function useCheckVenueDuplicate() {
+  return useMutation({
+    mutationFn: ({
+      name,
+      street,
+      city,
+      country,
+      excludeId,
+    }: {
+      name: string;
+      street: string;
+      city: string;
+      country: string;
+      excludeId?: string;
+    }) => venueClientService.checkVenueDuplicate(name, street, city, country, excludeId),
+  });
+}
+
+/**
  * React Query hook: Ban venue mutation
  */
 export function useBanVenue() {

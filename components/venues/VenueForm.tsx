@@ -19,7 +19,7 @@ import {
   venueStep3Schema,
   type CreateVenueInput,
 } from "@/lib/validation/venues.schema";
-import { useCreateVenue, useUpdateVenue } from "@/lib/hooks/use-venues";
+import { useCreateVenue, useUpdateVenue, useCheckVenueDuplicate } from "@/lib/hooks/use-venues";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { VenueMapSelector } from "./VenueMapSelector";
@@ -155,6 +155,17 @@ export function VenueForm({
   // React Query mutations
   const createVenueMutation = useCreateVenue();
   const updateVenueMutation = useUpdateVenue();
+  const checkDuplicateMutation = useCheckVenueDuplicate();
+
+  // Duplicate venue state
+  const [duplicateVenue, setDuplicateVenue] = useState<{
+    id: string;
+    short_id: string | null;
+    name: string;
+    street: string | null;
+    city: string;
+    country: string | null;
+  } | null>(null);
 
   // Template queries
   const { data: templates = [], isLoading: templatesLoading } = useVenueTemplates();
@@ -263,6 +274,46 @@ export function VenueForm({
     }
   }, [defaultCountryId, form]);
 
+  // Check for duplicates when key fields change (debounced)
+  const watchedName = form.watch("name");
+  const watchedStreet = form.watch("street");
+  const watchedCity = form.watch("city");
+  const watchedCountry = form.watch("country") || defaultCountry;
+
+  useEffect(() => {
+    // Reset duplicate check when fields change
+    setDuplicateVenue(null);
+
+    // Debounce the duplicate check
+    const timeoutId = setTimeout(async () => {
+      const name = watchedName?.trim();
+      const street = watchedStreet?.trim();
+      const city = watchedCity?.trim();
+      const country = watchedCountry?.trim();
+
+      // Only check if all required fields have meaningful content
+      if (name && name.length >= 2 && street && street.length >= 2 && city && city.length >= 2 && country) {
+        try {
+          const result = await checkDuplicateMutation.mutateAsync({
+            name,
+            street,
+            city,
+            country,
+            excludeId: venueId, // Exclude current venue when editing
+          });
+
+          setDuplicateVenue(result.duplicateVenue);
+        } catch (error) {
+          console.error("Failed to check duplicate:", error);
+          setDuplicateVenue(null);
+        }
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [watchedName, watchedStreet, watchedCity, watchedCountry, venueId]);
+
   // Load template data when a template is selected
   useEffect(() => {
     if (selectedTemplate && !isEditing) {
@@ -319,19 +370,24 @@ export function VenueForm({
     }
   }, [selectedTemplate, form, states, isEditing]);
 
-  // Calculate step errors for visual feedback (only after submission)
+  // Calculate step errors for visual feedback (only after submission or duplicate)
   // Since validation only happens on onSubmit, errors only exist after form submission
   const stepErrors = useMemo(() => {
-    // Only calculate errors if form has been submitted (when validation occurs)
-    if (!form.formState.isSubmitted) {
-      return {};
+    const errors: Record<number, boolean> = {};
+
+    // Step 1 has error if duplicate venue exists (always show this)
+    if (duplicateVenue) {
+      errors[1] = true;
     }
 
-    const errors: Record<number, boolean> = {};
+    // Only calculate field errors if form has been submitted (when validation occurs)
+    if (!form.formState.isSubmitted) {
+      return errors;
+    }
 
     // Check step 1
     const step1Fields: (keyof VenueFormData)[] = ["name", "street", "city", "country"];
-    errors[1] = step1Fields.some((field) => !!form.formState.errors[field]);
+    errors[1] = errors[1] || step1Fields.some((field) => !!form.formState.errors[field]);
 
     // Check step 2
     const step2Fields: (keyof VenueFormData)[] = [
@@ -348,7 +404,7 @@ export function VenueForm({
     errors[3] = step3Fields.some((field) => !!form.formState.errors[field]);
 
     return errors;
-  }, [form.formState.errors, form.formState.isSubmitted]);
+  }, [form.formState.errors, form.formState.isSubmitted, duplicateVenue]);
 
   // Validate current step
   const validateStep = async (step: number): Promise<boolean> => {
@@ -416,6 +472,14 @@ export function VenueForm({
       e.stopPropagation();
     }
 
+    // Block if duplicate exists in Step 1
+    if (currentStep === 1 && duplicateVenue) {
+      toast.error("Cannot proceed with duplicate venue", {
+        description: "Please modify the venue name, address, or city to create a unique venue.",
+      });
+      return;
+    }
+
     // Prevent double-click by checking if already on last step
     setCurrentStep((prev) => {
       if (prev >= 3) return prev;
@@ -461,6 +525,16 @@ export function VenueForm({
       return;
     }
 
+    // Block submission if duplicate venue exists
+    if (duplicateVenue) {
+      toast.error("Cannot create duplicate venue", {
+        description:
+          "A venue with the same name, address, and city already exists. Please modify the venue details or view the existing venue.",
+      });
+      setCurrentStep(1);
+      return;
+    }
+
     const step1Valid = await validateStep(1);
     const step2Valid = await validateStep(2);
     const step3Valid = await validateStep(3);
@@ -493,10 +567,13 @@ export function VenueForm({
       } else {
         const result = await createVenueMutation.mutateAsync(submitData);
         if (result.isDuplicate) {
-          toast.warning("Duplicate venue detected", {
+          // This shouldn't happen since we check in Step 1, but handle it anyway
+          setDuplicateVenue(result.duplicateVenue || null);
+          toast.error("Cannot create duplicate venue", {
             description:
-              "A venue with the same name, address, and city already exists. Please check if you want to create a duplicate.",
+              "A venue with the same name, address, and city already exists. Please modify the venue details.",
           });
+          setCurrentStep(1);
         } else {
           const newVenue = result.venue;
           setVenueId(newVenue.id);
@@ -511,10 +588,7 @@ export function VenueForm({
       }
     } catch (error) {
       // Error is handled by the mutation hook (toast shown)
-      // Just need to handle duplicate case
-      if (error && typeof error === "object" && "isDuplicate" in error) {
-        // Already handled above
-      }
+      console.error("Failed to save venue:", error);
     }
   };
 
@@ -833,6 +907,49 @@ export function VenueForm({
                 stateCenter={stateCenter}
                 error={form.formState.errors.location_lat?.message || form.formState.errors.location_lng?.message}
               />
+
+              {/* Duplicate Venue Error */}
+              {duplicateVenue && (
+                <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-destructive">Duplicate Venue Detected</h4>
+                      <p className="text-sm text-destructive/90 mt-1">
+                        A venue with the same name, address, and city already exists. You cannot create a duplicate
+                        venue.
+                      </p>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        <p>
+                          <strong>Existing venue:</strong> {duplicateVenue.name}
+                        </p>
+                        <p>
+                          {duplicateVenue.street}, {duplicateVenue.city}
+                          {duplicateVenue.country ? `, ${duplicateVenue.country}` : ""}
+                        </p>
+                      </div>
+                      {duplicateVenue.short_id && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3"
+                          onClick={() => router.push(`/dashboard/venues/${duplicateVenue.short_id}`)}
+                        >
+                          View Existing Venue
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Duplicate Check Loading */}
+              {checkDuplicateMutation.isPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking for duplicate venues...
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1104,13 +1221,30 @@ export function VenueForm({
               <Button
                 type="button"
                 onClick={(e) => handleNext(e)}
-                disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
+                disabled={
+                  createVenueMutation.isPending ||
+                  updateVenueMutation.isPending ||
+                  checkDuplicateMutation.isPending ||
+                  (currentStep === 1 && !!duplicateVenue)
+                }
               >
-                Next
-                <ArrowRight className="ml-2 h-4 w-4" />
+                {checkDuplicateMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
               </Button>
             ) : (
-              <Button type="submit" disabled={createVenueMutation.isPending || updateVenueMutation.isPending}>
+              <Button
+                type="submit"
+                disabled={createVenueMutation.isPending || updateVenueMutation.isPending || !!duplicateVenue}
+              >
                 {createVenueMutation.isPending || updateVenueMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
