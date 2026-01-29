@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   // Layout already ensures auth, but we need to check status
-  // Use requireAuth(true) to allow pending users (they'll be redirected below)
+  // Use requireAuth(true) to allow pending users (they'll be redirected below).
   const user = await requireAuth(true);
 
   // Redirect pending users to profile page
