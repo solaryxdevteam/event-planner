@@ -1,20 +1,79 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { X, Upload, Image as ImageIcon } from "lucide-react";
+import { X, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"] as const;
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+const MAX_IMAGES = 5;
+
 interface VenueImageUploadProps {
   images: string[];
   onImagesChange: (images: string[]) => void;
-  venueId?: string; // For new venues, this will be undefined until saved
+  venueId?: string;
   error?: string;
-  onFilesChange?: (files: File[]) => void; // Callback to track File objects
+  onFilesChange?: (files: File[]) => void;
+}
+
+function validateFiles(files: File[]): { valid: File[]; errors: string[] } {
+  const valid: File[] = [];
+  const errors: string[] = [];
+  for (const file of files) {
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
+      errors.push(`Invalid type: ${file.name}. Use JPEG, PNG, GIF, or WebP.`);
+      continue;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      errors.push(`Too large: ${file.name}. Max 5MB.`);
+      continue;
+    }
+    valid.push(file);
+  }
+  return { valid, errors };
+}
+
+const UPLOAD_ENDPOINT = "/api/venues/upload-image";
+
+/** Upload one file with progress. Uses XHR so we can report upload progress (fetch doesn't support it). */
+function uploadOne(file: File, onProgress: (percent: number) => void): Promise<{ url: string }> {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append("image", file);
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    });
+
+    xhr.addEventListener("load", () => {
+      onProgress(100);
+      const contentType = xhr.getResponseHeader("content-type") ?? "";
+      const isJson = contentType.includes("application/json");
+      let body: { url?: string; error?: string };
+      try {
+        body = isJson ? JSON.parse(xhr.responseText || "{}") : {};
+      } catch {
+        reject(new Error("Invalid response from server"));
+        return;
+      }
+      if (xhr.status === 200 && body.url) {
+        resolve({ url: body.url });
+      } else {
+        reject(new Error(body.error ?? `Upload failed (${xhr.status})`));
+      }
+    });
+
+    xhr.addEventListener("error", () => reject(new Error("Network error")));
+    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
+    xhr.open("POST", UPLOAD_ENDPOINT);
+    xhr.send(formData);
+  });
 }
 
 export function VenueImageUpload({ images, onImagesChange, venueId, error, onFilesChange }: VenueImageUploadProps) {
@@ -22,167 +81,110 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
   const [tempFiles, setTempFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const maxImages = 5;
+  const inputId = useId();
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    // Check if adding these files would exceed the limit
-    if (images.length + files.length > maxImages) {
-      toast.error(`Maximum ${maxImages} images allowed`);
-      return;
-    }
-
-    // Validate files
-    const validFiles: File[] = [];
-    for (const file of Array.from(files)) {
-      // Validate file type
-      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`Invalid file type: ${file.name}. Only JPEG, PNG, GIF, and WebP images are allowed.`);
-        continue;
+  const processFiles = useCallback(
+    async (fileList: File[]): Promise<void> => {
+      const slotsLeft = MAX_IMAGES - images.length;
+      if (slotsLeft <= 0) {
+        toast.error(`Maximum ${MAX_IMAGES} images allowed`);
+        return;
       }
 
-      // Validate file size (5MB max)
-      const maxSize = 5 * 1024 * 1024; // 5MB
-      if (file.size > maxSize) {
-        toast.error(`File too large: ${file.name}. Maximum size is 5MB.`);
-        continue;
+      const { valid, errors } = validateFiles(fileList);
+      if (errors.length > 0) {
+        errors.forEach((msg) => toast.error(msg));
       }
+      if (valid.length === 0) return;
 
-      validFiles.push(file);
-    }
+      const filesToUpload = valid.slice(0, slotsLeft);
+      const previewUrlMap = new Map<number, string>();
+      const startIndex = images.length;
 
-    if (validFiles.length === 0) return;
+      filesToUpload.forEach((file, i) => {
+        const url = URL.createObjectURL(file);
+        previewUrlMap.set(i, url);
+      });
 
-    setIsUploading(true);
-    const filesToUpload = validFiles.slice(0, maxImages - images.length);
-    const previewUrls: string[] = [];
-    const previewUrlMap = new Map<number, string>(); // Map file index to preview URL
+      const previewUrls = filesToUpload.map((_, i) => previewUrlMap.get(i)!);
+      onImagesChange([...images, ...previewUrls]);
+      setIsUploading(true);
+      filesToUpload.forEach((_, i) => setUploadProgress((p) => ({ ...p, [startIndex + i]: 0 })));
 
-    // Create preview URLs immediately and show them
-    filesToUpload.forEach((file, index) => {
-      const fileIndex = images.length + index;
-      const previewUrl = URL.createObjectURL(file);
-      previewUrls.push(previewUrl);
-      previewUrlMap.set(index, previewUrl);
-      setUploadProgress((prev) => ({ ...prev, [fileIndex]: 0 }));
-    });
+      try {
+        const results = await Promise.all(
+          filesToUpload.map((file, index) => {
+            const fileIndex = startIndex + index;
+            return uploadOne(file, (percent) => {
+              setUploadProgress((p) => ({ ...p, [fileIndex]: percent }));
+            }).then((res) => ({ ...res, file, index }));
+          })
+        );
 
-    // Show previews immediately
-    const currentImages = [...images];
-    onImagesChange([...currentImages, ...previewUrls]);
-
-    try {
-      // Upload images immediately using the API endpoint with progress tracking
-      const uploadPromises = filesToUpload.map(async (file, index) => {
-        const fileIndex = images.length + index;
-
-        const formData = new FormData();
-        formData.append("image", file);
-
-        // Create XMLHttpRequest for progress tracking
-        return new Promise<{ url: string; file: File; previewIndex: number }>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-
-          // Track upload progress
-          xhr.upload.addEventListener("progress", (e) => {
-            if (e.lengthComputable) {
-              const percentComplete = Math.round((e.loaded / e.total) * 100);
-              setUploadProgress((prev) => ({ ...prev, [fileIndex]: percentComplete }));
-            }
-          });
-
-          xhr.addEventListener("load", () => {
-            if (xhr.status === 200) {
-              try {
-                // Check if response is JSON
-                const contentType = xhr.getResponseHeader("content-type");
-                if (contentType && contentType.includes("application/json")) {
-                  const result = JSON.parse(xhr.responseText);
-                  setUploadProgress((prev) => ({ ...prev, [fileIndex]: 100 }));
-                  resolve({ url: result.url, file, previewIndex: index });
-                } else {
-                  // Response is not JSON (likely HTML error page)
-                  reject(new Error("Server returned invalid response. Please try again."));
-                }
-              } catch (error) {
-                reject(new Error("Failed to parse response"));
-              }
-            } else {
-              try {
-                // Try to parse as JSON first
-                const contentType = xhr.getResponseHeader("content-type");
-                if (contentType && contentType.includes("application/json")) {
-                  const error = JSON.parse(xhr.responseText);
-                  reject(new Error(error.error || "Failed to upload image"));
-                } else {
-                  // HTML error page or other non-JSON response
-                  reject(new Error(`Upload failed with status ${xhr.status}. Please try again.`));
-                }
-              } catch {
-                reject(new Error(`Upload failed with status ${xhr.status}`));
-              }
-            }
-          });
-
-          xhr.addEventListener("error", () => {
-            reject(new Error("Network error during upload"));
-          });
-
-          xhr.addEventListener("abort", () => {
-            reject(new Error("Upload was aborted"));
-          });
-
-          xhr.open("POST", "/api/venues/upload-image");
-          xhr.send(formData);
+        const finalImages = [...images];
+        const newTempFiles: File[] = [];
+        results.forEach(({ url, file, index }) => {
+          finalImages[startIndex + index] = url;
+          newTempFiles.push(file);
+          const previewUrl = previewUrlMap.get(index);
+          if (previewUrl) URL.revokeObjectURL(previewUrl);
         });
-      });
 
-      const uploadResults = await Promise.all(uploadPromises);
-
-      // Replace preview URLs with actual uploaded URLs
-      const finalImages = [...images];
-      const newTempFiles: File[] = [];
-
-      uploadResults.forEach((result) => {
-        const previewIndex = images.length + result.previewIndex;
-        finalImages[previewIndex] = result.url;
-        newTempFiles.push(result.file);
-        // Revoke the preview URL
-        const previewUrl = previewUrlMap.get(result.previewIndex);
-        if (previewUrl) {
-          URL.revokeObjectURL(previewUrl);
-        }
-      });
-
-      onImagesChange(finalImages);
-      const updatedTempFiles = [...tempFiles, ...newTempFiles];
-      setTempFiles(updatedTempFiles);
-      onFilesChange?.(updatedTempFiles);
-
-      // Clear progress after a short delay
-      setTimeout(() => {
+        onImagesChange(finalImages);
+        const updatedTempFiles = [...tempFiles, ...newTempFiles];
+        setTempFiles(updatedTempFiles);
+        onFilesChange?.(updatedTempFiles);
+        toast.success(`${results.length} image(s) uploaded`);
+      } catch (err) {
+        onImagesChange(images);
+        previewUrlMap.forEach((url) => URL.revokeObjectURL(url));
+        toast.error(err instanceof Error ? err.message : "Failed to upload images");
+      } finally {
+        setIsUploading(false);
         setUploadProgress({});
-      }, 500);
-
-      toast.success(`${uploadResults.length} image(s) uploaded successfully`);
-    } catch (error) {
-      // Remove preview images on error
-      onImagesChange(images);
-      previewUrls.forEach((url) => URL.revokeObjectURL(url));
-      toast.error(error instanceof Error ? error.message : "Failed to upload images");
-      // Remove any partial uploads from progress
-      setUploadProgress({});
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
-    }
-  };
+    },
+    [images, tempFiles, onImagesChange, onFilesChange]
+  );
+
+  const handleInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = e.target.files;
+      if (!files?.length) return;
+      processFiles(Array.from(files));
+    },
+    [processFiles]
+  );
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      if (isUploading || images.length >= MAX_IMAGES) return;
+      const files = Array.from(e.dataTransfer.files ?? []);
+      if (files.length) processFiles(files);
+    },
+    [isUploading, images.length, processFiles]
+  );
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const openFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   const handleRemoveImage = async (index: number) => {
     if (isUploading) {
@@ -233,10 +235,6 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
     toast.success("Image removed");
   };
 
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
-  };
-
   return (
     <div className="space-y-2">
       <Label>
@@ -244,32 +242,71 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
       </Label>
 
       <div className="space-y-4">
-        {/* Upload Button */}
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
-            multiple
-            onChange={handleFileSelect}
-            className="hidden"
-            disabled={isUploading || images.length >= maxImages}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleButtonClick}
-            disabled={isUploading || images.length >= maxImages}
-            className="w-full"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            {isUploading
-              ? "Uploading..."
-              : images.length >= maxImages
-                ? `Maximum ${maxImages} images reached`
-                : `Upload Images (${images.length}/${maxImages})`}
-          </Button>
-        </div>
+        {/* File input: label association ensures clicking "Choose files" opens the system picker */}
+        <input
+          id={inputId}
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+          multiple
+          onChange={handleInputChange}
+          disabled={isUploading || images.length >= MAX_IMAGES}
+          className="sr-only"
+          aria-label="Choose venue images"
+        />
+
+        {/* Drop zone + Upload button + overall progress */}
+        {(() => {
+          const progressEntries = Object.entries(uploadProgress);
+          const totalUploading = progressEntries.length;
+          const overallPercent =
+            totalUploading > 0 ? Math.round(progressEntries.reduce((sum, [, p]) => sum + p, 0) / totalUploading) : 0;
+          const completedCount = progressEntries.filter(([, p]) => p >= 100).length;
+          return (
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`
+            relative rounded-lg border-2 border-dashed transition-colors
+            ${isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"}
+            ${isUploading || images.length >= MAX_IMAGES ? "pointer-events-none opacity-60" : ""}
+          `}
+            >
+              <div className="flex flex-col items-center justify-center gap-2 py-6 px-4">
+                {isUploading ? (
+                  <>
+                    <p className="text-sm font-medium">
+                      Uploading {completedCount} of {totalUploading} image{totalUploading !== 1 ? "s" : ""}
+                    </p>
+                    <Progress value={overallPercent} className="w-full max-w-xs h-2.5" />
+                    <p className="text-xs text-muted-foreground">{overallPercent}%</p>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground text-center">
+                      {isDragging ? "Drop images here" : "Drag and drop images here, or"}
+                    </p>
+                    <Label htmlFor={inputId} className="cursor-pointer">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={openFilePicker}
+                        disabled={images.length >= MAX_IMAGES}
+                        asChild
+                      >
+                        <span>
+                          {images.length >= MAX_IMAGES ? `Maximum ${MAX_IMAGES} images reached` : "Choose files"}
+                        </span>
+                      </Button>
+                    </Label>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Image Grid */}
         {images.length > 0 && (
@@ -308,16 +345,6 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {/* Empty State */}
-        {images.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-md bg-muted/50">
-            <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground text-center">
-              No images uploaded yet. Click the button above to upload.
-            </p>
           </div>
         )}
       </div>
