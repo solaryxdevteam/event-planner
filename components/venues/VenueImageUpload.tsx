@@ -7,6 +7,7 @@ import { X, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import Image from "next/image";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"] as const;
@@ -321,7 +322,7 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
                     className="aspect-video rounded-md border border-input overflow-hidden bg-muted relative cursor-pointer"
                     onClick={() => !isUploadingThis && !isUploading && setSelectedImageIndex(index)}
                   >
-                    <img src={url} alt={`Venue image ${index + 1}`} className="w-full h-full object-cover" />
+                    <Image src={url} alt={`Venue image ${index + 1}`} fill className="object-cover" unoptimized />
                     {isUploadingThis && (
                       <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
                         <div className="text-white text-sm font-medium mb-2">{progress}%</div>
@@ -358,11 +359,13 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
             <DialogTitle>Venue Image {selectedImageIndex !== null ? selectedImageIndex + 1 : ""}</DialogTitle>
           </VisuallyHidden.Root>
           {selectedImageIndex !== null && images[selectedImageIndex] && (
-            <div className="relative w-full">
-              <img
+            <div className="relative w-full aspect-video">
+              <Image
                 src={images[selectedImageIndex]}
                 alt={`Venue image ${selectedImageIndex + 1}`}
-                className="w-full h-auto max-h-[80vh] object-cover rounded-lg"
+                fill
+                className="object-cover rounded-lg"
+                unoptimized
               />
               <Button
                 type="button"

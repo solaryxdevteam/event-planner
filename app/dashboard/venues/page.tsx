@@ -131,12 +131,12 @@ export default function VenuesPage() {
     }
   }, [filters, currentPage]);
 
-  const handleDelete = async (venueId: string) => {
+  const handleDelete = async (_venueId: string) => {
     // This is kept for backward compatibility but dialogs handle deletion now
     // React Query will automatically refetch when mutations complete
   };
 
-  const handleBan = async (venueId: string) => {
+  const handleBan = async (_venueId: string) => {
     // This is kept for backward compatibility but dialogs handle banning now
     // React Query will automatically refetch when mutations complete
   };

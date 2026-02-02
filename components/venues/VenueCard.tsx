@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { PencilIcon, BanIcon, TrashIcon, CheckCircle2 } from "lucide-react";
 import { Card, CardHeader, CardDescription, CardTitle, CardFooter, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -70,7 +71,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
       {/* Image Section */}
       <div className="relative flex h-60 items-center justify-center bg-muted overflow-hidden">
         {firstImage ? (
-          <img src={firstImage} alt={venue.name} className="w-full h-full object-cover" />
+          <Image src={firstImage} alt={venue.name} fill className="object-cover" unoptimized />
         ) : (
           <div className="flex items-center justify-center w-full h-full text-muted-foreground">
             <span className="text-sm">No image available</span>
