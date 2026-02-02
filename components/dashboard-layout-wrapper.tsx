@@ -3,6 +3,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
@@ -94,11 +95,22 @@ export function DashboardLayoutWrapper({ children, user, isPending }: DashboardL
       <PendingRedirect isPending={isPending} />
       <AppSidebar user={user} disabled={isPending && !isProfilePage} userRole={user.role} />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-1 sm:px-4">
           <SidebarTrigger className="-ml-1" disabled={isPending && !isProfilePage} />
-          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
+          <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4 hidden sm:block" />
+          <Link href="/dashboard" className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <Image
+              src="/images/shiraz-house-logo.webp"
+              alt="Shiraz House logo"
+              width={36}
+              height={36}
+              className="rounded sm:w-7 sm:h-7 sm:hidden"
+            />
+            <span className="font-semibold text-sm sm:hidden">Shiraz House</span>
+          </Link>
+          {/* Breadcrumbs in header for desktop */}
           {breadcrumbs.length > 0 && (
-            <Breadcrumb>
+            <Breadcrumb className="hidden sm:block">
               <BreadcrumbList>
                 {breadcrumbs.map((crumb, index) => (
                   <React.Fragment key={crumb.href}>
@@ -121,8 +133,33 @@ export function DashboardLayoutWrapper({ children, user, isPending }: DashboardL
             <ThemeToggle />
           </div>
         </header>
+        {/* Breadcrumbs below header for mobile */}
+        {breadcrumbs.length > 0 && (
+          <div className="border-b px-2 sm:hidden py-1.5">
+            <Breadcrumb>
+              <BreadcrumbList>
+                {breadcrumbs.map((crumb, index) => (
+                  <React.Fragment key={crumb.href}>
+                    {index > 0 && <BreadcrumbSeparator />}
+                    <BreadcrumbItem>
+                      {crumb.isCurrent ? (
+                        <BreadcrumbPage className="text-xs">{crumb.label}</BreadcrumbPage>
+                      ) : (
+                        <BreadcrumbLink asChild>
+                          <Link href={crumb.href} className="text-xs">
+                            {crumb.label}
+                          </Link>
+                        </BreadcrumbLink>
+                      )}
+                    </BreadcrumbItem>
+                  </React.Fragment>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        )}
         <div
-          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden ${isVenuesPage || isEventsListPage ? "" : "p-4"} ${isPending && !isProfilePage ? "pointer-events-none opacity-50" : ""}`}
+          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden p-1 sm:p-4 ${isPending && !isProfilePage ? "pointer-events-none opacity-50" : ""}`}
         >
           {children}
         </div>

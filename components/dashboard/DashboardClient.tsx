@@ -169,17 +169,17 @@ export function DashboardClient() {
   return (
     <div className="w-full min-w-0 max-w-full">
       {/* 2 columns: left 2/3, right 1/3 */}
-      <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column (2/3): Upcoming Events + Reports (one chart) */}
         <div className="flex min-w-0 flex-col gap-4">
           <div className="min-w-0 overflow-hidden">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="text-lg leading-none font-semibold flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+            <div className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+              <div className="text-base sm:text-lg leading-none font-semibold flex items-center gap-2">
+                <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 Upcoming Events
               </div>
 
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild className="shrink-0">
                 <Link href="/dashboard/events">View all</Link>
               </Button>
             </div>
@@ -222,13 +222,13 @@ export function DashboardClient() {
             />
           </div>
 
-          <Card className="min-w-0 overflow-hidden p-4 shadow-none gap-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <ListChecks className="h-5 w-5" />
+          <Card className="min-w-0 overflow-hidden p-3 sm:p-4 shadow-none gap-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 gap-2">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />
                 Pending Approvals
               </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild className="shrink-0">
                 <Link href="/dashboard/approvals">View all</Link>
               </Button>
             </CardHeader>
@@ -264,13 +264,13 @@ export function DashboardClient() {
             </CardContent>
           </Card>
 
-          <Card className="min-w-0 overflow-hidden p-4 shadow-none">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
+          <Card className="min-w-0 overflow-hidden p-3 sm:p-4 shadow-none">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 gap-2">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
                 Venues
               </CardTitle>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild className="shrink-0">
                 <Link href="/dashboard/venues">View all</Link>
               </Button>
             </CardHeader>
@@ -290,7 +290,7 @@ export function DashboardClient() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="grid gap-4 grid-cols-1">
                   {displayVenues.map((venue) => (
                     <DashboardVenueCard key={venue.id} venue={venue} />
                   ))}

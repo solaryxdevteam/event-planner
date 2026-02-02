@@ -129,8 +129,8 @@ export default function ApprovalsPage() {
       </div>
 
       <Tabs value={defaultTab} onValueChange={handleTabChange} className="space-y-4">
-        <div className="flex items-center justify-between">
-          <TabsList>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <TabsList className="overflow-x-auto scrollbar-hide w-full sm:w-fit">
             <TabsTrigger value="event">
               Events{" "}
               {eventApprovals.length > 0 && (
@@ -166,7 +166,7 @@ export default function ApprovalsPage() {
           </TabsList>
 
           {/* View Toggle */}
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <div className="flex items-center border rounded-md">
               <Button
                 variant={viewMode === "list" ? "default" : "ghost"}

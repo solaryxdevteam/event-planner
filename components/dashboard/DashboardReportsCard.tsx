@@ -151,22 +151,28 @@ export function DashboardReportsCard() {
 
   return (
     <Tabs value={period} onValueChange={(v) => setPeriod(v as "monthly" | "yearly")}>
-      <Card className="min-w-0 overflow-hidden gap-2 p-4 shadow-none">
-        <CardHeader className="flex flex-row items-center justify-between gap-4 space-y-0 px-0">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <ListChecks className="h-5 w-5" />
-            Reports
-            <span className="text-sm font-normal text-muted-foreground">· {periodLabel}</span>
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <TabsList className="h-9">
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="yearly">Yearly</TabsTrigger>
-            </TabsList>
-            <Button variant="ghost" size="sm" asChild>
+      <Card className="min-w-0 overflow-hidden gap-2 p-3 sm:p-4 shadow-none">
+        <CardHeader className="flex flex-col gap-2 sm:gap-4 space-y-0 px-0">
+          {/* Title and View all in one line */}
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+              <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />
+              Reports
+              <span className="text-xs sm:text-sm font-normal text-muted-foreground">· {periodLabel}</span>
+            </CardTitle>
+            <Button variant="ghost" size="sm" asChild className="shrink-0">
               <Link href="/dashboard/reports">View all</Link>
             </Button>
           </div>
+          {/* Tabs below */}
+          <TabsList className="h-8 sm:h-9 w-fit">
+            <TabsTrigger value="monthly" className="text-xs sm:text-sm">
+              Monthly
+            </TabsTrigger>
+            <TabsTrigger value="yearly" className="text-xs sm:text-sm">
+              Yearly
+            </TabsTrigger>
+          </TabsList>
         </CardHeader>
         <CardContent className="px-0">
           <TabsContent value="monthly" className="mt-4">
@@ -205,10 +211,10 @@ function ReportsContent({
   if (isLoading) {
     return (
       <>
-        <Skeleton className="h-[280px] w-full rounded-lg mb-4" />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Skeleton className="h-[200px] sm:h-[280px] w-full rounded-lg mb-4" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-16 rounded-lg" />
+            <Skeleton key={i} className="h-14 sm:h-16 rounded-lg" />
           ))}
         </div>
       </>
@@ -218,10 +224,10 @@ function ReportsContent({
   if (!chartConfig || chartConfig.labels.length === 0) {
     return (
       <>
-        <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground mb-4">
+        <div className="flex h-[200px] sm:h-[280px] items-center justify-center rounded-lg border border-dashed bg-muted/30 text-xs sm:text-sm text-muted-foreground mb-4 px-4">
           No report data for this period.
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
           <SummaryCard icon={TrendingUp} label="Events" value={`${summary.totalEvents}`} />
           <SummaryCard
             icon={BarChart3}
@@ -237,10 +243,10 @@ function ReportsContent({
 
   return (
     <>
-      <div className="h-[280px] w-full mb-4">
+      <div className="h-[200px] sm:h-[280px] w-full mb-4">
         <Chart type="bar" data={chartConfig as never} options={chartOptions} />
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         <SummaryCard icon={TrendingUp} label="Events" value={`${summary.totalEvents}`} />
         <SummaryCard
           icon={BarChart3}
@@ -264,12 +270,12 @@ function SummaryCard({
   value: string;
 }) {
   return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-        <Icon className="h-3.5 w-3.5" />
+    <div className="rounded-lg border bg-card p-2 sm:p-3">
+      <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground mb-1">
+        <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
         {label}
       </div>
-      <p className="font-semibold text-sm">{value}</p>
+      <p className="font-semibold text-xs sm:text-sm">{value}</p>
     </div>
   );
 }
