@@ -12,10 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Calendar, ListChecks, Building2, MapPin, ChevronRight } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import Link from "next/link";
+import Image from "next/image";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 
@@ -47,7 +47,7 @@ function UpcomingEventCard({ event }: { event: EventWithRelations }) {
       <Card className="overflow-hidden h-full p-0 shadow-none gap-1">
         <div className="relative h-32 bg-muted flex items-center justify-center overflow-hidden">
           {venueImage ? (
-            <img src={venueImage} alt="" className="w-full h-full object-cover" />
+            <Image src={venueImage} alt="" fill className="object-cover" unoptimized />
           ) : (
             <Calendar className="h-12 w-12 text-muted-foreground" />
           )}
@@ -124,7 +124,7 @@ function DashboardVenueCard({ venue }: { venue: VenueWithCreator }) {
       <Card className="overflow-hidden shadow-none p-0 gap-2">
         <div className="relative h-36 bg-muted flex items-center justify-center overflow-hidden">
           {firstImage ? (
-            <img src={firstImage} alt={venue.name} className="w-full h-full object-cover" />
+            <Image src={firstImage} alt={venue.name} fill className="object-cover" unoptimized />
           ) : (
             <Building2 className="h-12 w-12 text-muted-foreground" />
           )}

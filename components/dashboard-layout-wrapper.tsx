@@ -86,8 +86,6 @@ function generateBreadcrumbs(pathname: string) {
 export function DashboardLayoutWrapper({ children, user, isPending }: DashboardLayoutWrapperProps) {
   const pathname = usePathname();
   const isProfilePage = pathname.startsWith("/dashboard/profile");
-  const isVenuesPage = pathname.startsWith("/dashboard/venues");
-  const isEventsListPage = pathname === "/dashboard/events";
   const breadcrumbs = generateBreadcrumbs(pathname);
 
   return (
