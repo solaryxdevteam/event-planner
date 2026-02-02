@@ -10,6 +10,7 @@ import { useRouter, useParams } from "next/navigation";
 import { getLocationById, getStatesByCountry } from "@/lib/actions/locations";
 import { signInWithPassword } from "@/lib/auth/client";
 import { encryptPassword } from "@/lib/utils/password-encryption.client";
+import { useValidateInvitation } from "@/lib/hooks/use-invitations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,12 +26,13 @@ import { Loader2, AlertCircle } from "lucide-react";
 export default function RegisterPage() {
   const router = useRouter();
   const params = useParams();
-  const token = params.token as string;
+  const token = (params?.token as string) ?? "";
+
+  const { data: invitationData, isLoading, error: validationError } = useValidateInvitation(token || null);
 
   const [invitation, setInvitation] = useState<{ email: string; country_id: string; country_name?: string } | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [states, setStates] = useState<Array<{ id: string; name: string }>>([]);
@@ -47,63 +49,44 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
 
+  // When invitation is validated, set email and load country name + states (cached by React Query)
   useEffect(() => {
-    async function validateToken() {
-      if (!token) {
-        setError("Invalid invitation link");
-        setIsLoading(false);
-        return;
-      }
+    if (!invitationData?.country_id || !invitationData?.email) return;
 
-      try {
-        // Validate invitation token via API
-        const response = await fetch(`/api/invitations/validate?token=${encodeURIComponent(token)}`);
-        const result = await response.json();
+    setFormData((prev) => ({ ...prev, email: invitationData.email }));
 
-        if (result.success && result.data) {
-          // Fetch country name
-          const countryResult = await getLocationById(result.data.country_id);
-          const countryName = countryResult.success && countryResult.data ? countryResult.data.name : "Country";
+    getLocationById(invitationData.country_id).then((countryResult) => {
+      const countryName = countryResult.success && countryResult.data ? countryResult.data.name : "Country";
+      setInvitation({
+        email: invitationData.email,
+        country_id: invitationData.country_id,
+        country_name: countryName,
+      });
+    });
 
-          setInvitation({
-            email: result.data.email,
-            country_id: result.data.country_id,
-            country_name: countryName,
-          });
-          setFormData((prev) => ({
-            ...prev,
-            email: result.data!.email,
-          }));
-
-          // Load states for the country
-          loadStates(result.data.country_id);
-        } else {
-          setError(result.error || "Invalid or expired invitation token");
-        }
-      } catch (err) {
-        setError("Failed to validate invitation token");
-        console.error("Token validation error:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    validateToken();
-  }, [token]);
-
-  const loadStates = async (countryId: string) => {
     setLoadingStates(true);
-    try {
-      const response = await getStatesByCountry(countryId);
-      if (response.success && response.data) {
-        setStates(response.data.map((s) => ({ id: s.id, name: s.name })));
-      }
-    } catch (error) {
-      console.error("Failed to load states:", error);
-    } finally {
-      setLoadingStates(false);
-    }
-  };
+    getStatesByCountry(invitationData.country_id)
+      .then((response) => {
+        if (response.success && response.data) {
+          setStates(response.data.map((s) => ({ id: s.id, name: s.name })));
+        }
+      })
+      .finally(() => setLoadingStates(false));
+  }, [invitationData?.country_id, invitationData?.email]);
+
+  // const loadStates = async (countryId: string) => {
+  //   setLoadingStates(true);
+  //   try {
+  //     const response = await getStatesByCountry(countryId);
+  //     if (response.success && response.data) {
+  //       setStates(response.data.map((s) => ({ id: s.id, name: s.name })));
+  //     }
+  //   } catch (error) {
+  //     console.error("Failed to load states:", error);
+  //   } finally {
+  //     setLoadingStates(false);
+  //   }
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,7 +170,25 @@ export default function RegisterPage() {
     }
   };
 
-  if (isLoading) {
+  if (!token) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Invalid Invitation</CardTitle>
+            <CardDescription>This invitation link is invalid or missing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => router.push("/auth/login")} className="w-full">
+              Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading || (invitationData && !invitation)) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -201,7 +202,7 @@ export default function RegisterPage() {
     );
   }
 
-  if (error && !invitation) {
+  if (validationError && !invitation) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
@@ -212,7 +213,7 @@ export default function RegisterPage() {
           <CardContent>
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{(validationError as Error).message}</AlertDescription>
             </Alert>
             <div className="mt-4">
               <Button variant="outline" onClick={() => router.push("/auth/login")} className="w-full">
