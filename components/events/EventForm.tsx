@@ -52,8 +52,8 @@ function VenueSelectionDisplay({
   selectedVenue,
   onSelect,
   error,
-  maxAttendance,
-  currentAttendance,
+  maxAttendance: _maxAttendance,
+  currentAttendance: _currentAttendance,
 }: {
   selectedVenue: VenueWithCreator | null;
   onSelect: () => void;

@@ -25,7 +25,7 @@ const defaultSteps: Step[] = [
 
 export function StepIndicator({
   currentStep,
-  totalSteps,
+  totalSteps: _totalSteps,
   onStepClick,
   stepErrors,
   steps = defaultSteps,

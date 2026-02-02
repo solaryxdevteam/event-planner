@@ -42,7 +42,7 @@ export function CancellationDialog({ open, onOpenChange, eventId, eventTitle }: 
       await requestCancellation.mutateAsync({ eventId, reason: reason.trim() });
       setReason("");
       onOpenChange(false);
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation
     }
   };

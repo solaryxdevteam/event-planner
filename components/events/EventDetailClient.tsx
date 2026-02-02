@@ -9,7 +9,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,18 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  MapPin,
-  Building2,
-  User,
-  Image as ImageIcon,
-  CheckCircle2,
-  Loader2,
-  ExternalLink,
-} from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Building2, CheckCircle2, Loader2 } from "lucide-react";
 import Image from "next/image";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
@@ -130,7 +118,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
       setShowTransitionDialog(false);
       // Refresh the page to show updated status
       router.refresh();
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation
     }
   };

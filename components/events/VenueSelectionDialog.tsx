@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SearchIcon, XIcon, CheckIcon } from "lucide-react";
+import Image from "next/image";
 import { useVenues } from "@/lib/hooks/use-venues";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface VenueSelectionDialogProps {
   open: boolean;
@@ -158,7 +158,7 @@ export function VenueSelectionDialog({
                     {/* Image Section */}
                     <div className="relative flex h-60 items-center justify-center bg-muted overflow-hidden">
                       {firstImage ? (
-                        <img src={firstImage} alt={venue.name} className="w-full h-full object-cover" />
+                        <Image src={firstImage} alt={venue.name} fill className="object-cover" unoptimized />
                       ) : (
                         <div className="flex items-center justify-center w-full h-full text-muted-foreground">
                           <span className="text-sm">No image available</span>

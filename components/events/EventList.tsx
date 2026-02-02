@@ -1,6 +1,5 @@
 "use client";
 
-import { EventCard } from "./EventCard";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { EventCardWithModificationCheck } from "./EventCardWithModificationCheck";
 
