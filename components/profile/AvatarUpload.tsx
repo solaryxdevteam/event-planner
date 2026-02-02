@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadAvatar, removeAvatar, getCurrentUserProfile } from "@/lib/actions/profile";
+import { uploadAvatar, removeAvatar } from "@/lib/actions/profile";
 import type { User } from "@/lib/types/database.types";
 
 interface AvatarUploadProps {
