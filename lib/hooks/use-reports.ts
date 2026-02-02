@@ -15,7 +15,6 @@ export function useReport(eventId: string | null) {
     queryKey: ["reports", eventId],
     queryFn: () => reportsClientService.getReportByEventId(eventId!),
     enabled: !!eventId,
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -76,6 +75,5 @@ export function useApprovedReportsList(params: ListApprovedReportsParams) {
   return useQuery({
     queryKey: ["reports", "approved", params],
     queryFn: () => reportsClientService.listApprovedReports(params),
-    staleTime: 30 * 1000,
   });
 }

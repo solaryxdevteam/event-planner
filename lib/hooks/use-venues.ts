@@ -20,7 +20,6 @@ export function useVenuesWithSearch(search?: string) {
   return useQuery({
     queryKey: ["venues", "search", search],
     queryFn: () => venueClientService.fetchVenuesWithSearch(search),
-    staleTime: 30 * 1000, // 30 seconds
     enabled: true, // Always enabled for search
   });
 }
@@ -32,7 +31,6 @@ export function useVenues(filters: VenueFilters) {
   return useQuery({
     queryKey: ["venues", filters],
     queryFn: () => venueClientService.fetchVenues(filters),
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -44,7 +42,6 @@ export function useVenue(id: string | null) {
     queryKey: ["venue", id],
     queryFn: () => (id ? venueClientService.fetchVenueById(id) : Promise.reject(new Error("No ID provided"))),
     enabled: !!id,
-    staleTime: 60 * 1000, // 1 minute
   });
 }
 
@@ -57,7 +54,6 @@ export function useVenueByShortId(shortId: string | null) {
     queryFn: () =>
       shortId ? venueClientService.fetchVenueByShortId(shortId) : Promise.reject(new Error("No short ID provided")),
     enabled: !!shortId,
-    staleTime: 60 * 1000, // 1 minute
   });
 }
 
@@ -202,7 +198,6 @@ export function useVenueTemplates() {
   return useQuery({
     queryKey: ["venue-templates"],
     queryFn: () => venueClientService.fetchVenueTemplates(),
-    staleTime: 60 * 1000, // 1 minute
   });
 }
 
@@ -215,7 +210,6 @@ export function useVenueTemplate(id: string | null) {
     queryFn: () =>
       id ? venueClientService.fetchVenueTemplate(id) : Promise.reject(new Error("No template ID provided")),
     enabled: !!id,
-    staleTime: 60 * 1000, // 1 minute
   });
 }
 

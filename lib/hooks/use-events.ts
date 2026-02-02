@@ -19,7 +19,6 @@ export function useEvents(filters: eventsClientService.EventFilters) {
   return useQuery({
     queryKey: ["events", filters],
     queryFn: () => eventsClientService.fetchEvents(filters),
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -31,7 +30,6 @@ export function useEvent(id: string | null) {
     queryKey: ["events", id],
     queryFn: () => eventsClientService.fetchEventById(id!),
     enabled: !!id,
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -125,7 +123,6 @@ export function useFirstDraft() {
   return useQuery({
     queryKey: ["events", "draft", "first"],
     queryFn: () => eventsClientService.fetchFirstDraft(),
-    staleTime: 10 * 1000, // 10 seconds (short because it's checked on mount)
   });
 }
 

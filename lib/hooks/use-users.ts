@@ -19,7 +19,6 @@ export function useUsers(filters: userClientService.UserFilters) {
   return useQuery({
     queryKey: ["users", filters],
     queryFn: () => userClientService.fetchUsers(filters),
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 

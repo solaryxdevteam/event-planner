@@ -17,6 +17,5 @@ export function useUserHierarchy() {
   return useQuery({
     queryKey: ["users", "hierarchy"],
     queryFn: hierarchyClientService.fetchHierarchy,
-    staleTime: 60 * 1000, // 1 minute
   });
 }

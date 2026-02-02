@@ -80,7 +80,6 @@ export function useApprovals(filters: ApprovalFilters = {}) {
   return useQuery({
     queryKey: ["approvals", filters],
     queryFn: () => fetchApprovals(filters),
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -150,6 +149,5 @@ export function useEventApprovals(eventId: string | null | undefined) {
     queryKey: ["event-approvals", eventId],
     queryFn: () => fetchEventApprovals(eventId!),
     enabled: !!eventId,
-    staleTime: 30 * 1000, // 30 seconds
   });
 }

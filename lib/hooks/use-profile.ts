@@ -16,7 +16,6 @@ export function useProfile() {
   return useQuery({
     queryKey: ["profile"],
     queryFn: profileClientService.fetchProfile,
-    staleTime: 60 * 1000, // 1 minute
   });
 }
 

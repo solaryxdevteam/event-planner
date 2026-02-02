@@ -24,7 +24,6 @@ export function useEventAuditLogs(eventId: string | null) {
       return import("@/lib/services/client/audit.client.service").then((mod) => mod.getEventAuditLogs(eventId));
     },
     enabled: !!eventId,
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
@@ -48,7 +47,6 @@ export function useAuditLogs(filters: auditClientService.AuditLogFilters) {
   return useQuery({
     queryKey,
     queryFn: () => auditClientService.fetchAuditLogs(filters),
-    staleTime: 30 * 1000, // 30 seconds
     retry: 1,
   });
 }

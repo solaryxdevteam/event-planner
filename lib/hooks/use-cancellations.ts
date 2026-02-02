@@ -14,7 +14,6 @@ export function useCanRequestCancellation(eventId: string | null) {
     queryKey: ["cancellations", "can-request", eventId],
     queryFn: () => cancellationsClientService.canRequestCancellation(eventId!),
     enabled: !!eventId,
-    staleTime: 30 * 1000, // 30 seconds
   });
 }
 
