@@ -2,16 +2,16 @@
  * Hierarchy Tree Component
  *
  * Displays the user hierarchy in a tree visualization
- * Uses the /api/users/hierarchy endpoint
+ * Uses React Query (useUserHierarchy) for cached GET /api/users/hierarchy
  */
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ChevronRight, ChevronDown, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { HierarchyNode } from "@/lib/services/users/hierarchy.service";
+import { useUserHierarchy, type HierarchyNode } from "@/lib/hooks/use-user-hierarchy";
 
 const roleLabels: Record<string, string> = {
   event_planner: "Event Planner",
@@ -68,28 +68,8 @@ function TreeNode({ node, level }: TreeNodeProps) {
 }
 
 export function HierarchyTree() {
-  const [tree, setTree] = useState<HierarchyNode[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/users/hierarchy")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setTree(data.data);
-        } else {
-          setError(data.error || "Failed to load hierarchy");
-        }
-      })
-      .catch((err) => {
-        setError("Failed to load hierarchy");
-        console.error(err);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
+  const { data: tree = [], isLoading, error: queryError } = useUserHierarchy();
+  const error = queryError ? (queryError as Error).message : null;
 
   if (isLoading) {
     return (
