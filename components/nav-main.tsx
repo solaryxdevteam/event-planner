@@ -92,7 +92,7 @@ export function NavMain({
 
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Menu</SidebarGroupLabel>
+      {/* <SidebarGroupLabel>Menu</SidebarGroupLabel> */}
       <SidebarMenu>
         {items.map((item) => {
           const itemDisabled = item.disabled !== undefined ? item.disabled : disabled;

@@ -4,7 +4,17 @@ import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Calendar, CheckSquare, Building2, Users, User, FileText, Clock } from "lucide-react";
+import {
+  LayoutDashboard,
+  Calendar,
+  CheckSquare,
+  Building2,
+  Users,
+  User,
+  FileText,
+  Clock,
+  BarChart3,
+} from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
@@ -142,6 +152,11 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
           },
         ]
       : []),
+    {
+      title: "Reports",
+      url: "/dashboard/reports",
+      icon: BarChart3,
+    },
     // Activity Logs - only for curators and above (non-event-planner)
     ...(isCurator
       ? [

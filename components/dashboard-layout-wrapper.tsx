@@ -36,6 +36,7 @@ const pathLabelMap: Record<string, string> = {
   approvals: "Approvals",
   venues: "Venue Management",
   users: "User Management",
+  reports: "Reports",
   profile: "Profile",
   pending: "Pending",
 };
@@ -85,22 +86,11 @@ export function DashboardLayoutWrapper({ children, user, isPending }: DashboardL
   const pathname = usePathname();
   const isProfilePage = pathname.startsWith("/dashboard/profile");
   const isVenuesPage = pathname.startsWith("/dashboard/venues");
-  // Only close sidebar on exact /dashboard/events, not on /dashboard/events/...
   const isEventsListPage = pathname === "/dashboard/events";
   const breadcrumbs = generateBreadcrumbs(pathname);
-  const [sidebarOpen, setSidebarOpen] = React.useState(!isVenuesPage && !isEventsListPage);
-
-  // Collapse sidebar when on venues page or events list page, open when leaving
-  React.useEffect(() => {
-    if (isVenuesPage || isEventsListPage) {
-      setSidebarOpen(false);
-    } else {
-      setSidebarOpen(true);
-    }
-  }, [isVenuesPage, isEventsListPage]);
 
   return (
-    <SidebarProvider open={sidebarOpen} onOpenChange={setSidebarOpen}>
+    <SidebarProvider>
       <PendingRedirect isPending={isPending} />
       <AppSidebar user={user} disabled={isPending && !isProfilePage} userRole={user.role} />
       <SidebarInset>
@@ -132,7 +122,7 @@ export function DashboardLayoutWrapper({ children, user, isPending }: DashboardL
           </div>
         </header>
         <div
-          className={`flex flex-1 flex-col gap-4 ${isVenuesPage || isEventsListPage ? "" : "p-4"} ${isPending && !isProfilePage ? "pointer-events-none opacity-50" : ""}`}
+          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden ${isVenuesPage || isEventsListPage ? "" : "p-4"} ${isPending && !isProfilePage ? "pointer-events-none opacity-50" : ""}`}
         >
           {children}
         </div>
