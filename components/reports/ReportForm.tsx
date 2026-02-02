@@ -10,6 +10,7 @@
 import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -322,7 +323,7 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
                 {existingReport.media_urls.map((url, index) => (
                   <div key={index} className="relative aspect-video bg-muted rounded overflow-hidden">
                     {url.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                      <img src={url} alt={`Media ${index + 1}`} className="w-full h-full object-cover" />
+                      <Image src={url} alt={`Media ${index + 1}`} fill className="object-cover" unoptimized />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <span className="text-xs text-muted-foreground">Video</span>

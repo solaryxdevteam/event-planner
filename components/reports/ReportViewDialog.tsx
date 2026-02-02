@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Download, ExternalLink, Calendar, Users, FileText, Banknote } from "lucide-react";
 import { format } from "date-fns";
+import Image from "next/image";
 import type { Report } from "@/lib/types/database.types";
 
 interface ReportViewDialogProps {
@@ -124,7 +125,7 @@ export function ReportViewDialog({ open, onOpenChange, report, eventTitle }: Rep
                     <div key={index} className="space-y-2">
                       <div className="relative aspect-video bg-muted rounded overflow-hidden border">
                         {isImage ? (
-                          <img src={url} alt={`Media ${index + 1}`} className="w-full h-full object-cover" />
+                          <Image src={url} alt={`Media ${index + 1}`} fill className="object-cover" unoptimized />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <span className="text-xs text-muted-foreground">Video</span>
