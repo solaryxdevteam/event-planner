@@ -31,7 +31,7 @@ export function StepIndicator({
   steps = defaultSteps,
 }: StepIndicatorProps) {
   return (
-    <div className="flex items-center justify-between w-full mb-6">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full mb-4 sm:mb-6 gap-3 sm:gap-0">
       {steps.map((step, index) => {
         const Icon = step.icon;
         const isActive = currentStep === step.number;
@@ -40,20 +40,20 @@ export function StepIndicator({
         const isLast = index === steps.length - 1;
 
         return (
-          <div key={step.number} className="flex items-center flex-1">
+          <div key={step.number} className="flex flex-col sm:flex-row items-center flex-1 min-w-0 shrink-0">
             <button
               type="button"
               onClick={() => onStepClick?.(step.number)}
               disabled={!isActive && !isCompleted}
               className={cn(
-                "flex items-center gap-3 flex-1 cursor-pointer rounded-lg p-3 transition-all hover:bg-muted/50",
+                "flex items-center gap-2 sm:gap-3 w-full sm:flex-1 cursor-pointer rounded-lg p-2 sm:p-3 transition-all hover:bg-muted/50 min-w-0",
                 hasError && "bg-destructive/10",
                 !isActive && !isCompleted && "cursor-not-allowed opacity-70"
               )}
             >
               <div
                 className={cn(
-                  "flex items-center justify-center w-12 h-12 rounded-full transition-all shrink-0",
+                  "flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-all shrink-0",
                   isActive
                     ? "bg-primary text-primary-foreground shadow-md"
                     : isCompleted
@@ -61,9 +61,13 @@ export function StepIndicator({
                       : "bg-muted text-muted-foreground"
                 )}
               >
-                {isCompleted ? <CheckCircle2 className="h-5 w-5" /> : <Icon className="h-5 w-5" />}
+                {isCompleted ? (
+                  <CheckCircle2 className="h-5 w-5 sm:h-5 sm:w-5" />
+                ) : (
+                  <Icon className="h-5 w-5 sm:h-5 sm:w-5" />
+                )}
               </div>
-              <div className="text-left min-w-0">
+              <div className="text-left min-w-0 flex-1">
                 <div
                   className={cn(
                     "text-sm font-semibold truncate",
@@ -83,7 +87,10 @@ export function StepIndicator({
             </button>
             {!isLast && (
               <ChevronRight
-                className={cn("mx-4 h-5 w-5 flex-shrink-0", isCompleted ? "text-primary" : "text-muted-foreground")}
+                className={cn(
+                  "hidden sm:block mx-2 sm:mx-4 h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0 self-center",
+                  isCompleted ? "text-primary" : "text-muted-foreground"
+                )}
               />
             )}
           </div>

@@ -486,7 +486,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Event Title */}
             <div className="space-y-2">
               <Label htmlFor="title">
@@ -579,9 +579,9 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
 
       case 2:
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Date & Time */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
               <DateTimePickerNew
                 label="Starts At *"
                 value={startsAtDate}
@@ -612,7 +612,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
                 <DollarSign className="h-4 w-4" />
                 Budget
               </Label>
-              <div className="grid grid-cols-[1fr_auto] gap-3">
+              <div className="grid grid-cols-[1fr_auto] gap-2 sm:gap-3">
                 <div className="space-y-1">
                   <PriceInput
                     id="budget_amount"
@@ -683,35 +683,36 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
   const isPending = createEventMutation.isPending || updateEventMutation.isPending || submitEventMutation.isPending;
 
   return (
-    <div className="space-y-6 w-full max-w-4xl mx-auto pb-8">
+    <div className="space-y-4 sm:space-y-6 w-full max-w-4xl mx-auto pb-4 sm:pb-8 px-3 sm:px-0">
       {/* Header */}
-      <div className="flex flex-col items-start justify-between gap-1">
+      <div className="flex flex-col items-start justify-between gap-2 sm:gap-1">
         <div className="flex justify-between w-full">
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" asChild className="text-xs sm:text-sm">
             <Link href="/dashboard/events/requests?tab=drafts">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Event Requests
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden sm:inline">Back to Event Requests</span>
+              <span className="sm:hidden">Back</span>
             </Link>
           </Button>
         </div>
 
-        <div className="">
-          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-4 flex-wrap">
+        <div className="w-full">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
             <span>Create New Event</span>
 
             {(draftShortId || shortId) && (
-              <span className="text-sm font-mono text-muted-foreground bg-muted px-2 py-1 rounded">
+              <span className="text-xs sm:text-sm font-mono text-muted-foreground bg-muted px-2 py-1 rounded w-fit">
                 {draftShortId || shortId}
               </span>
             )}
           </h1>
           <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4 mt-1">
-            <p className="text-muted-foreground">Create a draft event to submit for approval</p>
+            <p className="text-sm sm:text-base text-muted-foreground">Create a draft event to submit for approval</p>
             {lastAutoSave && (
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs md:text-sm">
-                <CheckCircle2 className="h-3 w-3 md:h-4 md:w-4" />
+              <div className="inline-flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs">
+                <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
                 <span className="font-medium">Auto-saved</span>
-                <span className="opacity-80">at {new Date(lastAutoSave).toLocaleTimeString()}</span>
+                <span className="opacity-80 hidden sm:inline">at {new Date(lastAutoSave).toLocaleTimeString()}</span>
               </div>
             )}
           </div>
@@ -736,7 +737,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
 
       {/* Form Card */}
       <Card className="shadow-sm">
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
           <form
             onSubmit={(e) => {
               // Prevent form submission unless on final step
@@ -755,29 +756,30 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
                 e.stopPropagation();
               }
             }}
-            className="space-y-6"
+            className="space-y-4 sm:space-y-6"
           >
             {renderStep()}
 
             {/* Navigation Buttons */}
-            <div className="flex justify-between items-center pt-6 border-t">
+            <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-0 pt-4 sm:pt-6 border-t">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handlePrevious}
                 disabled={currentStep === 1 || isPending}
+                className="w-full sm:w-auto"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Previous
               </Button>
 
               {currentStep < totalSteps ? (
-                <Button type="button" onClick={handleNext} disabled={isPending}>
+                <Button type="button" onClick={handleNext} disabled={isPending} className="w-full sm:w-auto">
                   Next
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Button type="submit" size="lg" disabled={isPending} className="min-w-[160px]">
+                <Button type="submit" size="lg" disabled={isPending} className="w-full sm:w-auto sm:min-w-[160px]">
                   {isPending ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

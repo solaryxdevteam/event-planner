@@ -153,23 +153,23 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   const venueImage = event.venue?.images && event.venue.images.length > 0 ? event.venue.images[0] : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 px-1 sm:px-0">
       {/* Header */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1 space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{event.title}</h1>
+        <div className="flex-1 space-y-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight break-words">{event.title}</h1>
             <Badge
               variant="outline"
-              className={`${statusColors[event.status] || "bg-gray-500"} text-white border-0 text-xs md:text-sm px-3 py-1`}
+              className={`${statusColors[event.status] || "bg-gray-500"} text-white border-0 text-xs sm:text-sm px-2 sm:px-3 py-1 shrink-0`}
             >
               {statusLabels[event.status] || event.status}
             </Badge>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
             {startDate && (
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
@@ -206,8 +206,8 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
         </TabsList>
 
         {/* Information Tab */}
-        <TabsContent value="information" className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <TabsContent value="information" className="space-y-4 sm:space-y-6">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
             {/* LEFT COLUMN */}
             <div className="space-y-6">
               {/* Approval Progress (only for non-draft events) */}
@@ -233,7 +233,67 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                 </Card>
               )}
 
-              {/* Description (directly below Approval Progress) */}
+              {/* Venue / Location Card - Moved above Description */}
+              {event.venue && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      Location
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Venue Image */}
+                    {venueImage && (
+                      <div className="relative w-full h-48 rounded-md overflow-hidden bg-muted">
+                        <Image
+                          src={venueImage}
+                          alt={event.venue.name || "Venue image"}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2 text-sm">
+                      <p className="font-medium text-foreground">{event.venue.name}</p>
+                      {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>}
+                      {(event.venue.city || event.venue.country) && (
+                        <p className="text-muted-foreground">
+                          {[event.venue.city, event.venue.country].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Map with coordinates */}
+                    {event.venue.location_lat && event.venue.location_lng ? (
+                      <VenueMapDisplay
+                        lat={event.venue.location_lat}
+                        lng={event.venue.location_lng}
+                        venueName={event.venue.name || undefined}
+                      />
+                    ) : mapUrl ? (
+                      <Button asChild variant="outline" size="sm" className="w-full">
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                          <MapPin className="mr-2 h-4 w-4" />
+                          View on Map
+                        </a>
+                      </Button>
+                    ) : null}
+
+                    <Button asChild variant="outline" size="sm" className="w-full" disabled={!event.venue.short_id}>
+                      {event.venue.short_id ? (
+                        <Link href={`/dashboard/venues/${event.venue.short_id}/edit`}>View Venue Details</Link>
+                      ) : (
+                        <span>View Venue Details</span>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Description */}
               <Card>
                 <CardHeader>
                   <CardTitle>Description</CardTitle>
@@ -360,66 +420,6 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                         You don't have permission to request cancellation for this event.
                       </p>
                     )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Venue / Location Card with Map */}
-              {event.venue && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      Location
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Venue Image */}
-                    {venueImage && (
-                      <div className="relative w-full h-48 rounded-md overflow-hidden bg-muted">
-                        <Image
-                          src={venueImage}
-                          alt={event.venue.name || "Venue image"}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2 text-sm">
-                      <p className="font-medium text-foreground">{event.venue.name}</p>
-                      {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>}
-                      {(event.venue.city || event.venue.country) && (
-                        <p className="text-muted-foreground">
-                          {[event.venue.city, event.venue.country].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Map with coordinates */}
-                    {event.venue.location_lat && event.venue.location_lng ? (
-                      <VenueMapDisplay
-                        lat={event.venue.location_lat}
-                        lng={event.venue.location_lng}
-                        venueName={event.venue.name || undefined}
-                      />
-                    ) : mapUrl ? (
-                      <Button asChild variant="outline" size="sm" className="w-full">
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                          <MapPin className="mr-2 h-4 w-4" />
-                          View on Map
-                        </a>
-                      </Button>
-                    ) : null}
-
-                    <Button asChild variant="outline" size="sm" className="w-full" disabled={!event.venue.short_id}>
-                      {event.venue.short_id ? (
-                        <Link href={`/dashboard/venues/${event.venue.short_id}/edit`}>View Venue Details</Link>
-                      ) : (
-                        <span>View Venue Details</span>
-                      )}
-                    </Button>
                   </CardContent>
                 </Card>
               )}

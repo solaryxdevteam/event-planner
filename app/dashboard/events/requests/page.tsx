@@ -108,13 +108,15 @@ export default function EventRequestsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Event Requests</h1>
-          <p className="text-muted-foreground">Manage your event drafts and submissions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Event Requests</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-0">
+            Manage your event drafts and submissions
+          </p>
         </div>
-        <Button onClick={() => router.push("/dashboard/events/requests/new")}>
+        <Button onClick={() => router.push("/dashboard/events/requests/new")} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           New Event Request
         </Button>
