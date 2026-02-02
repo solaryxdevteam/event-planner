@@ -29,6 +29,7 @@ export const submitReportSchema = z.object({
     .max(1000, "Summary must be less than 1000 characters"),
   feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
   external_links: z.array(externalLinkSchema).optional().nullable(),
+  net_profit: z.number().nullable().optional(),
 });
 
 /**
@@ -46,6 +47,7 @@ export const updateReportSchema = z.object({
     .max(1000, "Summary must be less than 1000 characters"),
   feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
   external_links: z.array(externalLinkSchema).optional().nullable(),
+  net_profit: z.number().nullable().optional(),
 });
 
 // TypeScript types exported from schemas

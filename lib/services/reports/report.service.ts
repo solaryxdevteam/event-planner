@@ -23,6 +23,7 @@ export interface SubmitReportInput {
   summary: string;
   feedback?: string | null;
   external_links?: Array<{ url: string; title: string }> | null;
+  net_profit?: number | null;
   mediaFiles?: File[];
 }
 
@@ -90,6 +91,7 @@ export async function submitReport(
     feedback: reportData.feedback || null,
     media_urls: mediaUrls,
     external_links: reportData.external_links || [],
+    net_profit: reportData.net_profit ?? null,
     status: "pending",
   });
 
@@ -167,6 +169,7 @@ export async function updateReport(
     feedback: reportData.feedback || null,
     media_urls: mediaUrls,
     external_links: reportData.external_links || [],
+    net_profit: reportData.net_profit ?? null,
     status: "pending",
   });
 
@@ -268,5 +271,55 @@ export async function approveReport(reportId: string): Promise<Report> {
 export async function rejectReport(reportId: string): Promise<Report> {
   return reportDAL.update(reportId, {
     status: "rejected",
+  });
+}
+
+/**
+ * List approved reports with filters, sort, pagination (for reports list page)
+ */
+export async function listApprovedReports(
+  userId: string,
+  params: {
+    eventId?: string | null;
+    venueId?: string | null;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+    sortByNetProfit?: "asc" | "desc" | null;
+    page?: number;
+    limit?: number;
+  }
+) {
+  const subordinateIds = await getSubordinateUserIds(userId);
+  return reportDAL.listApproved({
+    subordinateUserIds: subordinateIds,
+    eventId: params.eventId ?? null,
+    venueId: params.venueId ?? null,
+    dateFrom: params.dateFrom ?? null,
+    dateTo: params.dateTo ?? null,
+    sortByNetProfit: params.sortByNetProfit ?? null,
+    page: params.page ?? 1,
+    limit: params.limit ?? 10,
+  });
+}
+
+/**
+ * Get report chart data by date (for reports page chart)
+ */
+export async function getReportChartData(
+  userId: string,
+  params: {
+    eventId?: string | null;
+    venueId?: string | null;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+  }
+) {
+  const subordinateIds = await getSubordinateUserIds(userId);
+  return reportDAL.getChartData({
+    subordinateUserIds: subordinateIds,
+    eventId: params.eventId ?? null,
+    venueId: params.venueId ?? null,
+    dateFrom: params.dateFrom ?? null,
+    dateTo: params.dateTo ?? null,
   });
 }

@@ -5,7 +5,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as reportsClientService from "@/lib/services/client/reports.client.service";
 import { toast } from "sonner";
-import type { SubmitReportData } from "@/lib/services/client/reports.client.service";
+import type { SubmitReportData, ListApprovedReportsParams } from "@/lib/services/client/reports.client.service";
 
 /**
  * React Query hook: Get report by event ID
@@ -66,5 +66,16 @@ export function useUpdateReport() {
         description: error.message,
       });
     },
+  });
+}
+
+/**
+ * React Query hook: List approved reports with filters, sort, pagination; optionally chart data
+ */
+export function useApprovedReportsList(params: ListApprovedReportsParams) {
+  return useQuery({
+    queryKey: ["reports", "approved", params],
+    queryFn: () => reportsClientService.listApprovedReports(params),
+    staleTime: 30 * 1000,
   });
 }

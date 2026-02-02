@@ -9,7 +9,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink, Calendar, Users, FileText } from "lucide-react";
+import { Download, ExternalLink, Calendar, Users, FileText, Banknote } from "lucide-react";
 import { format } from "date-fns";
 import type { Report } from "@/lib/types/database.types";
 
@@ -37,7 +37,7 @@ export function ReportViewDialog({ open, onOpenChange, report, eventTitle }: Rep
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
+          <DialogTitle className="flex items-center justify-between mt-3">
             <span>Post-Event Report</span>
             <Badge variant="outline" className={`${statusColors[report.status]} text-white border-0`}>
               {statusLabels[report.status]}
@@ -67,13 +67,31 @@ export function ReportViewDialog({ open, onOpenChange, report, eventTitle }: Rep
             )}
           </div>
 
-          {/* Attendance */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <h3 className="font-semibold">Attendance</h3>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Attendance */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <h3 className="font-semibold">Attendance</h3>
+              </div>
+              <p className="text-2xl font-bold">{report.attendance_count.toLocaleString()}</p>
             </div>
-            <p className="text-2xl font-bold">{report.attendance_count.toLocaleString()}</p>
+
+            {/* Net Profit */}
+            {report.net_profit != null && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-semibold">Net Profit</h3>
+                </div>
+                <p className="text-2xl font-bold">
+                  {Number(report.net_profit).toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Summary */}

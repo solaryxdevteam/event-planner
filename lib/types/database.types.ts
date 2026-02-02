@@ -163,6 +163,7 @@ export interface Report {
   media_urls: string[];
   external_links: Array<{ url: string; title: string }>;
   status: ApprovalStatus;
+  net_profit: number | null;
   created_at: string;
   updated_at: string;
 }

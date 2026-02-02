@@ -39,6 +39,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const summary = formData.get("summary") as string;
     const feedback = formData.get("feedback") as string | null;
     const external_links_json = formData.get("external_links") as string | null;
+    const net_profile_raw = formData.get("net_profit") as string | null;
+    const net_profit = net_profile_raw !== null && net_profile_raw !== "" ? parseFloat(net_profile_raw) : null;
 
     // Parse external links
     let external_links = null;
@@ -66,6 +68,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       summary,
       feedback,
       external_links,
+      net_profit: Number.isFinite(net_profit) ? net_profit : null,
     });
 
     // Update report
@@ -77,6 +80,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         summary: validatedInput.summary,
         feedback: validatedInput.feedback,
         external_links: validatedInput.external_links,
+        net_profit: validatedInput.net_profit ?? null,
       },
       mediaFiles.length > 0 ? mediaFiles : undefined
     );

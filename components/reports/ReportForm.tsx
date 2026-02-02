@@ -29,6 +29,7 @@ const reportSchema = z.object({
     .min(20, "Summary must be at least 20 characters")
     .max(1000, "Summary must be less than 1000 characters"),
   feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
+  net_profit: z.number(),
 });
 
 type ReportFormData = z.infer<typeof reportSchema>;
@@ -58,6 +59,7 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
       attendance_count: existingReport?.attendance_count || 0,
       summary: existingReport?.summary || "",
       feedback: existingReport?.feedback || "",
+      net_profit: existingReport?.net_profit ?? undefined,
     },
   });
 
@@ -117,6 +119,7 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
             summary: data.summary,
             feedback: data.feedback || null,
             external_links: externalLinks.length > 0 ? externalLinks : null,
+            net_profit: data.net_profit ?? null,
             mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined,
           },
         });
@@ -129,6 +132,7 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
             summary: data.summary,
             feedback: data.feedback || null,
             external_links: externalLinks.length > 0 ? externalLinks : null,
+            net_profit: data.net_profit ?? null,
             mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined,
           },
         });
@@ -214,6 +218,25 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
               {form.watch("summary")?.length || 0} / 1000 characters (minimum 20)
             </p>
           </div>
+        </div>
+
+        {/* Net Profit */}
+        <div className="space-y-3">
+          <Label htmlFor="net_profit" className="text-base font-semibold">
+            Net Profit <span className="text-muted-foreground font-normal"></span>
+          </Label>
+          <Input
+            id="net_profit"
+            type="number"
+            step="0.01"
+            min="0"
+            {...form.register("net_profit", {
+              valueAsNumber: true,
+              setValueAs: (v) => (v === "" || Number.isNaN(v) ? undefined : v),
+            })}
+            className="text-lg h-12 max-w-xs"
+            placeholder="Enter net profit/fee"
+          />
         </div>
 
         {/* Feedback */}

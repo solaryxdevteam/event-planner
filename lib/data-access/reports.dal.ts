@@ -83,3 +83,225 @@ export async function deleteReport(id: string): Promise<void> {
     throw new Error(`Failed to delete report: ${error.message}`);
   }
 }
+
+/**
+ * Approved report row with event and venue info for list/chart
+ */
+export interface ApprovedReportRow extends Report {
+  event_title: string;
+  event_short_id: string;
+  venue_id: string | null;
+  venue_name: string | null;
+  venue_short_id: string | null;
+}
+
+export interface ListApprovedReportsParams {
+  subordinateUserIds: string[];
+  eventId?: string | null;
+  venueId?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  sortByNetProfit?: "asc" | "desc" | null;
+  page: number;
+  limit: number;
+}
+
+export interface ListApprovedReportsResult {
+  reports: ApprovedReportRow[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+/**
+ * List approved reports with event and venue info, filters, sort, pagination
+ */
+export async function listApproved(params: ListApprovedReportsParams): Promise<ListApprovedReportsResult> {
+  const supabase = await createClient();
+  const { subordinateUserIds, eventId, venueId, dateFrom, dateTo, sortByNetProfit, page, limit } = params;
+
+  // Get event IDs the user can see (creator in subordinateUserIds, optional venue filter)
+  let eventsQuery = supabase.from("events").select("id").in("creator_id", subordinateUserIds);
+  if (venueId) {
+    eventsQuery = eventsQuery.eq("venue_id", venueId);
+  }
+  if (eventId) {
+    eventsQuery = eventsQuery.eq("id", eventId);
+  }
+  const { data: eventRows } = await eventsQuery;
+  const allowedEventIds = (eventRows || []).map((r: { id: string }) => r.id);
+  if (allowedEventIds.length === 0) {
+    return {
+      reports: [],
+      pagination: { page, limit, total: 0, totalPages: 0, hasMore: false },
+    };
+  }
+
+  let query = supabase
+    .from("reports")
+    .select(
+      `
+      *,
+      event:events!reports_event_id_fkey (
+        id,
+        short_id,
+        title,
+        venue_id,
+        venue:venues!events_venue_id_fkey (
+          id,
+          short_id,
+          name
+        )
+      )
+    `,
+      { count: "exact" }
+    )
+    .eq("status", "approved")
+    .in("event_id", allowedEventIds);
+
+  if (dateFrom) {
+    query = query.gte("created_at", `${dateFrom}T00:00:00.000Z`);
+  }
+  if (dateTo) {
+    query = query.lte("created_at", `${dateTo}T23:59:59.999Z`);
+  }
+
+  if (sortByNetProfit) {
+    const sortOrder = sortByNetProfit === "desc" ? false : true;
+    query = query.order("net_profit", { ascending: sortOrder, nullsFirst: false });
+  }
+  query = query.order("created_at", { ascending: false });
+
+  const from = (page - 1) * limit;
+  query = query.range(from, from + limit - 1);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    throw new Error(`Failed to list approved reports: ${error.message}`);
+  }
+
+  const rows = (data || []) as Array<
+    Report & {
+      event: {
+        id: string;
+        short_id: string;
+        title: string;
+        venue_id: string | null;
+        venue: { id: string; short_id: string | null; name: string } | null;
+      } | null;
+    }
+  >;
+
+  const reports: ApprovedReportRow[] = rows.map((row) => ({
+    ...row,
+    event_title: row.event?.title ?? "",
+    event_short_id: row.event?.short_id ?? "",
+    venue_id: row.event?.venue_id ?? null,
+    venue_name: row.event?.venue?.name ?? null,
+    venue_short_id: row.event?.venue?.short_id ?? null,
+  }));
+
+  const total = count ?? 0;
+  const totalPages = Math.ceil(total / limit);
+
+  return {
+    reports,
+    pagination: { page, limit, total, totalPages, hasMore: page < totalPages },
+  };
+}
+
+export interface ReportChartDataPoint {
+  date: string; // YYYY-MM-DD
+  net_profit: number;
+  event_count: number;
+  /** Sum of event budget_amount for reports on this date */
+  total_budget: number;
+}
+
+export interface GetReportChartParams {
+  subordinateUserIds: string[];
+  eventId?: string | null;
+  venueId?: string | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+/**
+ * Get aggregated report data by date for chart (net_profit sum, event count per date)
+ */
+export async function getChartData(params: GetReportChartParams): Promise<ReportChartDataPoint[]> {
+  const supabase = await createClient();
+  const { subordinateUserIds, eventId, venueId, dateFrom, dateTo } = params;
+
+  let query = supabase
+    .from("reports")
+    .select(
+      `
+      created_at,
+      net_profit,
+      event_id,
+      event:events!reports_event_id_fkey (
+        creator_id,
+        venue_id,
+        budget_amount
+      )
+    `
+    )
+    .eq("status", "approved");
+
+  if (eventId) {
+    query = query.eq("event_id", eventId);
+  }
+  if (dateFrom) {
+    query = query.gte("created_at", `${dateFrom}T00:00:00.000Z`);
+  }
+  if (dateTo) {
+    query = query.lte("created_at", `${dateTo}T23:59:59.999Z`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to get report chart data: ${error.message}`);
+  }
+
+  const rows = (data || []) as Array<{
+    created_at: string;
+    net_profit: number | null;
+    event_id: string;
+    event: { creator_id: string; venue_id: string | null; budget_amount: number | null } | null;
+  }>;
+
+  // Filter by subordinateUserIds (event.creator_id) and optionally venueId in app
+  let filtered = rows.filter((r) => r.event && subordinateUserIds.includes(r.event.creator_id));
+  if (venueId) {
+    filtered = filtered.filter((r) => r.event?.venue_id === venueId);
+  }
+
+  // Aggregate by date (YYYY-MM-DD)
+  const byDate = new Map<string, { net_profit: number; event_count: number; total_budget: number }>();
+  for (const r of filtered) {
+    const date = r.created_at.slice(0, 10);
+    const current = byDate.get(date) ?? { net_profit: 0, event_count: 0, total_budget: 0 };
+    current.net_profit += Number(r.net_profit) || 0;
+    current.event_count += 1;
+    current.total_budget += Number(r.event?.budget_amount) || 0;
+    byDate.set(date, current);
+  }
+
+  const sortedDates = Array.from(byDate.keys()).sort();
+  return sortedDates.map((date) => {
+    const agg = byDate.get(date)!;
+    return {
+      date,
+      net_profit: agg.net_profit,
+      event_count: agg.event_count,
+      total_budget: agg.total_budget,
+    };
+  });
+}
