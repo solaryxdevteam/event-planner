@@ -67,7 +67,7 @@ function StepIndicator({
   ];
 
   return (
-    <div className="flex items-center justify-between w-full mb-5">
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full mb-5 gap-3 sm:gap-0">
       {steps.map((step, index) => {
         const Icon = step.icon;
         const isActive = currentStep === step.number;
@@ -76,18 +76,18 @@ function StepIndicator({
         const isLast = index === steps.length - 1;
 
         return (
-          <div key={step.number} className="flex items-center flex-1">
+          <div key={step.number} className="flex flex-col sm:flex-row items-center flex-1">
             <button
               type="button"
               onClick={() => onStepClick && onStepClick(step.number)}
               className={cn(
-                "flex items-center gap-3 flex-1 cursor-pointer rounded-lg p-2 transition-colors",
+                "flex items-center gap-3 w-full sm:flex-1 cursor-pointer rounded-lg p-2 transition-colors",
                 hasError && "bg-rose-100"
               )}
             >
               <div
                 className={cn(
-                  "flex items-center justify-center w-12 h-12 rounded-full transition-colors",
+                  "flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-colors shrink-0",
                   isActive
                     ? "bg-primary text-primary-foreground"
                     : isCompleted
@@ -97,7 +97,7 @@ function StepIndicator({
               >
                 <Icon className="h-5 w-5" />
               </div>
-              <div className="text-left">
+              <div className="text-left flex-1">
                 <div
                   className={cn(
                     "text-sm font-semibold",
@@ -117,7 +117,10 @@ function StepIndicator({
             </button>
             {!isLast && (
               <ChevronRight
-                className={cn("mx-5 h-5 w-5 flex-shrink-0", isCompleted ? "text-primary" : "text-muted-foreground")}
+                className={cn(
+                  "hidden sm:block mx-5 h-5 w-5 flex-shrink-0 self-center",
+                  isCompleted ? "text-primary" : "text-muted-foreground"
+                )}
               />
             )}
           </div>
@@ -750,7 +753,10 @@ export function VenueForm({
 
   return (
     <>
-      <form onSubmit={form.handleSubmit(onSubmit as Parameters<typeof form.handleSubmit>[0])} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(onSubmit as Parameters<typeof form.handleSubmit>[0])}
+        className="space-y-4 sm:space-y-6 p-1 sm:p-0"
+      >
         {/* Use Template - Only show in create mode */}
         {!isEditing && (
           <Card>
@@ -805,8 +811,8 @@ export function VenueForm({
         {/* Step 1: Basic Information */}
         {currentStep === 1 && (
           <Card>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-4 p-1 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Venue Name */}
                 <div className="space-y-2">
                   <Label htmlFor="name">
@@ -957,9 +963,9 @@ export function VenueForm({
         {/* Step 2: Capacity & Features */}
         {currentStep === 2 && (
           <Card>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-1 sm:p-6">
               {/* Capacity Fields */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="capacity_standing">Standing Capacity</Label>
                   <Input
@@ -1066,7 +1072,7 @@ export function VenueForm({
               </div>
 
               {/* Availability Dates - Editable Calendar */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <DateInput
                   value={availabilityStartDate}
                   onChange={handleStartDateChange}
@@ -1110,7 +1116,7 @@ export function VenueForm({
         {/* Step 3: Contact & Media */}
         {currentStep === 3 && (
           <Card>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 p-1 sm:p-6">
               {/* Contact Person Name */}
               <div className="space-y-2">
                 <Label htmlFor="contact_person_name">
@@ -1128,7 +1134,7 @@ export function VenueForm({
               </div>
 
               {/* Contact Email and Phone */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="contact_email">Contact Email</Label>
                   <Input

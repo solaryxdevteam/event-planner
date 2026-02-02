@@ -10,12 +10,16 @@ import { VenueFilters, type VenueFilters as VenueFiltersType } from "@/component
 import { VenueCardSkeleton } from "@/components/venues/VenueCardSkeleton";
 import { useVenues, type VenueFilters as VenueFiltersHook } from "@/lib/hooks/use-venues";
 import { useProfile } from "@/lib/hooks/use-profile";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, Filter } from "lucide-react";
 import { UserRole } from "@/lib/types/roles";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function VenuesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(9);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [filters, setFilters] = useState<VenueFiltersType>({
     search: "",
     state: "all",
@@ -146,34 +150,55 @@ export default function VenuesPage() {
     setCurrentPage(page);
   };
 
+  const filtersContent = (
+    <VenueFilters
+      filters={filters}
+      onFiltersChange={(newFilters) => {
+        handleFiltersChange(newFilters);
+        if (isMobile) {
+          setFiltersOpen(false);
+        }
+      }}
+      availableStates={availableStates}
+      maxDate={maxDate}
+      minStanding={minStanding}
+      maxStanding={maxStanding}
+      minSeated={minSeated}
+      maxSeated={maxSeated}
+    />
+  );
+
   return (
     <div className="flex h-screen">
-      {/* Left Sidebar - Filters */}
-      <div className="w-80 shrink-0 border-r">
-        <VenueFilters
-          filters={filters}
-          onFiltersChange={handleFiltersChange}
-          availableStates={availableStates}
-          maxDate={maxDate}
-          minStanding={minStanding}
-          maxStanding={maxStanding}
-          minSeated={minSeated}
-          maxSeated={maxSeated}
-        />
-      </div>
+      {/* Left Sidebar - Filters (Desktop) */}
+      {!isMobile && <div className="hidden md:block w-80 shrink-0 border-r">{filtersContent}</div>}
 
       {/* Right Content - Venues */}
-      <div className="flex-1 overflow-y-auto" data-venues-content>
-        <div className="container mx-auto py-8 px-6 max-w-7xl">
-          <div className="flex items-center justify-between mb-8">
+      <div className="flex-1 overflow-y-auto min-w-0" data-venues-content>
+        <div className="container mx-auto py-4 sm:py-8 px-4 sm:px-6 max-w-7xl">
+          {/* Mobile Filter Button */}
+          {isMobile && (
+            <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" className="mb-4 w-full">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filters
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
+                {filtersContent}
+              </SheetContent>
+            </Sheet>
+          )}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Venues</h1>
-              <p className="text-muted-foreground mt-2">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Venues</h1>
+              <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-2">
                 {totalVenues} {totalVenues === 1 ? "venue" : "venues"} found
               </p>
             </div>
             {canCreateVenue && (
-              <Button asChild>
+              <Button asChild className="w-full sm:w-auto">
                 <Link href="/dashboard/venues/new">
                   <PlusIcon className="mr-2 h-4 w-4" />
                   Add Venue
@@ -184,7 +209,7 @@ export default function VenuesPage() {
 
           {/* Loading State - Skeleton */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {Array.from({ length: pageSize }).map((_, i) => (
                 <VenueCardSkeleton key={i} />
               ))}
