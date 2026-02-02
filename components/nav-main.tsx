@@ -36,6 +36,7 @@ function CollapsedMenuItem({
   itemDisabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const { isMobile, setOpenMobile } = useSidebar();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -56,7 +57,12 @@ function CollapsedMenuItem({
                   <Link
                     href={subItem.url}
                     className="block px-3 py-2 text-sm rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={() => setOpen(false)}
+                    onClick={() => {
+                      setOpen(false);
+                      if (isMobile) {
+                        setOpenMobile(false);
+                      }
+                    }}
                   >
                     {subItem.title}
                   </Link>
@@ -87,7 +93,7 @@ export function NavMain({
   }[];
   disabled?: boolean;
 }) {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const isCollapsed = state === "collapsed";
 
   return (
@@ -126,7 +132,7 @@ export function NavMain({
                             </SidebarMenuSubButton>
                           ) : (
                             <SidebarMenuSubButton asChild>
-                              <Link href={subItem.url}>
+                              <Link href={subItem.url} onClick={() => isMobile && setOpenMobile(false)}>
                                 <span>{subItem.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
@@ -155,7 +161,7 @@ export function NavMain({
                     <span>{item.title}</span>
                   </>
                 ) : (
-                  <Link href={item.url}>
+                  <Link href={item.url} onClick={() => isMobile && setOpenMobile(false)}>
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                   </Link>
