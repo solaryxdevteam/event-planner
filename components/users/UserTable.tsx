@@ -11,6 +11,7 @@ import type { Database } from "@/lib/types/database.types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserActions } from "./UserActions";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -188,63 +189,189 @@ export function UserTable({
     </TableRow>
   ));
 
+  const hasActiveFilters = searchQuery || roleFilter !== "all" || statusFilter !== "all";
+
   return (
     <div className="space-y-4">
-      {/* Filters Row - Search, Role Filter, Status Filter */}
-      <div className="flex flex-wrap gap-3 items-center">
-        {/* Search Input */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, email, or role..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-10 pr-10"
-            disabled={isLoading}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => handleSearchChange("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Clear search"
+      {/* Filters Row - Mobile: Text filter with clear, Desktop: Full filters */}
+      <div className="space-y-3">
+        {/* Mobile: Text filter with clear icon */}
+        <div className="md:hidden space-y-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Filter users..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10 pr-10"
+              disabled={isLoading}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {/* Mobile: Role and Status filters */}
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={roleFilter} onValueChange={handleRoleFilterChange} disabled={isLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                {ROLE_OPTIONS.filter((option) => option.value !== UserRole.GLOBAL_DIRECTOR).map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange} disabled={isLoading}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                handleSearchChange("");
+                handleRoleFilterChange("all");
+                handleStatusFilterChange("all");
+              }}
+              className="w-full"
             >
-              <X className="h-4 w-4" />
-            </button>
+              <X className="mr-2 h-4 w-4" />
+              Clear Filters
+            </Button>
           )}
         </div>
 
-        {/* Role Filter */}
-        <Select value={roleFilter} onValueChange={handleRoleFilterChange} disabled={isLoading}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            {ROLE_OPTIONS.filter((option) => option.value !== UserRole.GLOBAL_DIRECTOR).map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Desktop: Full filters */}
+        <div className="hidden md:flex flex-wrap gap-3 items-center">
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name, email, or role..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-10 pr-10"
+              disabled={isLoading}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => handleSearchChange("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
 
-        {/* Status Filter */}
-        <Select value={statusFilter} onValueChange={handleStatusFilterChange} disabled={isLoading}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
-          </SelectContent>
-        </Select>
+          {/* Role Filter */}
+          <Select value={roleFilter} onValueChange={handleRoleFilterChange} disabled={isLoading}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by role" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Roles</SelectItem>
+              {ROLE_OPTIONS.filter((option) => option.value !== UserRole.GLOBAL_DIRECTOR).map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={handleStatusFilterChange} disabled={isLoading}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="rounded-md border">
+      {/* Mobile: Card Layout */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: pageSize }).map((_, i) => (
+              <Card key={`skeleton-${i}`} className="p-4">
+                <Skeleton className="h-5 w-32 mb-2" />
+                <Skeleton className="h-4 w-48 mb-2" />
+                <Skeleton className="h-4 w-28 mb-2" />
+                <div className="flex gap-2 mt-3">
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                  <Skeleton className="h-6 w-16 rounded-full" />
+                </div>
+              </Card>
+            ))}
+          </div>
+        ) : displayUsers.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            {hasActiveFilters ? "No users found matching your filters." : "No users found."}
+          </div>
+        ) : (
+          displayUsers.map((user) => (
+            <Card key={user.id} className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-base mb-1">{user.fullName}</h3>
+                  <p className="text-sm text-muted-foreground truncate">{user.email}</p>
+                </div>
+                <UserActions user={user} onEdit={onEditUser} />
+              </div>
+              <div className="space-y-2 text-sm">
+                {user.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Phone:</span>
+                    <span>{user.phone}</span>
+                  </div>
+                )}
+                {user.company && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">Company:</span>
+                    <span>{user.company}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge className={roleBadgeColors[user.role]} variant="outline">
+                    {roleLabels[user.role]}
+                  </Badge>
+                  <Badge variant={statusBadgeVariants[user.status]}>{statusLabels[user.status]}</Badge>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Desktop: Table Layout */}
+      <div className="hidden md:block rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -263,9 +390,7 @@ export function UserTable({
             ) : displayUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  {searchQuery || roleFilter !== "all" || statusFilter !== "all"
-                    ? "No users found matching your filters."
-                    : "No users found."}
+                  {hasActiveFilters ? "No users found matching your filters." : "No users found."}
                 </TableCell>
               </TableRow>
             ) : (

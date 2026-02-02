@@ -415,7 +415,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
               />
 
               {/* City - Text Input */}
-              <div className="space-y-2">
+              <div className="space-y-2 col-span-2 sm:col-span-1">
                 <Label htmlFor="city">City</Label>
                 <Input id="city" type="text" {...form.register("city")} placeholder="Enter city name" />
                 {form.formState.errors.city && (
@@ -423,9 +423,8 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
                 )}
               </div>
 
-              {/* Right Column */}
-              {/* Phone */}
-              <div className="space-y-2">
+              {/* Phone - Full width on mobile */}
+              <div className="space-y-2 col-span-2 sm:col-span-1">
                 <Label htmlFor="phone">Phone</Label>
                 <PhoneInput
                   id="phone"

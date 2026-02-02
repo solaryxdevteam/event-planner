@@ -93,19 +93,21 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
   };
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-4 sm:gap-6 p-4 sm:p-8">
       {/* Page Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-          <p className="text-muted-foreground">Manage users and their roles in the system</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">User Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-0">
+            Manage users and their roles in the system
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsInvitationDialogOpen(true)}>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={() => setIsInvitationDialogOpen(true)} className="w-full sm:w-auto">
             <Mail className="mr-2 h-4 w-4" />
             Create Invitation
           </Button>
-          <Button onClick={() => setIsDialogOpen(true)}>
+          <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Add User
           </Button>
