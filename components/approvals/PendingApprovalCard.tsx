@@ -99,9 +99,9 @@ export function PendingApprovalCard({
   };
 
   // Determine if event is urgent (you can customize this logic)
-  const isUrgent = event?.starts_at
-    ? new Date(event.starts_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 // 7 days
-    : false;
+  // const isUrgent = event?.starts_at
+  //   ? new Date(event.starts_at).getTime() - Date.now() < 7 * 24 * 60 * 60 * 1000 // 7 days
+  //   : false;
 
   // Get creator initials
   const creatorInitials = event?.creator?.name

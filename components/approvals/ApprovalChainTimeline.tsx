@@ -105,7 +105,7 @@ export function ApprovalChainTimeline({
                   approvals={group.approvals}
                   showComments={showComments}
                   showTimestamps={showTimestamps}
-                  compact={true}
+                  compact={compact}
                 />
               </div>
               {/* Dashed separator line between groups */}

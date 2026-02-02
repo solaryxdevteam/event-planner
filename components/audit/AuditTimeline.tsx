@@ -6,7 +6,7 @@
 
 "use client";
 
-import { format, isToday, isYesterday, formatDistanceToNow } from "date-fns";
+import { format, isToday, isYesterday } from "date-fns";
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -248,7 +248,7 @@ export function AuditTimeline({ logs, isLoading }: AuditTimelineProps) {
 
           {/* Timeline entries */}
           <div className="space-y-0">
-            {groupedEntries.map((group, groupIndex) => {
+            {groupedEntries.map((group) => {
               const showDateSeparator = group.dateKey !== lastDateKey;
               lastDateKey = group.dateKey;
 

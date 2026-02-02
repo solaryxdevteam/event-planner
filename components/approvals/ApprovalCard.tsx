@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle, XCircle, Calendar, Clock, User, MapPin } from "lucide-react";
+import { CheckCircle, XCircle, Calendar, Clock } from "lucide-react";
 import {
   Dialog,
   DialogContent,
