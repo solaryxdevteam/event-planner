@@ -9,6 +9,7 @@ interface EventCardWithModificationCheckProps {
   onView?: (eventShortId: string) => void;
   onDelete?: (eventId: string) => void;
   onSubmit?: (eventId: string) => void;
+  onCreateFromRejected?: (event: EventWithRelations) => void;
   showActions?: boolean;
 }
 
@@ -21,6 +22,7 @@ export function EventCardWithModificationCheck({
   onView,
   onDelete,
   onSubmit,
+  onCreateFromRejected,
   showActions,
 }: EventCardWithModificationCheckProps) {
   // Only check for modifications if event is approved_scheduled
@@ -38,6 +40,7 @@ export function EventCardWithModificationCheck({
       onView={onView}
       onDelete={onDelete}
       onSubmit={onSubmit}
+      onCreateFromRejected={onCreateFromRejected}
       showActions={showActions}
       hasPendingModification={hasPendingModification}
     />

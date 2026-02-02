@@ -413,11 +413,15 @@ export async function findPyramidVisible(
 
   // Note: dateFrom and dateTo filters now use starts_at instead of event_date
   if (dateFrom) {
-    query = query.gte("starts_at", dateFrom);
+    // If dateFrom is just a date (no time), ensure it starts at beginning of day
+    const normalizedDateFrom = dateFrom.includes("T") ? dateFrom : `${dateFrom}T00:00:00.000Z`;
+    query = query.gte("starts_at", normalizedDateFrom);
   }
 
   if (dateTo) {
-    query = query.lte("starts_at", dateTo);
+    // If dateTo is just a date (no time), ensure it includes the entire day by using end of day
+    const normalizedDateTo = dateTo.includes("T") ? dateTo : `${dateTo}T23:59:59.999Z`;
+    query = query.lte("starts_at", normalizedDateTo);
   }
 
   if (startsAtFrom) {

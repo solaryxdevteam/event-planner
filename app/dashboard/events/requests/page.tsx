@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventList } from "@/components/events/EventList";
 import { useEvents, useDeleteEventDraft, useSubmitEventForApproval, useCreateEventDraft } from "@/lib/hooks/use-events";
-import { Plus, Copy } from "lucide-react";
+import { Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -169,17 +169,13 @@ export default function EventRequestsPage() {
               <p className="text-muted-foreground">No rejected events</p>
             </div>
           ) : (
-            <div className="space-y-6">
-              {rejected.map((event) => (
-                <div key={event.id} className="space-y-4">
-                  <EventList events={[event]} onView={handleView} showActions={false} emptyMessage="" />
-                  <Button variant="outline" className="w-full" onClick={() => handleCopyFromRejected(event)}>
-                    <Copy className="mr-2 h-4 w-4" />
-                    Create New from This
-                  </Button>
-                </div>
-              ))}
-            </div>
+            <EventList
+              events={rejected}
+              onView={handleView}
+              onCreateFromRejected={handleCopyFromRejected}
+              showActions={false}
+              emptyMessage="No rejected events"
+            />
           )}
         </TabsContent>
       </Tabs>
@@ -230,9 +226,8 @@ export default function EventRequestsPage() {
             <AlertDialogDescription>
               {selectedEvent ? (
                 <>
-                  This will create a new draft event based on{" "}
-                  <span className="font-semibold">&quot;{selectedEvent.title}&quot;</span>. You can then edit and
-                  resubmit it for approval.
+                  This will create a new draft based on <strong>&quot;{selectedEvent.title}&quot;</strong>. You can then
+                  edit and resubmit it for approval.
                 </>
               ) : (
                 "This will create a new draft event based on the rejected event. You can then edit and resubmit it for approval."

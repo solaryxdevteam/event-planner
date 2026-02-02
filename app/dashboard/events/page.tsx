@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { EventList } from "@/components/events/EventList";
@@ -17,15 +17,41 @@ export default function EventsPage() {
   const defaultTab = searchParams.get("tab") || "current";
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(12);
-  const [filters, setFilters] = useState<EventFiltersType>({
-    search: "",
-    status: "all",
-    dateFrom: null,
-    dateTo: null,
-    creatorId: null,
-    venueId: null,
-    state: "all",
+
+  // Initialize filters from URL params if present
+  const [filters, setFilters] = useState<EventFiltersType>(() => {
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    return {
+      search: "",
+      status: "all",
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+      creatorId: null,
+      venueId: null,
+      state: "all",
+    };
   });
+
+  // Update filters when URL params change
+  useEffect(() => {
+    const dateFrom = searchParams.get("dateFrom");
+    const dateTo = searchParams.get("dateTo");
+    // Use startTransition to make state update non-blocking and avoid synchronous setState in effect
+    startTransition(() => {
+      setFilters((prev) => {
+        // Only update if values actually changed
+        if (prev.dateFrom === (dateFrom || null) && prev.dateTo === (dateTo || null)) {
+          return prev;
+        }
+        return {
+          ...prev,
+          dateFrom: dateFrom || null,
+          dateTo: dateTo || null,
+        };
+      });
+    });
+  }, [searchParams]);
 
   // Fetch all events for filter options (creators, venues)
   const { data: allEventsData } = useEvents({
@@ -218,7 +244,7 @@ export default function EventsPage() {
 
           {/* Loading State - Skeleton */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-6">
               {Array.from({ length: pageSize }).map((_, i) => (
                 <Skeleton key={i} className="h-64" />
               ))}

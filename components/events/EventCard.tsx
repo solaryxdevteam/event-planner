@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, Eye, Trash2, Send, DollarSign } from "lucide-react";
+import { Calendar, MapPin, Users, Eye, Trash2, Send, DollarSign, Copy } from "lucide-react";
 import { format } from "date-fns";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 
@@ -12,6 +12,7 @@ interface EventCardProps {
   onView?: (eventShortId: string) => void;
   onDelete?: (eventId: string) => void;
   onSubmit?: (eventId: string) => void;
+  onCreateFromRejected?: (event: EventWithRelations) => void;
   showActions?: boolean;
   hasPendingModification?: boolean;
   hasPendingCancellation?: boolean;
@@ -52,6 +53,7 @@ export function EventCard({
   onView,
   onDelete,
   onSubmit,
+  onCreateFromRejected,
   showActions = true,
   hasPendingModification = false,
   hasPendingCancellation = false,
@@ -64,7 +66,7 @@ export function EventCard({
       className={`hover:shadow-lg transition-all duration-200 border-l-4 ${statusBorderColors[event.status] || "border-l-gray-500"}`}
     >
       <CardHeader className="pb-0">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col items-start justify-between gap-3">
           <div className="space-y-1 flex-1 min-w-0">
             <CardTitle className="text-xl line-clamp-2">{event.title}</CardTitle>
             {event.short_id && (
@@ -137,13 +139,28 @@ export function EventCard({
           )}
 
           {/* Actions */}
-          {(onView && event.short_id) || (showActions && (onSubmit || onDelete)) ? (
-            <div className="flex gap-2 pt-2">
+          {(onView && event.short_id) ||
+          (showActions && (onSubmit || onDelete)) ||
+          (onCreateFromRejected && event.status === "rejected") ? (
+            <div className="flex flex-wrap gap-2 pt-2">
               {/* View is always available when handler + short_id exist, even if showActions=false */}
               {onView && event.short_id && (
-                <Button className="w-full" variant="outline" size="sm" onClick={() => onView(event.short_id!)}>
-                  <Eye className="mr-2 h-4 w-4" />
+                <Button className="flex-1 min-w-0" variant="outline" size="sm" onClick={() => onView(event.short_id!)}>
+                  <Eye className="mr-2 h-4 w-4 shrink-0" />
                   View
+                </Button>
+              )}
+              {/* Create New from This: per-card action for rejected events */}
+              {onCreateFromRejected && event.status === "rejected" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 min-w-0"
+                  onClick={() => onCreateFromRejected(event)}
+                  aria-label={`Create new event from: ${event.title}`}
+                >
+                  <Copy className="mr-2 h-4 w-4 shrink-0" />
+                  Create New from This
                 </Button>
               )}
               {/* Submit/Delete are controlled by showActions and only for drafts */}
