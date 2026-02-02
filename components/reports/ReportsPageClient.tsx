@@ -8,12 +8,17 @@ import { ReportsFilters, type ReportsFiltersState } from "./ReportsFilters";
 import { ReportsChart } from "./ReportsChart";
 import { ReportsTable } from "./ReportsTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, FileText } from "lucide-react";
+import { AlertCircle, FileText, Filter } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const LIMIT = 10;
 
 export function ReportsPageClient() {
   const [page, setPage] = useState(1);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
   const [filters, setFilters] = useState<ReportsFiltersState>({
     eventId: null,
     venueId: null,
@@ -63,14 +68,36 @@ export function ReportsPageClient() {
   const handleApply = () => {
     setAppliedFilters(filters);
     setPage(1);
+    if (isMobile) {
+      setFiltersOpen(false);
+    }
   };
 
   const handlePageChange = (p: number) => {
     setPage(p);
   };
 
+  const hasActiveFilters =
+    appliedFilters.eventId ||
+    appliedFilters.venueId ||
+    appliedFilters.dateFrom ||
+    appliedFilters.dateTo ||
+    appliedFilters.sortByNetProfit;
+
+  const filtersContent = (
+    <ReportsFilters
+      filters={filters}
+      onFiltersChange={setFilters}
+      onApply={handleApply}
+      eventOptions={eventOptions}
+      venueOptions={venueOptions}
+      isLoadingEvents={isLoadingEvents}
+      isLoadingVenues={isLoadingVenues}
+    />
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {reportsError && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -79,16 +106,28 @@ export function ReportsPageClient() {
         </Alert>
       )}
 
-      {/* 1. Filters */}
-      <ReportsFilters
-        filters={filters}
-        onFiltersChange={setFilters}
-        onApply={handleApply}
-        eventOptions={eventOptions}
-        venueOptions={venueOptions}
-        isLoadingEvents={isLoadingEvents}
-        isLoadingVenues={isLoadingVenues}
-      />
+      {/* Mobile Filter Button */}
+      {isMobile && (
+        <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" className="w-full">
+              <Filter className="mr-2 h-4 w-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                  •
+                </span>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0 overflow-y-auto">
+            <div className="p-4">{filtersContent}</div>
+          </SheetContent>
+        </Sheet>
+      )}
+
+      {/* Desktop Filters */}
+      {!isMobile && filtersContent}
 
       {/* 2. Chart */}
       <ReportsChart data={chartData} isLoading={isLoadingReports} />

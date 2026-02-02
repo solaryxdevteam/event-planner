@@ -73,7 +73,7 @@ export function ReportsFilters({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border bg-card p-4 shadow-sm">
+    <div className="flex flex-col gap-4 rounded-lg sm:border bg-card p-1 sm:p-3 sm:p-4 sm:shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
@@ -87,7 +87,7 @@ export function ReportsFilters({
         )}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
         <EventCombobox
           label="Event"
           value={filters.eventId}

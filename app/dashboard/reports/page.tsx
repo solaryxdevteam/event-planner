@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 export default function ReportsPage() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-2 sm:p-0">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <p className="text-muted-foreground">
