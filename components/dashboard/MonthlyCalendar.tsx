@@ -1,26 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  isSameMonth,
-  isSameDay,
-  addMonths,
-  subMonths,
-  isToday,
-} from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import type { ChangeEvent, ChangeEventHandler } from "react";
+import { useMemo, useState, useRef } from "react";
+import { format } from "date-fns";
+import { Calendar as CalendarUi } from "@/components/ui/calendar";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
+import { useRouter } from "next/navigation";
 
-interface CalendarEvent {
+export interface CalendarEvent {
   id: string;
   title: string;
   date: string;
@@ -32,131 +24,227 @@ interface CalendarEvent {
 interface MonthlyCalendarProps {
   events?: CalendarEvent[];
   isLoading?: boolean;
+  /** Controlled: current viewing month. When set, parent can refetch when month changes. */
+  viewingDate?: Date;
+  onViewingDateChange?: (date: Date) => void;
+  /** Show "New Event" button below calendar */
+  showNewEventButton?: boolean;
 }
 
-const DAYS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+function handleCalendarChange(value: string | number, onChange: ChangeEventHandler<HTMLSelectElement> | undefined) {
+  if (!onChange) return;
+  const syntheticEvent = {
+    target: { value: String(value) },
+  } as ChangeEvent<HTMLSelectElement>;
+  onChange(syntheticEvent);
+}
 
-export function MonthlyCalendar({ events = [], isLoading = false }: MonthlyCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date());
+export function MonthlyCalendar({
+  events = [],
+  isLoading = false,
+  viewingDate: controlledDate,
+  onViewingDateChange,
+  showNewEventButton = false,
+}: MonthlyCalendarProps) {
+  const router = useRouter();
+  const [internalDate, setInternalDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [clickedDate, setClickedDate] = useState<Date | undefined>(undefined);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const month = controlledDate ?? internalDate;
+  const setMonth = (d: Date) => {
+    if (onViewingDateChange) onViewingDateChange(d);
+    else setInternalDate(d);
+  };
 
-  const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-
-  const eventsByDate = useMemo(() => {
-    const map = new Map<string, CalendarEvent[]>();
+  /** Days that have at least one event (for "booked" modifier) */
+  const bookedDays = useMemo(() => {
+    const dates = new Set<string>();
     events.forEach((event) => {
-      const eventDate = format(new Date(event.date), "yyyy-MM-dd");
-      if (!map.has(eventDate)) {
-        map.set(eventDate, []);
-      }
-      map.get(eventDate)!.push(event);
+      dates.add(format(new Date(event.date), "yyyy-MM-dd"));
     });
-    return map;
+    return Array.from(dates).map((d) => new Date(d + "T12:00:00"));
   }, [events]);
 
-  const handlePreviousMonth = () => {
-    setCurrentDate(subMonths(currentDate, 1));
-  };
+  const modifiers = useMemo(
+    () => ({
+      booked: bookedDays,
+    }),
+    [bookedDays]
+  );
 
-  const handleNextMonth = () => {
-    setCurrentDate(addMonths(currentDate, 1));
-  };
+  const modifiersClassNames = useMemo(
+    () => ({
+      booked: "rounded-full bg-amber-100 text-amber-900 font-semibold dark:bg-amber-900/40 dark:text-amber-100",
+    }),
+    []
+  );
 
-  const getEventColor = (status: string) => {
-    switch (status) {
-      case "approved_scheduled":
-      case "approved":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "pending_approval":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "draft":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      default:
-        return "bg-blue-100 text-blue-800 border-blue-200";
+  // Filter events for the clicked date and count current/upcoming events
+  const dayEvents = useMemo(() => {
+    if (!clickedDate) return [];
+    const dayStr = format(clickedDate, "yyyy-MM-dd");
+
+    return events.filter((event) => {
+      const eventDate = new Date(event.date);
+      const eventDateStr = format(eventDate, "yyyy-MM-dd");
+      return eventDateStr === dayStr;
+    });
+  }, [clickedDate, events]);
+
+  // Count current/upcoming events (approved_scheduled status)
+  // "Current/upcoming" refers to events with approved_scheduled status
+  const currentUpcomingCount = useMemo(() => {
+    if (!clickedDate) return 0;
+
+    // Count approved_scheduled events on the clicked day
+    return dayEvents.filter((event) => {
+      return event.status === "approved_scheduled";
+    }).length;
+  }, [dayEvents, clickedDate]);
+
+  const handleDayClick = (date: Date | undefined) => {
+    if (date) {
+      setClickedDate(date);
+      setSelectedDate(date);
+
+      // Position anchor and open popover after a short delay to ensure DOM is updated
+      setTimeout(() => {
+        if (calendarRef.current && anchorRef.current) {
+          // Find the selected day button
+          const dayButton = calendarRef.current.querySelector(`button[data-selected-single="true"]`) as HTMLElement;
+
+          if (dayButton) {
+            const rect = dayButton.getBoundingClientRect();
+            const calendarRect = calendarRef.current.getBoundingClientRect();
+            anchorRef.current.style.position = "absolute";
+            anchorRef.current.style.left = `${rect.left - calendarRect.left + rect.width / 2}px`;
+            anchorRef.current.style.top = `${rect.bottom - calendarRect.top + 4}px`;
+            anchorRef.current.style.width = "1px";
+            anchorRef.current.style.height = "1px";
+          }
+          setPopoverOpen(true);
+        }
+      }, 10);
+    } else {
+      setPopoverOpen(false);
+      setSelectedDate(undefined);
     }
   };
 
-  return (
-    <Card className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold">Monthly Schedule</h2>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePreviousMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium min-w-[120px] text-center">{format(currentDate, "MMMM yyyy")}</span>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+  const handleViewEvents = () => {
+    if (!clickedDate) return;
+    const dateStr = format(clickedDate, "yyyy-MM-dd");
+    router.push(`/dashboard/events?tab=current&dateFrom=${dateStr}&dateTo=${dateStr}`);
+    setPopoverOpen(false);
+  };
 
-      {isLoading ? (
-        <div className="grid grid-cols-7 gap-2">
+  if (isLoading) {
+    return (
+      <Card className="min-w-0 flex flex-col h-full overflow-hidden p-4 gap-0">
+        <div className="flex items-center justify-between mb-4">
+          <Skeleton className="h-9 w-24" />
+          <Skeleton className="h-9 w-24" />
+        </div>
+        <div className="grid grid-cols-7 gap-1 min-w-0">
           {Array.from({ length: 42 }).map((_, i) => (
-            <div key={i} className="aspect-square bg-muted animate-pulse rounded" />
+            <Skeleton key={i} className="aspect-square min-h-[32px] w-full rounded-full" />
           ))}
         </div>
-      ) : (
-        <>
-          {/* Day headers */}
-          <div className="grid grid-cols-7 gap-2 mb-2">
-            {DAYS.map((day) => (
-              <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
-                {day}
+        {showNewEventButton && (
+          <div className="mt-4 pt-4 border-t">
+            <Skeleton className="h-10 w-full rounded-md" />
+          </div>
+        )}
+      </Card>
+    );
+  }
+
+  const DropdownSelect = (props: {
+    value?: number | string | readonly string[];
+    onChange?: ChangeEventHandler<HTMLSelectElement>;
+    options?: Array<{ value: number; label: string; disabled: boolean }>;
+  }) => {
+    const raw = props.value;
+    const numValue =
+      typeof raw === "number" ? raw : raw === undefined ? undefined : Number(Array.isArray(raw) ? raw[0] : raw);
+    return (
+      <Select
+        onValueChange={(val) => handleCalendarChange(Number(val), props.onChange)}
+        value={numValue !== undefined ? String(numValue) : undefined}
+      >
+        <SelectTrigger className="flex-1 min-w-0 w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {props.options?.map((option) => (
+            <SelectItem disabled={option.disabled} key={option.value} value={String(option.value)}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  };
+
+  return (
+    <Card className="min-w-0 p-4 flex flex-col h-full overflow-hidden shadow-none gap-0">
+      <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+        <div
+          ref={calendarRef}
+          className="relative [&_.rdp-day]:rounded-full [&_.rdp-day_button]:rounded-full [&_.rdp-today]:rounded-full"
+        >
+          <CalendarUi
+            captionLayout="dropdown"
+            className="rounded-md border-0 p-0 w-full"
+            components={{
+              MonthCaption: (props) => <>{props.children}</>,
+              DropdownNav: (props) => <div className="flex w-full items-center gap-2 mb-1">{props.children}</div>,
+              MonthsDropdown: DropdownSelect,
+              YearsDropdown: DropdownSelect,
+            }}
+            hideNavigation
+            mode="single"
+            month={month}
+            onMonthChange={setMonth}
+            onSelect={handleDayClick}
+            selected={selectedDate}
+            modifiers={modifiers}
+            modifiersClassNames={modifiersClassNames}
+            showOutsideDays
+          />
+          <PopoverAnchor ref={anchorRef} className="invisible w-0 h-0" />
+        </div>
+        {clickedDate && (
+          <PopoverContent className="w-64" align="start" side="bottom">
+            <div className="space-y-3">
+              <div>
+                <h4 className="font-semibold text-sm mb-1">{format(clickedDate, "EEEE, MMMM d, yyyy")}</h4>
+                <p className="text-sm text-muted-foreground">
+                  {currentUpcomingCount === 0
+                    ? "No upcoming events"
+                    : `${currentUpcomingCount} ${currentUpcomingCount === 1 ? "event" : "events"}`}
+                </p>
               </div>
-            ))}
-          </div>
+              {currentUpcomingCount > 0 && (
+                <Button onClick={handleViewEvents} className="w-full" size="sm">
+                  View Events
+                </Button>
+              )}
+            </div>
+          </PopoverContent>
+        )}
+      </Popover>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-2">
-            {days.map((day, dayIdx) => {
-              const dayKey = format(day, "yyyy-MM-dd");
-              const dayEvents = eventsByDate.get(dayKey) || [];
-              const isCurrentMonth = isSameMonth(day, currentDate);
-              const isCurrentDay = isToday(day);
-
-              return (
-                <div
-                  key={day.toString()}
-                  className={cn(
-                    "min-h-[100px] border rounded-md p-2",
-                    !isCurrentMonth && "opacity-40",
-                    isCurrentDay && "ring-2 ring-blue-500 ring-offset-2"
-                  )}
-                >
-                  <div className={cn("text-sm font-medium mb-1", isCurrentDay && "text-blue-600 font-bold")}>
-                    {format(day, "d")}
-                  </div>
-                  <div className="space-y-1">
-                    {dayEvents.slice(0, 2).map((event) => (
-                      <Link
-                        key={event.id}
-                        href={`/dashboard/events/${event.shortId}`}
-                        className={cn(
-                          "block text-xs px-2 py-1 rounded border truncate hover:opacity-80 transition-opacity",
-                          getEventColor(event.status)
-                        )}
-                        title={event.title}
-                      >
-                        {event.title}
-                      </Link>
-                    ))}
-                    {dayEvents.length > 2 && (
-                      <div className="text-xs text-muted-foreground px-2">+{dayEvents.length - 2} more</div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </>
+      {showNewEventButton && (
+        <div className="pt-4 border-t">
+          <Button asChild className="w-full" size="default">
+            <Link href="/dashboard/events/requests/new">+ New Event</Link>
+          </Button>
+        </div>
       )}
     </Card>
   );

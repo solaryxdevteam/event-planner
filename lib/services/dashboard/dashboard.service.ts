@@ -90,6 +90,7 @@ export async function getEventsForCalendar(startDate: Date, endDate: Date) {
     .from("events")
     .select("id, title, starts_at, ends_at, status, short_id")
     .in("creator_id", subordinateIds)
+    .eq("status", "approved_scheduled")
     .gte("starts_at", startDate.toISOString())
     .lte("starts_at", endDate.toISOString())
     .order("starts_at", { ascending: true })) as {
