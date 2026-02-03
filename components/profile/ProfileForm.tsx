@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { updateProfile } from "@/lib/actions/profile";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
 import { useStatesByCountry } from "@/lib/hooks/use-locations";
-import type { User } from "@/lib/types/database.types";
+import type { User, UserStatus } from "@/lib/types/database.types";
 import { UserRole } from "@/lib/types/roles";
 
 interface ProfileFormProps {
@@ -35,13 +35,14 @@ export function ProfileForm({ user }: ProfileFormProps) {
   const isGlobalDirector = user.role === UserRole.GLOBAL_DIRECTOR;
 
   const form = useForm<UpdateProfileInput>({
-    resolver: zodResolver(updateProfileSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(updateProfileSchema) as any,
     defaultValues: {
       first_name: user.first_name,
       last_name: user.last_name ?? undefined,
       company: user.company ?? undefined,
       state_id: user.state_id ?? undefined,
-      city: (user as any).city ?? undefined, // city text field
+      city: user.city ?? undefined,
       phone: user.phone ?? undefined,
       password: undefined,
       password_confirmation: undefined,
@@ -65,7 +66,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
           last_name: response.data.last_name ?? undefined,
           company: response.data.company ?? undefined,
           state_id: response.data.state_id ?? undefined,
-          city: (response.data as any).city ?? undefined,
+          city: response.data.city ?? undefined,
           phone: response.data.phone ?? undefined,
           password: undefined,
           password_confirmation: undefined,
@@ -100,7 +101,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
 
     if (data.password && data.password.trim() !== "") {
       submitData.password = data.password;
-      submitData.password_confirmation = data.password_confirmation;
+      submitData.password_confirmation = data.password_confirmation || "";
     }
 
     // Only include admin fields if user is Global Director
@@ -113,7 +114,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
     updateProfileMutation.mutate(submitData);
   };
 
-  const selectedStateId = form.watch("state_id");
   const selectedCountryId = user.country_id; // Country is read-only
 
   // Reload states when country changes (though country shouldn't change)
@@ -150,7 +150,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
             </div>
             <div>
               <Label>City</Label>
-              <Input value={(user as any).city || "N/A"} disabled />
+              <Input value={user.city || "N/A"} disabled />
             </div>
             <div>
               <Label>Phone</Label>
@@ -198,6 +198,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
       {/* State */}
       <div className="space-y-2">
         <Label>State</Label>
+        {/* React Compiler warning: form.watch() returns functions that cannot be memoized - expected with React Hook Form */}
         <LocationCombobox
           value={form.watch("state_id") ?? undefined}
           onValueChange={(value) => {
@@ -328,7 +329,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
               </Label>
               <Select
                 value={form.watch("role")}
-                onValueChange={(value) => form.setValue("role", value as any)}
+                onValueChange={(value) => form.setValue("role", value as UserRole)}
                 disabled={updateProfileMutation.isPending}
               >
                 <SelectTrigger id="role">
@@ -354,7 +355,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
               </Label>
               <Select
                 value={form.watch("status")}
-                onValueChange={(value) => form.setValue("status", value as any)}
+                onValueChange={(value) => form.setValue("status", value as UserStatus)}
                 disabled={updateProfileMutation.isPending}
               >
                 <SelectTrigger id="status">

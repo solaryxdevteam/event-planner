@@ -17,7 +17,6 @@ import { handleAsync } from "@/lib/utils/response";
 import type { Database } from "@/lib/types/database.types";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
 import { ForbiddenError } from "@/lib/utils/errors";
-import { UserRole } from "@/lib/types/roles";
 import { z } from "zod";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
@@ -57,7 +56,16 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
     const isGlobalDirector = await roles.isGlobalDirector(userId);
 
     // Handle password update separately if provided
-    const { password, password_confirmation, email, role, status, ...profileUpdates } = validatedData;
+    const {
+      password,
+      password_confirmation: _unusedPasswordConfirmation,
+      email,
+      role,
+      status,
+      ...profileUpdates
+    } = validatedData;
+    // password_confirmation is destructured but not used (password is validated separately)
+    void _unusedPasswordConfirmation;
 
     if (password && password.trim() !== "") {
       await passwordService.updatePassword(userId, password);
@@ -166,33 +174,42 @@ export async function removeAvatar(): Promise<ActionResponse<void>> {
 }
 
 /**
- * Update notification preferences
- * NOTE: notification_prefs column has been removed and will be re-implemented later
+ * Update notification preferences (per-action email toggles).
+ * Frequency is not exposed in UI; stored as "instant" for future use.
  */
 export async function updateNotificationPreferences(preferences: {
-  email: boolean;
-  frequency: "instant" | "daily" | "weekly";
+  email_enabled: boolean;
+  event_approved?: boolean;
+  event_rejected?: boolean;
+  report_due?: boolean;
+  reports_pending_approval?: boolean;
 }): Promise<ActionResponse<User>> {
   return handleAsync(async () => {
     const { id: userId } = await requireAuth();
 
-    // Validate preferences
     const schema = z.object({
-      email: z.boolean(),
-      frequency: z.enum(["instant", "daily", "weekly"]),
+      email_enabled: z.boolean(),
+      event_approved: z.boolean().optional(),
+      event_rejected: z.boolean().optional(),
+      report_due: z.boolean().optional(),
+      reports_pending_approval: z.boolean().optional(),
     });
     schema.parse(preferences);
 
-    // TODO: Re-implement notification_prefs column later
-    // For now, just return the current user without updating
-    // Get current user - users can always access their own profile
-    const currentUser = await usersDal.findById(userId, [userId]);
-    if (!currentUser) {
-      throw new Error("User not found");
-    }
+    const updatedUser = await usersDal.update(userId, {
+      notification_prefs: {
+        email_enabled: preferences.email_enabled,
+        frequency: "instant",
+        event_approved: preferences.event_approved ?? true,
+        event_rejected: preferences.event_rejected ?? true,
+        report_due: preferences.report_due ?? true,
+        reports_pending_approval: preferences.reports_pending_approval ?? true,
+      },
+    });
 
+    revalidatePath("/dashboard/profile");
     revalidatePath("/profile");
 
-    return currentUser;
+    return updatedUser;
   }, "updateNotificationPreferences");
 }

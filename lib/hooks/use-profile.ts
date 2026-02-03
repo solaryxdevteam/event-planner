@@ -5,7 +5,6 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { UpdateProfileInput } from "@/lib/validation/profile.schema";
 import * as profileClientService from "@/lib/services/client/profile.client.service";
 import { toast } from "sonner";
 
