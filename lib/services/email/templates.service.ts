@@ -111,3 +111,102 @@ export function renderUserCreatedCongratulation(user: User, creatorName: string)
 
   return baseTemplate(content);
 }
+
+/**
+ * Render event approved email
+ * Sent when event receives final approval (e.g. by Global Director)
+ */
+export function renderEventApprovedEmail(eventTitle: string, eventId: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
+
+  const content = `
+    <h2 style="color: #1f2937; margin-top: 0;">Event Approved</h2>
+    <p>Hello,</p>
+    <p>Your event <strong>${eventTitle}</strong> has been approved and is now scheduled.</p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${eventUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">View Event</a>
+    </div>
+    <p>If you have any questions, please contact your administrator.</p>
+  `;
+
+  return baseTemplate(content);
+}
+
+/**
+ * Render event rejected email
+ * Sent when an approver rejects the event
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+export function renderEventRejectedEmail(eventTitle: string, eventId: string, comment: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
+
+  const commentBlock = comment?.trim()
+    ? `<p><strong>Comment from approver:</strong></p><p style="background-color: #fef2f2; padding: 12px; border-radius: 6px; color: #991b1b;">${escapeHtml(comment)}</p>`
+    : "";
+
+  const content = `
+    <h2 style="color: #1f2937; margin-top: 0;">Event Not Approved</h2>
+    <p>Hello,</p>
+    <p>Your event <strong>${eventTitle}</strong> was not approved.</p>
+    ${commentBlock}
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${eventUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">View Event</a>
+    </div>
+    <p>You may edit and resubmit the event for approval.</p>
+    <p>If you have any questions, please contact your administrator.</p>
+  `;
+
+  return baseTemplate(content);
+}
+
+/**
+ * Render report due reminder email
+ * Sent to event planner when event transitions to awaiting report
+ */
+export function renderReportDueReminderEmail(eventTitle: string, eventId: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
+
+  const content = `
+    <h2 style="color: #1f2937; margin-top: 0;">Report Required</h2>
+    <p>Hello,</p>
+    <p>Your event <strong>${eventTitle}</strong> has been completed. Please submit a post-event report.</p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${eventUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Submit Report</a>
+    </div>
+    <p>If you have any questions, please contact your administrator.</p>
+  `;
+
+  return baseTemplate(content);
+}
+
+/**
+ * Render reports pending approval reminder email
+ * Sent to Global Director(s) when reports are awaiting approval
+ */
+export function renderReportsPendingApprovalReminderEmail(pendingCount: number): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const approvalsUrl = `${baseUrl}/dashboard/approvals`;
+
+  const content = `
+    <h2 style="color: #1f2937; margin-top: 0;">Reports Awaiting Approval</h2>
+    <p>Hello,</p>
+    <p>You have <strong>${pendingCount}</strong> report${pendingCount === 1 ? "" : "s"} awaiting your approval.</p>
+    <div style="text-align: center; margin: 30px 0;">
+      <a href="${approvalsUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: bold;">Review Approvals</a>
+    </div>
+    <p>If you have any questions, please contact your administrator.</p>
+  `;
+
+  return baseTemplate(content);
+}
