@@ -58,7 +58,7 @@ export function DashboardReportsCard() {
     dateFrom,
     dateTo,
   });
-  const chartData = listData?.chartData ?? [];
+  const chartData = useMemo(() => listData?.chartData ?? [], [listData?.chartData]);
 
   const { chartConfig, summary } = useMemo(() => {
     const totalEvents = chartData.reduce((s, d) => s + d.event_count, 0);

@@ -70,7 +70,15 @@ export interface User {
   avatar_url: string | null;
   notification_prefs?: {
     email_enabled: boolean;
-    frequency: "instant" | "daily" | "weekly";
+    frequency?: "instant" | "daily" | "weekly";
+    /** Email when my event is approved */
+    event_approved?: boolean;
+    /** Email when my event is rejected */
+    event_rejected?: boolean;
+    /** Email when a report is due for my event */
+    report_due?: boolean;
+    /** Email when reports need my approval (Global Directors) */
+    reports_pending_approval?: boolean;
   } | null;
   created_at: string;
   updated_at: string;

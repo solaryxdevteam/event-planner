@@ -66,7 +66,8 @@ class ApiClient {
   /**
    * Get headers for requests
    */
-  private getHeaders(requireAuth: boolean = true): HeadersInit {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private getHeaders(_unusedRequireAuth: boolean = true): HeadersInit {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };

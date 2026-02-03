@@ -10,7 +10,7 @@ import * as approvalService from "@/lib/services/approvals/approval.service";
 import * as draftService from "@/lib/services/events/draft.service";
 import * as venueService from "@/lib/services/venues/venue.service";
 import { createClient } from "@/lib/supabase/server";
-import { startOfDay, addDays, isAfter, isBefore } from "date-fns";
+import { startOfDay, addDays } from "date-fns";
 
 export interface DashboardStats {
   pendingApprovals: number;
