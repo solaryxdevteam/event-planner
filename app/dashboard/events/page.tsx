@@ -97,9 +97,9 @@ export default function EventsPage() {
   const availableStates = useMemo(() => {
     const stateSet = new Set<string>();
     allEvents.forEach((event) => {
-      // Access venue state - need to check the venue structure
-      if (event.venue && (event.venue as any).state) {
-        stateSet.add((event.venue as any).state);
+      // Access venue state
+      if (event.venue?.state) {
+        stateSet.add(event.venue.state);
       }
     });
     return Array.from(stateSet).sort();

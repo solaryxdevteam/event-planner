@@ -13,7 +13,6 @@ import * as eventDAL from "@/lib/data-access/events.dal";
 import * as auditService from "@/lib/services/audit/audit.service";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { CreateEventInput, UpdateEventInput } from "@/lib/validation/events.schema";
-import { requireActiveUser } from "@/lib/auth/server";
 import { createClient } from "@/lib/supabase/server";
 
 /**

@@ -52,8 +52,8 @@ function VenueSelectionDisplay({
   selectedVenue,
   onSelect,
   error,
-  maxAttendance: _maxAttendance,
-  currentAttendance: _currentAttendance,
+  maxAttendance,
+  currentAttendance,
 }: {
   selectedVenue: VenueWithCreator | null;
   onSelect: () => void;
@@ -61,6 +61,9 @@ function VenueSelectionDisplay({
   maxAttendance?: number;
   currentAttendance?: number | null;
 }) {
+  // maxAttendance and currentAttendance are part of the interface but not currently used
+  void maxAttendance;
+  void currentAttendance;
   if (selectedVenue) {
     return (
       <div className="space-y-3">
@@ -418,7 +421,6 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       }
     },
     [
-      currentStep,
       totalSteps,
       startsAtDate,
       endsAtDate,

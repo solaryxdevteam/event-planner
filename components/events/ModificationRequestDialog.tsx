@@ -49,7 +49,8 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
   const requestModificationMutation = useRequestModification();
 
   const form = useForm<ModificationFormData>({
-    resolver: zodResolver(createEventSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(createEventSchema) as any,
     mode: "onChange",
     defaultValues: {
       title: event.title,
@@ -66,6 +67,8 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
   });
 
   // Fetch full venue if venue_id exists
+  // React Compiler warning: form.watch() returns functions that cannot be memoized
+  // This is expected behavior with React Hook Form and can be safely ignored
   const venueId = form.watch("venue_id");
   const { data: fullVenue } = useVenue(venueId || null);
 

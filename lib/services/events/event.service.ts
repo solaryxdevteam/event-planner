@@ -134,7 +134,7 @@ export async function submitForApproval(userId: string, eventId: string): Promis
   // Create approval chain
   await approvalDAL.createChain(eventId, approverIds, "event");
 
-  // Notify first approver (stub for now - will be implemented in Phase 14)
+  // Notify for last approver (global director)
   // await emailService.sendApprovalNotification(approverIds[0], eventId, "event");
 
   // Log audit trail

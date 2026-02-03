@@ -13,9 +13,9 @@ import { XIcon, SearchIcon } from "lucide-react";
 import { format } from "date-fns";
 
 // Debounce function
-function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
+function debounce<T extends (...args: unknown[]) => void>(func: T, wait: number): T {
   let timeout: NodeJS.Timeout | null = null;
-  return ((...args: any[]) => {
+  return ((...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
   }) as T;

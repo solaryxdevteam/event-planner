@@ -144,6 +144,7 @@ export async function findById(
 
   // Transform data to construct creator name
   if (data && includeRelations) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const typedData = data as any;
     return {
       ...typedData,
@@ -220,6 +221,7 @@ export async function findByShortId(
 
   // Transform data to construct creator name
   if (data && includeRelations) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const typedData = data as any;
     return {
       ...typedData,

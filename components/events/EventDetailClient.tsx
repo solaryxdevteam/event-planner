@@ -87,15 +87,13 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
 
   // Check for pending modifications
   const hasPendingModification =
-    approvals?.some(
-      (a: any) => a.approval_type === "modification" && (a.status === "pending" || a.status === "waiting")
-    ) || false;
+    approvals?.some((a) => a.approval_type === "modification" && (a.status === "pending" || a.status === "waiting")) ||
+    false;
 
   // Check for pending cancellations
   const hasPendingCancellation =
-    approvals?.some(
-      (a: any) => a.approval_type === "cancellation" && (a.status === "pending" || a.status === "waiting")
-    ) || false;
+    approvals?.some((a) => a.approval_type === "cancellation" && (a.status === "pending" || a.status === "waiting")) ||
+    false;
 
   // Check if user can request cancellation (only for approved_scheduled events)
   const { data: canRequestCancellation } = useCanRequestCancellation(

@@ -18,6 +18,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database.types";
+import * as emailService from "../email/email.service";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type EventStatus = Database["public"]["Enums"]["event_status"];
@@ -147,31 +148,25 @@ async function transitionSingleEvent(event: Event): Promise<void> {
 async function notifyCreatorReportDue(event: Event): Promise<void> {
   const supabase = await createClient();
 
-  // Get creator details
   const { data: creator, error } = await supabase
     .from("users")
-    .select("id, name, email")
+    .select("email, notification_prefs")
     .eq("id", event.creator_id)
-    .single<{ id: string; name: string | null; email: string | null }>();
+    .single<{
+      email: string;
+      notification_prefs: { email_enabled?: boolean; report_due?: boolean } | null;
+    }>();
 
-  if (error || !creator) {
+  if (error || !creator?.email) {
     throw new Error("Failed to fetch creator details");
   }
 
-  // notification_prefs column has been removed and will be re-implemented later
-  // For now, always send notifications (default behavior)
+  const prefs = creator.notification_prefs;
+  if (prefs?.email_enabled === false || prefs?.report_due === false) {
+    return;
+  }
 
-  // TODO: Send email notification
-  // This should be integrated with your email service (e.g., Resend, SendGrid)
-  console.log("TODO: Send email notification", {
-    to: creator.email,
-    subject: "Event Report Required",
-    eventTitle: event.title,
-    startsAt: event.starts_at,
-  });
-
-  // For now, just log that notification should be sent
-  // Actual email implementation will be added in Phase 14 (Email Notifications)
+  await emailService.sendReportDueReminderEmail(creator.email, event.title, event.id);
 }
 
 /**

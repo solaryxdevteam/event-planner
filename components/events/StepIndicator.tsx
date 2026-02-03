@@ -25,11 +25,14 @@ const defaultSteps: Step[] = [
 
 export function StepIndicator({
   currentStep,
-  totalSteps: _totalSteps,
+  totalSteps,
   onStepClick,
   stepErrors,
   steps = defaultSteps,
 }: StepIndicatorProps) {
+  // totalSteps is part of the interface but not currently used in rendering
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _unusedTotalSteps = totalSteps;
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full mb-4 sm:mb-6 gap-3 sm:gap-0">
       {steps.map((step, index) => {
