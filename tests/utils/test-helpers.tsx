@@ -240,8 +240,11 @@ export function createMockSupabaseQuery<TData = unknown, TError = unknown>(data:
 
   // Terminal methods that end the chain and return promises
   const promise = Promise.resolve({ data, error });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (query as any).then = promise.then.bind(promise);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (query as any).catch = promise.catch.bind(promise);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (query as any).finally = promise.finally.bind(promise);
 
   return query;

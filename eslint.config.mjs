@@ -17,6 +17,9 @@ const eslintConfig = defineConfig([
       // Relax strictness on explicit `any` types: keep them visible as warnings,
       // but do not fail lint so existing legacy code and tests can pass.
       "@typescript-eslint/no-explicit-any": "warn",
+      // Suppress React Compiler warnings about React Hook Form compatibility
+      // These are informational warnings about library compatibility and don't affect functionality
+      "react-hooks/incompatible-library": "off",
     },
   },
   // Override default ignores of eslint-config-next.

@@ -88,7 +88,7 @@ export function InputPasswordStrength({
     }
   };
 
-  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+  const handleBlur = () => {
     // Delay closing to allow popover interactions
     blurTimeoutRef.current = setTimeout(() => {
       // Only close if input is truly not focused and focus didn't move to popover
