@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, X, Loader2, AlertCircle, CheckCircle2, ExternalLink, Plus, Trash2, FileText } from "lucide-react";
+import { Upload, X, Loader2, AlertCircle, ExternalLink, Plus, Trash2, FileText } from "lucide-react";
 import { useSubmitReport, useUpdateReport } from "@/lib/hooks/use-reports";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -55,7 +55,8 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
   const updateReport = useUpdateReport();
 
   const form = useForm<ReportFormData>({
-    resolver: zodResolver(reportSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(reportSchema) as any,
     defaultValues: {
       attendance_count: existingReport?.attendance_count || 0,
       summary: existingReport?.summary || "",
@@ -140,7 +141,7 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
       }
 
       onSuccess?.();
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation
     }
   };
@@ -187,6 +188,7 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
                 <div className="text-sm text-muted-foreground">Expected:</div>
                 <div className="font-semibold">{event.expected_attendance.toLocaleString()}</div>
                 <div className="text-sm text-muted-foreground ml-auto">Actual:</div>
+                {/* React Compiler warning: form.watch() returns functions that cannot be memoized - expected with React Hook Form */}
                 <div className="font-semibold">{form.watch("attendance_count") || 0}</div>
               </div>
             )}

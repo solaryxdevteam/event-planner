@@ -15,6 +15,7 @@ import * as reportDAL from "@/lib/data-access/reports.dal";
 import * as approvalDAL from "@/lib/data-access/event-approvals.dal";
 import * as auditService from "@/lib/services/audit/audit.service";
 import * as storageService from "@/lib/services/storage/storage.service";
+import * as emailService from "../email/email.service";
 import { NotFoundError, ForbiddenError, ValidationError } from "@/lib/utils/errors";
 import type { Report } from "@/lib/types/database.types";
 
@@ -113,6 +114,13 @@ export async function submitReport(
     approver_count: approverIds.length,
   });
 
+  // Notify Global Directors that reports are awaiting approval
+  try {
+    await notifyGlobalDirectorsOfPendingReportApprovals();
+  } catch (err) {
+    console.error("Failed to send reports pending approval reminder:", err);
+  }
+
   return report;
 }
 
@@ -182,6 +190,13 @@ export async function updateReport(
     event_title: event.title,
     report_id: reportId,
   });
+
+  // Notify Global Directors that reports are awaiting approval
+  try {
+    await notifyGlobalDirectorsOfPendingReportApprovals();
+  } catch (err) {
+    console.error("Failed to send reports pending approval reminder:", err);
+  }
 
   return updatedReport;
 }
@@ -272,6 +287,51 @@ export async function rejectReport(reportId: string): Promise<Report> {
   return reportDAL.update(reportId, {
     status: "rejected",
   });
+}
+
+/**
+ * Notify Global Directors that reports are awaiting approval.
+ * Called after report submission or resubmission.
+ */
+async function notifyGlobalDirectorsOfPendingReportApprovals(): Promise<void> {
+  const supabase = await createClient();
+
+  const { data: pendingApprovals, error: countError } = await supabase
+    .from("event_approvals")
+    .select("event_id")
+    .eq("approval_type", "report")
+    .in("status", ["pending", "waiting"]);
+
+  if (countError || !pendingApprovals?.length) {
+    return;
+  }
+
+  const distinctEventIds = new Set(pendingApprovals.map((a) => a.event_id).filter(Boolean));
+  const pendingCount = distinctEventIds.size;
+
+  const { data: globalDirectors, error: directorsError } = await supabase
+    .from("users")
+    .select("email, notification_prefs")
+    .eq("role", "global_director")
+    .eq("is_active", true);
+
+  if (directorsError || !globalDirectors?.length) {
+    return;
+  }
+
+  type DirectorRow = {
+    email: string;
+    notification_prefs: { email_enabled?: boolean; reports_pending_approval?: boolean } | null;
+  };
+  for (const director of globalDirectors as DirectorRow[]) {
+    const prefs = director.notification_prefs;
+    if (!director.email || prefs?.email_enabled === false || prefs?.reports_pending_approval === false) continue;
+    try {
+      await emailService.sendReportsPendingApprovalReminderEmail(director.email, pendingCount);
+    } catch (err) {
+      console.error("Failed to send report reminder to", director.email, err);
+    }
+  }
 }
 
 /**
