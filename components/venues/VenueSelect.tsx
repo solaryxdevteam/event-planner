@@ -3,7 +3,6 @@
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useVenuesWithSearch } from "@/lib/hooks/use-venues";
-import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { SearchIcon } from "lucide-react";

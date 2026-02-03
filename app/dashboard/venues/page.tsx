@@ -67,7 +67,7 @@ export default function VenuesPage() {
     status: "all",
   });
 
-  const allVenues = allVenuesData?.data || [];
+  const allVenues = useMemo(() => allVenuesData?.data || [], [allVenuesData?.data]);
   const venues = venuesData?.data || [];
   const totalVenues = venuesData?.total || 0;
   const totalPages = venuesData?.totalPages || 1;
@@ -131,12 +131,12 @@ export default function VenuesPage() {
     }
   }, [filters, currentPage]);
 
-  const handleDelete = async (_venueId: string) => {
+  const handleDelete = async () => {
     // This is kept for backward compatibility but dialogs handle deletion now
     // React Query will automatically refetch when mutations complete
   };
 
-  const handleBan = async (_venueId: string) => {
+  const handleBan = async () => {
     // This is kept for backward compatibility but dialogs handle banning now
     // React Query will automatically refetch when mutations complete
   };

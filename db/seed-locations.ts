@@ -18,7 +18,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as https from "https";
 import * as zlib from "zlib";
-import { pipeline } from "stream/promises";
+// pipeline is imported but not currently used
+// import { pipeline } from "stream/promises";
 
 // Load environment variables from .env.local
 const envPath = path.join(process.cwd(), ".env.local");

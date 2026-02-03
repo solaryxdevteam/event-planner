@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DateInput } from "@/components/ui/date-input";
 import { LocationCombobox } from "@/components/ui/location-combobox";
@@ -35,7 +35,6 @@ import { cn } from "@/lib/utils";
 import { useVenueTemplates, useVenueTemplate } from "@/lib/hooks/use-venues";
 import { SaveVenueTemplateDialog } from "./SaveVenueTemplateDialog";
 import { UseVenueTemplateDialog } from "./UseVenueTemplateDialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface VenueFormProps {
   mode: "create" | "edit";
@@ -51,7 +50,7 @@ type VenueFormData = CreateVenueInput;
 // Step indicator component matching the image style (horizontal, no borders)
 function StepIndicator({
   currentStep,
-  totalSteps,
+  totalSteps: _unusedTotalSteps,
   onStepClick,
   stepErrors,
 }: {
@@ -60,6 +59,8 @@ function StepIndicator({
   onStepClick?: (step: number) => void;
   stepErrors?: Record<number, boolean>;
 }) {
+  // totalSteps is part of the interface but not currently used
+  void _unusedTotalSteps;
   const steps = [
     { number: 1, title: "Basic Information", subtitle: "Venue Details", icon: Home },
     { number: 2, title: "Capacity & Features", subtitle: "Specifications", icon: User },
@@ -171,9 +172,8 @@ export function VenueForm({
   } | null>(null);
 
   // Template queries
-  const { data: templates = [], isLoading: templatesLoading } = useVenueTemplates();
+  const { isLoading: templatesLoading } = useVenueTemplates();
   const { data: selectedTemplate, isLoading: isLoadingTemplate } = useVenueTemplate(selectedTemplateId);
-  const [uploadedImageFiles, setUploadedImageFiles] = useState<File[]>([]);
   const [availabilityStartDate, setAvailabilityStartDate] = useState<Date | undefined>(
     venue?.availability_start_date ? new Date(venue.availability_start_date) : undefined
   );
@@ -204,6 +204,7 @@ export function VenueForm({
   // Initialize form with default values
   const form = useForm<VenueFormData>({
     // Type assertion needed due to zodResolver type inference issue with merged schemas
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(venueStep1Schema.merge(venueStep2Schema).merge(venueStep3Schema)) as any,
     mode: "onSubmit", // Only validate on submit
     reValidateMode: "onChange", // Only re-validate on submit
@@ -603,6 +604,8 @@ export function VenueForm({
     region?: string,
     country?: string
   ) => {
+    // country parameter is part of the interface but not currently used
+    void country;
     form.setValue("street", address);
     if (lat !== null && lng !== null) {
       form.setValue("location_lat", lat);
@@ -691,10 +694,13 @@ export function VenueForm({
   };
 
   // Get today's date and max date (1 year from now)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const maxDate = new Date(today);
-  maxDate.setFullYear(maxDate.getFullYear() + 1);
+  const maxDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const max = new Date(today);
+    max.setFullYear(max.getFullYear() + 1);
+    return max;
+  }, []);
 
   // Handle date changes
   const handleStartDateChange = (date: Date | undefined) => {
@@ -737,15 +743,14 @@ export function VenueForm({
 
   // Handle save as template
   const handleSaveAsTemplate = () => {
-    const formData = form.getValues();
     setShowSaveTemplateDialog(true);
   };
 
   // Get current form data for template saving
   const getCurrentFormData = (): CreateVenueInput => {
-    const formData = form.getValues();
+    const formValues = form.getValues();
     return {
-      ...formData,
+      ...formValues,
       availability_start_date: availabilityStartDate ? format(availabilityStartDate, "yyyy-MM-dd") : undefined,
       availability_end_date: availabilityEndDate ? format(availabilityEndDate, "yyyy-MM-dd") : undefined,
     };

@@ -41,7 +41,7 @@ export function BanVenueDialog({ open, onOpenChange, venue, onSuccess }: BanVenu
       if (onSuccess) {
         onSuccess(banReason);
       }
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation hook (toast shown)
     }
   };

@@ -30,7 +30,7 @@ export function UnbanVenueDialog({ open, onOpenChange, venue, onSuccess }: Unban
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation hook (toast shown)
     }
   };

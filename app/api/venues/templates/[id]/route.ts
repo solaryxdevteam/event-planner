@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { venueTemplateService } from "@/lib/services/venues/venue-template.service";
 import { UnauthorizedError, NotFoundError } from "@/lib/utils/errors";
+import type { CreateVenueInput } from "@/lib/validation/venues.schema";
 
 export const dynamic = "force-dynamic";
 
@@ -50,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json();
     const { name, template_data } = body;
 
-    const updates: { name?: string; template_data?: any } = {};
+    const updates: { name?: string; template_data?: CreateVenueInput } = {};
     if (name !== undefined) {
       updates.name = name;
     }

@@ -11,7 +11,6 @@ import { toast } from "sonner";
 
 // Re-export types from client service
 export type { VenueFilters } from "@/lib/services/client/venues.client.service";
-import type { VenueFilters } from "@/lib/services/client/venues.client.service";
 
 /**
  * React Query hook: Get venues with search (for VenueSelect)
@@ -188,8 +187,6 @@ export function useUnbanVenue() {
 // =============================================
 // Venue Templates Hooks
 // =============================================
-
-import type { VenueTemplate } from "@/lib/data-access/venue-templates.dal";
 
 /**
  * React Query hook: Get venue templates

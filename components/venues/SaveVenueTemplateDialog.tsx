@@ -43,7 +43,7 @@ export function SaveVenueTemplateDialog({ open, onOpenChange, venueData, onSucce
       setTemplateName("");
       onOpenChange(false);
       onSuccess?.();
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation hook (toast shown)
     }
   };

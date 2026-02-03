@@ -30,7 +30,7 @@ export function DeleteVenueDialog({ open, onOpenChange, venue, onSuccess }: Dele
       if (onSuccess) {
         onSuccess();
       }
-    } catch (error) {
+    } catch {
       // Error is handled by the mutation hook (toast shown)
     }
   };

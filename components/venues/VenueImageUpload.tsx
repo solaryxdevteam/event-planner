@@ -77,7 +77,15 @@ function uploadOne(file: File, onProgress: (percent: number) => void): Promise<{
   });
 }
 
-export function VenueImageUpload({ images, onImagesChange, venueId, error, onFilesChange }: VenueImageUploadProps) {
+export function VenueImageUpload({
+  images,
+  onImagesChange,
+  venueId: _unusedVenueId,
+  error,
+  onFilesChange,
+}: VenueImageUploadProps) {
+  // venueId is part of the interface but not currently used
+  void _unusedVenueId;
   const [isUploading, setIsUploading] = useState(false);
   const [tempFiles, setTempFiles] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<Record<number, number>>({});
@@ -208,24 +216,17 @@ export function VenueImageUpload({ images, onImagesChange, venueId, error, onFil
     // If it's an uploaded image (not a preview), delete from storage
     if (isUploadedImage) {
       try {
-        // Extract path from URL
-        // URL format: https://{project}.supabase.co/storage/v1/object/public/venues/{path}
-        const urlParts = imageUrl.split("/venues/");
-        if (urlParts.length === 2) {
-          const path = `venues/${urlParts[1]}`;
+        // Call API to delete the image
+        const response = await fetch("/api/venues/delete-image", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ imageUrl }),
+        });
 
-          // Call API to delete the image
-          const response = await fetch("/api/venues/delete-image", {
-            method: "DELETE",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ imageUrl }),
-          });
-
-          if (!response.ok) {
-            console.warn("Failed to delete image from storage, but removed from UI");
-          }
+        if (!response.ok) {
+          console.warn("Failed to delete image from storage, but removed from UI");
         }
       } catch (error) {
         // Log error but don't block - image is already removed from UI

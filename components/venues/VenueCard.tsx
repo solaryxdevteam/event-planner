@@ -24,8 +24,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
   const [unbanDialogOpen, setUnbanDialogOpen] = useState(false);
-  // short_id is a new column on venues; it's not yet in the generated types
-  const shortId = (venue as any).short_id as string | undefined;
+  const shortId = venue.short_id;
 
   const firstImage = venue.images && venue.images.length > 0 ? venue.images[0] : null;
   const isGlobalDirector = userRole === UserRole.GLOBAL_DIRECTOR;
