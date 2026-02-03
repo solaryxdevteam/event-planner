@@ -16,6 +16,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 describe("users.dal", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockSupabase: any;
 
   beforeEach(() => {

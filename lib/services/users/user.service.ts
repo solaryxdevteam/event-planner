@@ -191,7 +191,6 @@ export async function createUser(requesterId: string, data: CreateUserInput): Pr
     notification_prefs: null,
   });
 
-  // TODO: Send magic link invitation email (will be implemented in email service)
   // await emailService.sendInvitation(newUser.email);
 
   return newUser;

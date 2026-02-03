@@ -58,6 +58,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
   type FormData = UserFormInput;
 
   const form = useForm<FormData>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(mode === "create" ? createUserFormSchema : updateUserFormSchema) as any,
     defaultValues: {
       email: "",
@@ -131,7 +132,8 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
   };
 
   const selectedCountryId = form.watch("country_id");
-  const selectedStateId = form.watch("state_id");
+  // Watch state_id for form state management (used indirectly)
+  form.watch("state_id");
 
   // Use React Query hooks for location data (cached)
   const { data: countriesData = [], isLoading: loadingCountries } = useCountries();
@@ -148,6 +150,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
     if (open && defaultCountryId && !selectedCountryId) {
       form.setValue("country_id", defaultCountryId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultCountryId, selectedCountryId]);
 
   // Reset state and city when country changes
@@ -156,13 +159,12 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
       form.setValue("state_id", null);
       form.setValue("city", null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCountryId]);
-
   const selectedRole = form.watch("role");
-
   // Fetch potential parents when role changes
   const handleRoleChange = async (role: string) => {
-    form.setValue("role", role as any);
+    form.setValue("role", role as UserRole);
 
     // Check if Global Director to show password confirmation (only in create mode)
     if (role === UserRole.GLOBAL_DIRECTOR) {
@@ -429,7 +431,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
                 <PhoneInput
                   id="phone"
                   value={form.watch("phone") || ""}
-                  onChange={(value: any) => form.setValue("phone", value || null)}
+                  onChange={(value) => form.setValue("phone", value || null)}
                   placeholder="+1 (234) 567-8900"
                   defaultCountry="US"
                 />

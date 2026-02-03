@@ -5,7 +5,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import type { CreateUserInput, UpdateUserInput } from "@/lib/validation/users.schema";
+import type { UpdateUserInput } from "@/lib/validation/users.schema";
 import * as userClientService from "@/lib/services/client/users.client.service";
 import { toast } from "sonner";
 

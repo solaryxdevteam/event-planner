@@ -16,7 +16,6 @@ import {
   updateUserSchema,
   deactivateUserSchema,
   globalDirectorPasswordSchema,
-  type CreateUserInput,
   type UpdateUserInput,
 } from "@/lib/validation/users.schema";
 import type { ActionResponse, PaginatedResponse } from "@/lib/types/api.types";
@@ -97,6 +96,7 @@ export async function createUserDirectly(
         email: formData.get("email") as string,
         first_name: formData.get("first_name") as string,
         last_name: formData.get("last_name") as string | null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         role: formData.get("role") as any,
         parent_id: formData.get("parent_id") as string | null,
         country_id: formData.get("country_id") as string | undefined,
@@ -147,6 +147,7 @@ export async function createUserDirectly(
  * @param formData - Form data or CreateUserInput object
  * @deprecated Use createUserDirectly with password instead
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function createUser(formData: FormData | CreateUserInput): Promise<ActionResponse<User>> {
   return handleAsync(async () => {
     throw new Error("Direct user creation requires a password. Use createUserDirectly instead.");
@@ -180,6 +181,7 @@ export async function updateUser(userId: string, formData: FormData | UpdateUser
       if (email) data.email = email as string;
       if (first_name) data.first_name = first_name as string;
       if (last_name) data.last_name = last_name as string | null;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       if (role) data.role = role as any;
       if (parent_id !== null) data.parent_id = parent_id as string | null;
       if (country_id) data.country_id = country_id as string;

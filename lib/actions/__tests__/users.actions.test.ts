@@ -83,6 +83,7 @@ describe("User Actions", () => {
       const invalidData = {
         email: "invalid-email",
         name: "",
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         role: "invalid_role" as any,
         parent_id: null,
         country_id: "invalid-uuid",
@@ -191,6 +192,7 @@ describe("User Actions", () => {
         },
       ];
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       vi.mocked(hierarchyService.getHierarchyTree).mockResolvedValue(mockTree as any);
 
       const result = await userActions.getUserHierarchy();

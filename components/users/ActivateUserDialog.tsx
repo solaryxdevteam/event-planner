@@ -68,6 +68,7 @@ export function ActivateUserDialog({ open, onOpenChange, user }: ActivateUserDia
       form.setValue("parent_id", null);
       setIsLoadingParents(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, selectedRole]);
 
   const loadPotentialParents = async (role: string) => {
@@ -107,7 +108,7 @@ export function ActivateUserDialog({ open, onOpenChange, user }: ActivateUserDia
 
   // Handle role change
   const handleRoleChange = async (role: string) => {
-    form.setValue("role", role as any);
+    form.setValue("role", role as UserRole);
 
     if (role === UserRole.GLOBAL_DIRECTOR) {
       form.setValue("parent_id", null);

@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserActions } from "./UserActions";
 import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { ROLE_LABELS, ROLE_OPTIONS, UserRole } from "@/lib/types/roles";
+import { ROLE_OPTIONS, UserRole } from "@/lib/types/roles";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 

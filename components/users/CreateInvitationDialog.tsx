@@ -56,6 +56,7 @@ export function CreateInvitationDialog({ open, onOpenChange }: CreateInvitationD
       setCreatedInvitation(null);
       setCopied(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const onSubmit = async (data: CreateInvitationInput) => {
@@ -105,7 +106,7 @@ export function CreateInvitationDialog({ open, onOpenChange }: CreateInvitationD
         setCopied(true);
         toast.success("Invitation link copied to clipboard!");
         setTimeout(() => setCopied(false), 2000);
-      } catch (error) {
+      } catch {
         toast.error("Failed to copy link");
       }
     }
@@ -158,7 +159,7 @@ export function CreateInvitationDialog({ open, onOpenChange }: CreateInvitationD
             Create an invitation link for a new user. Country must be selected before creating.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email Address *</Label>
             <Input

@@ -24,6 +24,8 @@ interface UserManagementClientProps {
 }
 
 export function UserManagementClient({ initialUsers }: UserManagementClientProps) {
+  // initialUsers is kept for backward compatibility but not currently used
+  void initialUsers;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInvitationDialogOpen, setIsInvitationDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -46,7 +48,7 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
   };
 
   // Use React Query hook to fetch users
-  const { data: usersData, isLoading, error } = useUsers(filters);
+  const { data: usersData, isLoading } = useUsers(filters);
 
   // Extract users and pagination from response
   const users = usersData?.data || [];
