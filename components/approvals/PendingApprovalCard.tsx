@@ -24,7 +24,7 @@ import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimel
 import { cn } from "@/lib/utils";
 
 interface PendingApprovalCardProps {
-  approval: any;
+  approval: EventApprovalWithApprover;
   onApprove: (eventId: string, comment: string) => Promise<void>;
   onReject: (eventId: string, comment: string) => Promise<void>;
   userRole?: string;

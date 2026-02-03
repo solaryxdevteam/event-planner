@@ -15,6 +15,7 @@ import * as auditService from "@/lib/services/audit/audit.service";
 import { isLastApprover, getNextApprover } from "@/lib/services/approvals/chain-builder.service";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import { createClient } from "@/lib/supabase/server";
+import * as emailService from "../email/email.service";
 
 /**
  * Approve an event
@@ -187,6 +188,24 @@ export async function approveEvent(
         status: "approved_scheduled",
       });
 
+      // Notify event creator (respect notification preferences)
+      try {
+        const { data: creator } = await supabase
+          .from("users")
+          .select("email, notification_prefs")
+          .eq("id", event.creator_id)
+          .single<{
+            email: string;
+            notification_prefs: { email_enabled?: boolean; event_approved?: boolean } | null;
+          }>();
+        const prefs = creator?.notification_prefs;
+        if (creator?.email && prefs?.email_enabled !== false && prefs?.event_approved !== false) {
+          await emailService.sendEventApprovedEmail(creator.email, event.title, eventId);
+        }
+      } catch (err) {
+        console.error("Failed to send event approved email:", err);
+      }
+
       // Log audit trail
       await auditService.log("approve", userId, eventId, {
         event_title: event.title,
@@ -205,7 +224,7 @@ export async function approveEvent(
         await approvalDAL.updateStatus(nextApproval.id, "pending", undefined);
       }
 
-      // Notify next approver (stub for now - will be implemented in Phase 14)
+      // Notify for last approver (global director)
       // await emailService.sendApprovalNotification(nextApproverId, eventId, approvalType);
     }
 
@@ -331,8 +350,23 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
       status: "rejected",
     });
 
-    // Notify creator (stub for now - will be implemented in Phase 14)
-    // await emailService.sendApprovalResultNotification(event.creator_id, eventId, false, comment);
+    // Notify event creator (respect notification preferences)
+    try {
+      const { data: creator } = await supabase
+        .from("users")
+        .select("email, notification_prefs")
+        .eq("id", event.creator_id)
+        .single<{
+          email: string;
+          notification_prefs: { email_enabled?: boolean; event_rejected?: boolean } | null;
+        }>();
+      const prefs = creator?.notification_prefs;
+      if (creator?.email && prefs?.email_enabled !== false && prefs?.event_rejected !== false) {
+        await emailService.sendEventRejectedEmail(creator.email, event.title, eventId, comment);
+      }
+    } catch (err) {
+      console.error("Failed to send event rejected email:", err);
+    }
 
     // Log audit trail
     await auditService.log("reject", userId, eventId, {

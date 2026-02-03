@@ -135,6 +135,8 @@ function TimelineGroup({
   showTimestamps: boolean;
   compact: boolean;
 }) {
+  // compact is part of the interface but not currently used in rendering
+  void compact;
   return (
     <div className="relative overflow-x-auto pb-3">
       <div className="relative min-w-full">

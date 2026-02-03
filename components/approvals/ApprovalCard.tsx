@@ -19,9 +19,10 @@ import {
 } from "@/components/ui/dialog";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
 import { useEventApprovals } from "@/lib/hooks/use-approvals";
+import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 
 interface ApprovalCardProps {
-  approval: any;
+  approval: EventApprovalWithApprover;
   onApprove: (eventId: string, comment: string) => Promise<void>;
   onReject: (eventId: string, comment: string) => Promise<void>;
   userRole?: string;
