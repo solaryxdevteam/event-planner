@@ -64,6 +64,22 @@ export async function getEventById(userId: string, eventId: string): Promise<Eve
 }
 
 /**
+ * Get a single event by short_id with permission check
+ */
+export async function getEventByShortId(userId: string, shortId: string): Promise<EventWithRelations> {
+  // Get subordinate user IDs for authorization
+  const subordinateIds = await getSubordinateUserIds(userId);
+
+  const event = await eventDAL.findByShortId(shortId, subordinateIds, true);
+
+  if (!event) {
+    throw new NotFoundError("Event", shortId);
+  }
+
+  return event;
+}
+
+/**
  * Get events visible to user with filters (pyramid visibility)
  */
 export async function getEventsForUser(
@@ -289,6 +305,10 @@ export async function requestModification(
   if (approverIds.length === 0) {
     throw new ValidationError("No approvers found in the approval chain. Please contact your system administrator.");
   }
+
+  // Delete any existing modification approval chains before creating a new one
+  // This handles the case where a previous modification was rejected and the approval chain still exists
+  await approvalDAL.deleteByEventIdAndType(eventId, "modification");
 
   // Create event version with modification data
   const versionData = {

@@ -29,14 +29,16 @@ import { ReportsList } from "@/components/reports/ReportsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEventApprovals } from "@/lib/hooks/use-approvals";
 import { useEventAuditLogs } from "@/lib/hooks/use-audit-logs";
-import { useReport } from "@/lib/hooks/use-reports";
+import { useAllReports } from "@/lib/hooks/use-reports";
 import { useProfile } from "@/lib/hooks/use-profile";
-import { useTransitionEventToCompleted } from "@/lib/hooks/use-events";
+import { useTransitionEventToCompleted, useEventVersions } from "@/lib/hooks/use-events";
 import { UserRole } from "@/lib/types/roles";
 import { VenueMapDisplay } from "./VenueMapDisplay";
 import { ModificationRequestDialog } from "./ModificationRequestDialog";
 import { CancellationDialog } from "./CancellationDialog";
 import { useCanRequestCancellation } from "@/lib/hooks/use-cancellations";
+import { ApprovalStatus, ApprovalType } from "@/lib/types/database.types";
+import { ModificationVersionsList } from "./ModificationVersionsList";
 
 interface EventDetailClientProps {
   event: EventWithRelations;
@@ -85,15 +87,14 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
     event.status !== "draft" ? event.id : null
   );
 
-  // Check for pending modifications
-  const hasPendingModification =
-    approvals?.some((a) => a.approval_type === "modification" && (a.status === "pending" || a.status === "waiting")) ||
-    false;
+  // Note: hasPendingModification is now checked using versions (see below after versions are fetched)
 
   // Check for pending cancellations
   const hasPendingCancellation =
-    approvals?.some((a) => a.approval_type === "cancellation" && (a.status === "pending" || a.status === "waiting")) ||
-    false;
+    approvals?.some(
+      (a: { approval_type?: ApprovalType; status?: ApprovalStatus }) =>
+        a.approval_type === "cancellation" && (a.status === "pending" || a.status === "waiting")
+    ) || false;
 
   // Check if user can request cancellation (only for approved_scheduled events)
   const { data: canRequestCancellation } = useCanRequestCancellation(
@@ -105,10 +106,24 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
     event.status !== "draft" ? event.id : null
   );
 
-  // Fetch report for this event (if completed)
-  const { data: report } = useReport(
+  // Fetch all reports for this event (if completed)
+  const { data: allReports = [] } = useAllReports(
     event.status === "completed_awaiting_report" || event.status === "completed_archived" ? event.id : null
   );
+
+  // Get approved report if exists, otherwise get most recent report for backward compatibility
+  const approvedReport = allReports.find((r) => r.status === "approved");
+  const pendingReport = allReports.find((r) => r.status === "pending");
+
+  // Check if user can submit a new report (no approved report and no pending report exists)
+  const canSubmitReport = isEventCreator && !approvedReport && !pendingReport;
+
+  // Fetch event versions
+  const { data: versions = [], isLoading: loadingVersions } = useEventVersions(event.id);
+  const hasVersions = versions.length > 0;
+
+  // Check for pending modifications - check if any version is in_review
+  const hasPendingModification = versions.some((v) => v.status === "in_review");
 
   const handleTransition = async () => {
     try {
@@ -182,10 +197,11 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
         </div>
       </div>
 
-      {/* Tabs for Information and Reports */}
+      {/* Tabs for Information, Modification Versions, and Reports */}
       <Tabs defaultValue="information" className="space-y-6">
         <TabsList>
           <TabsTrigger value="information">Information</TabsTrigger>
+          {hasVersions && <TabsTrigger value="modification-versions">Modification Versions</TabsTrigger>}
           {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
             <TabsTrigger value="reports">Reports</TabsTrigger>
           )}
@@ -215,66 +231,6 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-4">No approval chain found.</p>
                     )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Venue / Location Card - Moved above Description */}
-              {event.venue && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      Location
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {/* Venue Image */}
-                    {venueImage && (
-                      <div className="relative w-full h-48 rounded-md overflow-hidden bg-muted">
-                        <Image
-                          src={venueImage}
-                          alt={event.venue.name || "Venue image"}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2 text-sm">
-                      <p className="font-medium text-foreground">{event.venue.name}</p>
-                      {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>}
-                      {(event.venue.city || event.venue.country) && (
-                        <p className="text-muted-foreground">
-                          {[event.venue.city, event.venue.country].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Map with coordinates */}
-                    {event.venue.location_lat && event.venue.location_lng ? (
-                      <VenueMapDisplay
-                        lat={event.venue.location_lat}
-                        lng={event.venue.location_lng}
-                        venueName={event.venue.name || undefined}
-                      />
-                    ) : mapUrl ? (
-                      <Button asChild variant="outline" size="sm" className="w-full">
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                          <MapPin className="mr-2 h-4 w-4" />
-                          View on Map
-                        </a>
-                      </Button>
-                    ) : null}
-
-                    <Button asChild variant="outline" size="sm" className="w-full" disabled={!event.venue.short_id}>
-                      {event.venue.short_id ? (
-                        <Link href={`/dashboard/venues/${event.venue.short_id}/edit`}>View Venue Details</Link>
-                      ) : (
-                        <span>View Venue Details</span>
-                      )}
-                    </Button>
                   </CardContent>
                 </Card>
               )}
@@ -409,17 +365,92 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Venue / Location Card */}
+              {event.venue && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      Location
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Venue Image */}
+                    {venueImage && (
+                      <div className="relative w-full h-48 rounded-md overflow-hidden bg-muted">
+                        <Image
+                          src={venueImage}
+                          alt={event.venue.name || "Venue image"}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-2 text-sm">
+                      <p className="font-medium text-foreground">{event.venue.name}</p>
+                      {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>}
+                      {(event.venue.city || event.venue.country) && (
+                        <p className="text-muted-foreground">
+                          {[event.venue.city, event.venue.country].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Map with coordinates */}
+                    {event.venue.location_lat && event.venue.location_lng ? (
+                      <VenueMapDisplay
+                        lat={event.venue.location_lat}
+                        lng={event.venue.location_lng}
+                        venueName={event.venue.name || undefined}
+                      />
+                    ) : mapUrl ? (
+                      <Button asChild variant="outline" size="sm" className="w-full">
+                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
+                          <MapPin className="mr-2 h-4 w-4" />
+                          View on Map
+                        </a>
+                      </Button>
+                    ) : null}
+
+                    <Button asChild variant="outline" size="sm" className="w-full" disabled={!event.venue.short_id}>
+                      {event.venue.short_id ? (
+                        <Link href={`/dashboard/venues/${event.venue.short_id}/edit`}>View Venue Details</Link>
+                      ) : (
+                        <span>View Venue Details</span>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </TabsContent>
+
+        {/* Modification Versions Tab */}
+        {hasVersions && (
+          <TabsContent value="modification-versions" className="space-y-6">
+            <ModificationVersionsList
+              versions={versions}
+              isLoading={loadingVersions}
+              eventId={event.id}
+              onRequestModification={() => setShowModificationDialog(true)}
+              canRequestModification={event.status === "approved_scheduled" && isEventPlanner && isEventCreator}
+              hasPendingModification={hasPendingModification}
+            />
+          </TabsContent>
+        )}
 
         {/* Reports Tab */}
         {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
           <TabsContent value="reports" className="space-y-6">
             <ReportsList
-              reports={report ? [report] : []}
+              reports={allReports}
               eventTitle={event.title}
-              canSubmit={isEventCreator && (!report || report.status === "rejected")}
+              eventId={event.id}
+              canSubmit={canSubmitReport}
               onOpenSubmitDialog={() => setShowReportDialog(true)}
             />
           </TabsContent>
@@ -428,13 +459,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
 
       {/* Report Dialog */}
       {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
-        <ReportDialog
-          open={showReportDialog}
-          onOpenChange={setShowReportDialog}
-          eventId={event.id}
-          event={event}
-          existingReport={report?.status === "rejected" ? report : null}
-        />
+        <ReportDialog open={showReportDialog} onOpenChange={setShowReportDialog} eventId={event.id} event={event} />
       )}
 
       {/* Transition Confirmation Dialog */}

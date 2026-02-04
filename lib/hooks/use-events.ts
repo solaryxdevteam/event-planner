@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CreateEventInput, UpdateEventInput } from "@/lib/validation/events.schema";
 import * as eventsClientService from "@/lib/services/client/events.client.service";
 import { toast } from "sonner";
+import type { EventVersion } from "@/lib/types/database.types";
 
 // Re-export types from client service
 export type { EventFilters } from "@/lib/services/client/events.client.service";
@@ -30,6 +31,17 @@ export function useEvent(id: string | null) {
     queryKey: ["events", id],
     queryFn: () => eventsClientService.fetchEventById(id!),
     enabled: !!id,
+  });
+}
+
+/**
+ * React Query hook: Get single event by shortId
+ */
+export function useEventByShortId(shortId: string | null) {
+  return useQuery({
+    queryKey: ["events", "short-id", shortId],
+    queryFn: () => eventsClientService.fetchEventByShortId(shortId!),
+    enabled: !!shortId,
   });
 }
 
@@ -168,6 +180,7 @@ export function useRequestModification() {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["events", data.id] });
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["event-versions"] });
       toast.success("Modification request submitted for approval");
     },
     onError: (error: Error) => {
@@ -175,5 +188,16 @@ export function useRequestModification() {
         description: error.message,
       });
     },
+  });
+}
+
+/**
+ * React Query hook: Get all versions for an event
+ */
+export function useEventVersions(eventId: string | null | undefined) {
+  return useQuery<EventVersion[]>({
+    queryKey: ["event-versions", eventId],
+    queryFn: () => eventsClientService.fetchEventVersions(eventId!),
+    enabled: !!eventId,
   });
 }

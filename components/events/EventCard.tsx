@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,11 +61,26 @@ export function EventCard({
 }: EventCardProps) {
   const startDate = event.starts_at ? new Date(event.starts_at) : null;
   const endDate = event.ends_at ? new Date(event.ends_at) : null;
+  const firstVenueImage = event.venue?.images && event.venue.images.length > 0 ? event.venue.images[0] : null;
 
   return (
     <Card
-      className={`hover:shadow-lg transition-all duration-200 border-l-4 ${statusBorderColors[event.status] || "border-l-gray-500"}`}
+      className={`overflow-hidden hover:shadow-lg pt-0 transition-all duration-200 border-l-4 ${statusBorderColors[event.status] || "border-l-gray-500"}`}
     >
+      {/* First venue image */}
+      <div className="relative h-40 w-full bg-muted">
+        {firstVenueImage ? (
+          <Image
+            src={firstVenueImage}
+            alt={event.venue?.name ?? event.title}
+            fill
+            className="object-cover"
+            unoptimized
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No venue image</div>
+        )}
+      </div>
       <CardHeader className="pb-0">
         <div className="flex flex-col items-start justify-between gap-3">
           <div className="space-y-1 flex-1 min-w-0">

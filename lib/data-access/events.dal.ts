@@ -554,3 +554,29 @@ export async function deleteEvent(id: string): Promise<void> {
     throw new Error(`Failed to delete event: ${error.message}`);
   }
 }
+
+/**
+ * Check if a venue has any upcoming events
+ * An event is considered "upcoming" if it has status 'approved_scheduled'
+ *
+ * @param venueId - Venue UUID
+ * @returns True if venue has upcoming events, false otherwise
+ */
+export async function hasUpcomingEvents(venueId: string): Promise<boolean> {
+  const supabase = await createClient();
+
+  // Check for events that:
+  // - Are associated with this venue
+  // - Have status 'approved_scheduled' (approved and scheduled events)
+  const { count, error } = await supabase
+    .from("events")
+    .select("*", { count: "exact", head: true })
+    .eq("venue_id", venueId)
+    .eq("status", "approved_scheduled");
+
+  if (error) {
+    throw new Error(`Failed to check upcoming events: ${error.message}`);
+  }
+
+  return (count || 0) > 0;
+}

@@ -1,25 +1,48 @@
-import { notFound } from "next/navigation";
-import { requireActiveUser } from "@/lib/auth/server";
-import { getSubordinateUserIds } from "@/lib/services/users/hierarchy.service";
-import * as eventDAL from "@/lib/data-access/events.dal";
+"use client";
+
+export const dynamic = "force-dynamic";
+
+import { use } from "react";
 import { EventDetailClient } from "@/components/events/EventDetailClient";
+import { useEventByShortId } from "@/lib/hooks/use-events";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface EventDetailPageProps {
   params: Promise<{ shortId: string }>;
 }
 
-export default async function EventDetailPage({ params }: EventDetailPageProps) {
-  const { shortId } = await params;
-  const user = await requireActiveUser();
+export default function EventDetailPage({ params }: EventDetailPageProps) {
+  const resolvedParams = use(params);
+  const shortId = resolvedParams.shortId;
 
-  // Get subordinate user IDs for authorization
-  const subordinateIds = await getSubordinateUserIds(user.id);
+  // Fetch event using React Query (cached)
+  const { data: event, isLoading, error } = useEventByShortId(shortId);
 
-  // Fetch event by short_id
-  const event = await eventDAL.findByShortId(shortId, subordinateIds);
+  if (isLoading) {
+    return (
+      <div className="container mx-auto pt-4 pb-8 max-w-5xl">
+        <div className="flex items-center justify-center py-12">
+          <Skeleton className="h-8 w-64" />
+        </div>
+      </div>
+    );
+  }
 
-  if (!event) {
-    notFound();
+  if (error || !event) {
+    return (
+      <div className="container mx-auto pt-4 pb-8 max-w-5xl">
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <p className="text-destructive text-lg font-semibold mb-2">Event not found</p>
+            <p className="text-muted-foreground mb-4">
+              {error instanceof Error
+                ? error.message
+                : "The event you're looking for doesn't exist or you don't have permission to view it."}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return <EventDetailClient event={event} />;

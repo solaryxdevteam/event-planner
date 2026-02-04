@@ -9,6 +9,7 @@
 import { apiClient } from "./api-client";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { CreateEventInput, UpdateEventInput } from "@/lib/validation/events.schema";
+import type { EventVersion } from "@/lib/types/database.types";
 
 /**
  * Event filters for GET request
@@ -59,6 +60,13 @@ export async function fetchEvents(filters: EventFilters): Promise<EventWithRelat
  */
 export async function fetchEventById(id: string): Promise<EventWithRelations> {
   return apiClient.get<EventWithRelations>(`/api/events/${id}`);
+}
+
+/**
+ * Fetch a single event by short_id
+ */
+export async function fetchEventByShortId(shortId: string): Promise<EventWithRelations> {
+  return apiClient.get<EventWithRelations>(`/api/events/short-id/${shortId}`);
 }
 
 /**
@@ -117,4 +125,18 @@ export async function requestModification(
     modificationData,
     changeReason,
   });
+}
+
+/**
+ * Fetch all versions for an event
+ */
+export async function fetchEventVersions(id: string): Promise<EventVersion[]> {
+  const response = await fetch(`/api/events/${id}/versions`);
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to fetch event versions");
+  }
+
+  return response.json();
 }
