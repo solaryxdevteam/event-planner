@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, memo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -63,7 +63,7 @@ type FlowNodeData = HierarchyNode & {
 };
 
 // Custom Node Component with Handles for edge connections
-function CustomNode({
+const CustomNode = memo(function CustomNode({
   data,
 }: {
   data: HierarchyNode & {
@@ -93,13 +93,13 @@ function CustomNode({
       {data.hasChildren && <Handle type="source" position={Position.Bottom} className="!bg-slate-400 !w-3 !h-3" />}
     </div>
   );
-}
+});
 
 const nodeTypes = {
   custom: CustomNode,
 };
 
-// Convert tree structure to nodes and edges
+// Convert tree structure to nodes and edges (memoized by tree reference)
 function convertTreeToFlowData(tree: HierarchyNode[]): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -284,7 +284,6 @@ async function getLayoutedElements(nodes: Node[], edges: Edge[]): Promise<{ node
       const targetData = nodeDataMap.get(edge.target);
 
       if (!sourceData || !targetData) {
-        console.warn(`Missing data for edge ${edge.source} -> ${edge.target}`);
         return;
       }
 
@@ -301,8 +300,8 @@ async function getLayoutedElements(nodes: Node[], edges: Edge[]): Promise<{ node
           minlen: minLength,
           weight: 1,
         });
-      } catch (err) {
-        console.warn(`Failed to add edge ${edge.source} -> ${edge.target}:`, err);
+      } catch {
+        // Silently handle edge addition errors
       }
     });
 
@@ -315,7 +314,6 @@ async function getLayoutedElements(nodes: Node[], edges: Edge[]): Promise<{ node
         try {
           const nodeWithPosition = dagreGraph.node(node.id);
           if (!nodeWithPosition || nodeWithPosition.x === undefined || nodeWithPosition.y === undefined) {
-            console.warn(`Node ${node.id} not positioned by dagre`);
             return null;
           }
           return {
@@ -325,8 +323,7 @@ async function getLayoutedElements(nodes: Node[], edges: Edge[]): Promise<{ node
               y: nodeWithPosition.y - 50, // Center the node (height / 2)
             },
           };
-        } catch (err) {
-          console.warn(`Error positioning node ${node.id}:`, err);
+        } catch {
           return null;
         }
       })
@@ -334,19 +331,34 @@ async function getLayoutedElements(nodes: Node[], edges: Edge[]): Promise<{ node
 
     // Check if all nodes were positioned
     if (layoutedNodes.length !== nodes.length) {
-      console.warn("Some nodes were not positioned by dagre, using fallback layout");
       return getFallbackLayout(nodes, edges);
     }
 
     return { nodes: layoutedNodes, edges };
-  } catch (err) {
-    console.error("Dagre layout failed, using fallback:", err);
+  } catch {
     return getFallbackLayout(nodes, edges);
   }
 }
 
+// Memoized node color function for MiniMap
+const getNodeColor = (node: Node) => {
+  const data = node.data as unknown as HierarchyNode & { roleColor?: string };
+  if (data.roleColor?.includes("red")) return "#fecaca";
+  if (data.roleColor?.includes("orange")) return "#fed7aa";
+  if (data.roleColor?.includes("purple")) return "#e9d5ff";
+  if (data.roleColor?.includes("green")) return "#bbf7d0";
+  if (data.roleColor?.includes("blue")) return "#bfdbfe";
+  return "#e5e7eb";
+};
+
 // Inner component that uses React Flow hooks (must be inside ReactFlowProvider)
-function FlowContent({ layoutedNodes, layoutedEdges }: { layoutedNodes: Node[]; layoutedEdges: Edge[] }) {
+const FlowContent = memo(function FlowContent({
+  layoutedNodes,
+  layoutedEdges,
+}: {
+  layoutedNodes: Node[];
+  layoutedEdges: Edge[];
+}) {
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
   const { fitView } = useReactFlow();
@@ -357,9 +369,10 @@ function FlowContent({ layoutedNodes, layoutedEdges }: { layoutedNodes: Node[]; 
       setNodes(layoutedNodes);
       setEdges(layoutedEdges);
       // Fit view after a short delay to ensure nodes are rendered
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         fitView({ padding: 0.4, duration: 400 });
       }, 150);
+      return () => clearTimeout(timeoutId);
     } else {
       // Clear nodes and edges if empty
       setNodes([]);
@@ -383,77 +396,104 @@ function FlowContent({ layoutedNodes, layoutedEdges }: { layoutedNodes: Node[]; 
       connectionMode={ConnectionMode.Loose}
       minZoom={0.1}
       maxZoom={2}
+      fitView
     >
       <Background />
       <Controls />
-      <MiniMap
-        nodeColor={(node) => {
-          const data = node.data as unknown as HierarchyNode & { roleColor?: string };
-          if (data.roleColor?.includes("red")) return "#fecaca";
-          if (data.roleColor?.includes("orange")) return "#fed7aa";
-          if (data.roleColor?.includes("purple")) return "#e9d5ff";
-          if (data.roleColor?.includes("green")) return "#bbf7d0";
-          if (data.roleColor?.includes("blue")) return "#bfdbfe";
-          return "#e5e7eb";
-        }}
-        className="bg-background"
-      />
+      <MiniMap nodeColor={getNodeColor} className="bg-background" />
     </ReactFlow>
   );
+});
+
+interface HierarchyTreeFlowProps {
+  isActive?: boolean;
 }
 
-export function HierarchyTreeFlow() {
+export function HierarchyTreeFlow({ isActive = true }: HierarchyTreeFlowProps) {
   const { data: tree = [], isLoading, error: queryError } = useUserHierarchy();
   const error = queryError ? (queryError as Error).message : null;
   const [layoutedNodes, setLayoutedNodes] = useState<Node[]>([]);
   const [layoutedEdges, setLayoutedEdges] = useState<Edge[]>([]);
   const [isLayouting, setIsLayouting] = useState(false);
 
-  // Convert tree to flow data
+  // Convert tree to flow data (memoized by tree reference)
+  // Hooks must be called unconditionally - moved before early returns
   const { nodes: initialNodes, edges: initialEdges } = useMemo(() => {
     if (tree.length === 0) {
       return { nodes: [], edges: [] };
     }
-    console.log("Tree data:", tree);
-    const result = convertTreeToFlowData(tree);
-    console.log("Converted to flow data:", { nodes: result.nodes.length, edges: result.edges.length });
-    return result;
+    return convertTreeToFlowData(tree);
   }, [tree]);
 
-  // Layout the nodes using dagre (async)
+  // Layout the nodes using dagre (async) - memoized by initialNodes/edges
+  // Hooks must be called unconditionally - moved before early returns
+  // Only compute layout when active and we have nodes to layout
+  const shouldComputeLayout = isActive && initialNodes.length > 0;
+
   useEffect(() => {
-    if (initialNodes.length === 0) {
-      // Reset state asynchronously to avoid synchronous setState in effect
-      Promise.resolve().then(() => {
-        setLayoutedNodes([]);
-        setLayoutedEdges([]);
-      });
+    if (!shouldComputeLayout) {
       return;
     }
 
-    // Set loading state asynchronously to avoid synchronous setState in effect
-    Promise.resolve().then(() => {
-      setIsLayouting(true);
-    });
+    let cancelled = false;
+    // Use setTimeout to avoid synchronous setState in effect
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        setIsLayouting(true);
+      }
+    }, 0);
+
     getLayoutedElements(initialNodes, initialEdges)
       .then(({ nodes, edges }) => {
-        console.log("Layout complete:", { nodeCount: nodes.length, edgeCount: edges.length });
-        console.log(
-          "Sample node positions:",
-          nodes.slice(0, 3).map((n) => ({ id: n.id, pos: n.position }))
-        );
-        setLayoutedNodes(nodes);
-        setLayoutedEdges(edges);
-        setIsLayouting(false);
+        if (!cancelled) {
+          setLayoutedNodes(nodes);
+          setLayoutedEdges(edges);
+          setIsLayouting(false);
+        }
       })
-      .catch((err) => {
-        console.error("Error laying out nodes:", err);
-        // Fallback to original positions if layout fails
-        setLayoutedNodes(initialNodes);
-        setLayoutedEdges(initialEdges);
-        setIsLayouting(false);
+      .catch(() => {
+        if (!cancelled) {
+          // Fallback to original positions if layout fails
+          setLayoutedNodes(initialNodes);
+          setLayoutedEdges(initialEdges);
+          setIsLayouting(false);
+        }
       });
-  }, [initialNodes, initialEdges]);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      // Reset loading state when effect is cleaned up
+      setIsLayouting(false);
+    };
+  }, [shouldComputeLayout, initialNodes, initialEdges]);
+
+  // Derive final nodes/edges to use - empty when we shouldn't compute layout
+  // This avoids synchronous setState in effects
+  const finalNodes = useMemo(() => {
+    return shouldComputeLayout ? layoutedNodes : [];
+  }, [shouldComputeLayout, layoutedNodes]);
+
+  const finalEdges = useMemo(() => {
+    return shouldComputeLayout ? layoutedEdges : [];
+  }, [shouldComputeLayout, layoutedEdges]);
+
+  // Don't initialize React Flow if tab is not active - saves significant resources
+  // Only show loading state if we're actively loading, otherwise show placeholder
+  if (!isActive) {
+    if (isLoading) {
+      return (
+        <div className="rounded-lg border p-8 text-center">
+          <p className="text-muted-foreground">Loading hierarchy...</p>
+        </div>
+      );
+    }
+    return (
+      <div className="rounded-lg border p-8 text-center">
+        <p className="text-muted-foreground">Switch to Hierarchy tab to view</p>
+      </div>
+    );
+  }
 
   if (isLoading || isLayouting) {
     return (
@@ -480,6 +520,9 @@ export function HierarchyTreeFlow() {
     );
   }
 
+  // Only render React Flow when tab is active and we have layouted data
+  const shouldRenderFlow = isActive && finalNodes.length > 0;
+
   return (
     <div className="rounded-lg border overflow-hidden">
       <div className="p-4 border-b bg-muted/50">
@@ -487,9 +530,15 @@ export function HierarchyTreeFlow() {
         <p className="text-sm text-muted-foreground mt-1">Visual representation of user hierarchy</p>
       </div>
       <div className="h-[600px] w-full">
-        <ReactFlowProvider>
-          <FlowContent layoutedNodes={layoutedNodes} layoutedEdges={layoutedEdges} />
-        </ReactFlowProvider>
+        {shouldRenderFlow ? (
+          <ReactFlowProvider>
+            <FlowContent layoutedNodes={finalNodes} layoutedEdges={finalEdges} />
+          </ReactFlowProvider>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">Preparing visualization...</p>
+          </div>
+        )}
       </div>
     </div>
   );

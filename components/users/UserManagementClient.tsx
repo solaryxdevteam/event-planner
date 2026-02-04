@@ -11,7 +11,7 @@ import type { Database } from "@/lib/types/database.types";
 import { UserTable } from "./UserTable";
 import { UserFormDialog } from "./UserFormDialog";
 import { CreateInvitationDialog } from "./CreateInvitationDialog";
-import { HierarchyTreeFlow } from "./HierarchyTreeFlow";
+import { HierarchyTreeFlow } from "@/components/users/HierarchyTreeFlow";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Mail } from "lucide-react";
@@ -30,6 +30,7 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
   const [isInvitationDialogOpen, setIsInvitationDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState("list");
 
   // Pagination and filter state
   const [currentPage, setCurrentPage] = useState(1);
@@ -117,7 +118,7 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="list" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="list">Users List</TabsTrigger>
           <TabsTrigger value="hierarchy">Hierarchy</TabsTrigger>
@@ -142,7 +143,7 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
         </TabsContent>
 
         <TabsContent value="hierarchy" className="space-y-4">
-          <HierarchyTreeFlow />
+          <HierarchyTreeFlow isActive={activeTab === "hierarchy"} />
         </TabsContent>
       </Tabs>
 
