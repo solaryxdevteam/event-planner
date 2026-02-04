@@ -95,6 +95,7 @@ export function useApproveEvent() {
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["event-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["event-versions"] });
       toast.success("Event approved successfully");
     },
     onError: (error: Error) => {
@@ -117,6 +118,7 @@ export function useRejectEvent() {
       queryClient.invalidateQueries({ queryKey: ["approvals"] });
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["event-approvals"] });
+      queryClient.invalidateQueries({ queryKey: ["event-versions"] });
       toast.success("Event rejected successfully");
     },
     onError: (error: Error) => {

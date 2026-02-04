@@ -11,7 +11,7 @@ import type { Database } from "@/lib/types/database.types";
 import { UserTable } from "./UserTable";
 import { UserFormDialog } from "./UserFormDialog";
 import { CreateInvitationDialog } from "./CreateInvitationDialog";
-import { HierarchyTree } from "./HierarchyTree";
+import { HierarchyTreeFlow } from "./HierarchyTreeFlow";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Mail } from "lucide-react";
@@ -142,7 +142,7 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
         </TabsContent>
 
         <TabsContent value="hierarchy" className="space-y-4">
-          <HierarchyTree />
+          <HierarchyTreeFlow />
         </TabsContent>
       </Tabs>
 

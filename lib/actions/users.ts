@@ -16,6 +16,7 @@ import {
   updateUserSchema,
   deactivateUserSchema,
   globalDirectorPasswordSchema,
+  type CreateUserInput,
   type UpdateUserInput,
 } from "@/lib/validation/users.schema";
 import type { ActionResponse, PaginatedResponse } from "@/lib/types/api.types";

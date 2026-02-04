@@ -159,7 +159,8 @@ export function CreateInvitationDialog({ open, onOpenChange }: CreateInvitationD
             Create an invitation link for a new user. Country must be selected before creating.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email Address *</Label>
             <Input

@@ -351,6 +351,27 @@ export async function createChain(
 }
 
 /**
+ * Delete approval chain for an event by approval type
+ * Used when recreating approval chains (e.g., for resubmitted reports)
+ */
+export async function deleteByEventIdAndType(
+  eventId: string,
+  approvalType: "event" | "modification" | "cancellation" | "report"
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("event_approvals")
+    .delete()
+    .eq("event_id", eventId)
+    .eq("approval_type", approvalType);
+
+  if (error) {
+    throw new Error(`Failed to delete approval chain: ${error.message}`);
+  }
+}
+
+/**
  * Get the current pending approval for an event (first in sequence with pending status)
  */
 export async function findCurrentPendingApproval(eventId: string): Promise<EventApproval | null> {

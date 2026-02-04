@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, MapPin, DollarSign, Users, CalendarDays, Eye } from "lucide-react";
+import { CheckCircle, XCircle, MapPin, DollarSign, Users, CalendarDays, Eye, Banknote } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useEventApprovals } from "@/lib/hooks/use-approvals";
+import { useReport } from "@/lib/hooks/use-reports";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
@@ -49,8 +50,11 @@ export function PendingApprovalCard({
   // Fetch full approval chain for this event
   const { data: approvals, isLoading: loadingApprovals } = useEventApprovals(approval.event_id);
 
-  // Determine approval type label for header
+  // Fetch report data if this is a report approval
   const approvalType = approval.approval_type as EventApprovalWithApprover["approval_type"] | undefined;
+  const { data: report, isLoading: loadingReport } = useReport(approvalType === "report" ? approval.event_id : null);
+
+  // Determine approval type label for header
   const approvalTypeLabel =
     approvalType === "modification"
       ? "Modification Request"
@@ -187,6 +191,46 @@ export function PendingApprovalCard({
                   <p className="text-sm text-muted-foreground line-clamp-1">{event.description}</p>
                 )}
 
+                {/* Report Details (if this is a report approval) */}
+                {approvalType === "report" && (
+                  <div className="space-y-2 pt-2 border-t">
+                    {loadingReport ? (
+                      <Skeleton className="h-16 w-full" />
+                    ) : report ? (
+                      <>
+                        <div className="flex items-center gap-4 text-sm">
+                          <div className="flex items-center gap-1.5">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{report.attendance_count.toLocaleString()}</span>
+                            <span className="text-muted-foreground">attended</span>
+                            {event?.expected_attendance != null && (
+                              <span className="text-muted-foreground">
+                                (expected: {event.expected_attendance.toLocaleString()})
+                              </span>
+                            )}
+                          </div>
+                          {report.net_profit != null && (
+                            <div className="flex items-center gap-1.5">
+                              <Banknote className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">
+                                {Number(report.net_profit).toLocaleString(undefined, {
+                                  style: "currency",
+                                  currency: "USD",
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {report.summary && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">{report.summary}</p>
+                        )}
+                      </>
+                    ) : null}
+                  </div>
+                )}
+
                 {/* Metadata Row */}
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                   {/* Creator Avatar */}
@@ -199,8 +243,8 @@ export function PendingApprovalCard({
                     </div>
                   )}
 
-                  {/* Expected Attendance */}
-                  {event?.expected_attendance != null && (
+                  {/* Expected Attendance (only show if not a report approval, since report shows actual attendance) */}
+                  {approvalType !== "report" && event?.expected_attendance != null && (
                     <div className="flex items-center gap-1.5">
                       <Users className="h-4 w-4" />
                       <span>{event.expected_attendance} attendees</span>
@@ -275,9 +319,31 @@ export function PendingApprovalCard({
       <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Approve Event</DialogTitle>
+            <DialogTitle>
+              {approvalType === "report"
+                ? "Approve Report"
+                : approvalType === "modification"
+                  ? "Approve Modification"
+                  : approvalType === "cancellation"
+                    ? "Approve Cancellation"
+                    : "Approve Event"}
+            </DialogTitle>
             <DialogDescription>
-              {userRole === "global_director" ? (
+              {approvalType === "report" ? (
+                userRole === "global_director" ? (
+                  <>
+                    <span className="block mb-2">
+                      As a <strong>Global Director</strong>, your approval will immediately finalize this report and
+                      archive the event, bypassing any remaining approvers in the chain.
+                    </span>
+                    <span>
+                      Please provide a comment for your approval decision. This will be recorded in the audit log.
+                    </span>
+                  </>
+                ) : (
+                  "Please provide a comment for your approval decision. This will be recorded in the audit log."
+                )
+              ) : userRole === "global_director" ? (
                 <>
                   <span className="block mb-2">
                     As a <strong>Global Director</strong>, your approval will immediately finalize this event, bypassing
@@ -316,7 +382,7 @@ export function PendingApprovalCard({
               Cancel
             </Button>
             <Button onClick={handleApprove} disabled={!comment.trim() || isSubmitting}>
-              {isSubmitting ? "Approving..." : "Approve"}
+              {isSubmitting ? (approvalType === "report" ? "Approving Report..." : "Approving...") : "Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -326,10 +392,27 @@ export function PendingApprovalCard({
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Event</DialogTitle>
+            <DialogTitle>
+              {approvalType === "report"
+                ? "Reject Report"
+                : approvalType === "modification"
+                  ? "Reject Modification"
+                  : approvalType === "cancellation"
+                    ? "Reject Cancellation"
+                    : "Reject Event"}
+            </DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejection. This will be recorded in the audit log and the event creator will
-              be notified.
+              {approvalType === "report" ? (
+                <>
+                  Please provide a reason for rejection. This will be recorded in the audit log and the report creator
+                  will be notified. The creator can then edit and resubmit the report.
+                </>
+              ) : (
+                <>
+                  Please provide a reason for rejection. This will be recorded in the audit log and the event creator
+                  will be notified.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -356,7 +439,7 @@ export function PendingApprovalCard({
               Cancel
             </Button>
             <Button variant="destructive" onClick={handleReject} disabled={!comment.trim() || isSubmitting}>
-              {isSubmitting ? "Rejecting..." : "Reject"}
+              {isSubmitting ? (approvalType === "report" ? "Rejecting Report..." : "Rejecting...") : "Reject"}
             </Button>
           </DialogFooter>
         </DialogContent>
