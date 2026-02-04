@@ -12,12 +12,70 @@ type ReportInsert = Database["public"]["Tables"]["reports"]["Insert"];
 type ReportUpdate = Database["public"]["Tables"]["reports"]["Update"];
 
 /**
- * Find report by event ID
+ * Find report by event ID (returns the approved report if exists, otherwise the most recent)
+ * @deprecated Use findAllByEventId to get all reports
  */
 export async function findByEventId(eventId: string): Promise<Report | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase.from("reports").select("*").eq("event_id", eventId).single();
+  // First try to get approved report
+  const { data: approvedReport, error: approvedError } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("status", "approved")
+    .single();
+
+  if (!approvedError && approvedReport) {
+    return approvedReport as Report;
+  }
+
+  // If no approved report, get the most recent report
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    if (error.code === "PGRST116") {
+      // No rows returned
+      return null;
+    }
+    throw new Error(`Failed to fetch report: ${error.message}`);
+  }
+
+  return data ? (data as Report) : null;
+}
+
+/**
+ * Find all reports for an event, ordered by created_at descending (newest first)
+ */
+export async function findAllByEventId(eventId: string): Promise<Report[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch reports: ${error.message}`);
+  }
+
+  return (data || []) as Report[];
+}
+
+/**
+ * Find report by ID
+ */
+export async function findById(reportId: string): Promise<Report | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.from("reports").select("*").eq("id", reportId).single();
 
   if (error) {
     if (error.code === "PGRST116") {
@@ -44,6 +102,12 @@ export async function insert(report: ReportInsert): Promise<Report> {
     .single();
 
   if (error) {
+    // Provide a clearer error message for constraint violations
+    if (error.message?.includes("one_report_per_event") || error.code === "23505") {
+      throw new Error(
+        "A report already exists for this event. Please delete the existing report before creating a new one, or ensure migration 021 has been applied."
+      );
+    }
     throw new Error(`Failed to create report: ${error.message}`);
   }
 

@@ -8,12 +8,23 @@ import { toast } from "sonner";
 import type { SubmitReportData, ListApprovedReportsParams } from "@/lib/services/client/reports.client.service";
 
 /**
- * React Query hook: Get report by event ID
+ * React Query hook: Get report by event ID (returns approved report if exists, otherwise most recent)
  */
 export function useReport(eventId: string | null) {
   return useQuery({
     queryKey: ["reports", eventId],
     queryFn: () => reportsClientService.getReportByEventId(eventId!),
+    enabled: !!eventId,
+  });
+}
+
+/**
+ * React Query hook: Get all reports for an event
+ */
+export function useAllReports(eventId: string | null) {
+  return useQuery({
+    queryKey: ["reports", "all", eventId],
+    queryFn: () => reportsClientService.getAllReportsByEventId(eventId!),
     enabled: !!eventId,
   });
 }

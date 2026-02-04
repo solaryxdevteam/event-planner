@@ -54,10 +54,22 @@ export async function submitReport(
     throw new ForbiddenError("Reports can only be submitted for events that are awaiting report");
   }
 
-  // Check if report already exists
-  const existingReport = await reportDAL.findByEventId(eventId);
-  if (existingReport && existingReport.status !== "rejected") {
-    throw new ForbiddenError("A report already exists for this event");
+  // Check if there's already an approved report (only one approved report allowed per event)
+  // If an approved report exists, the process is finished and no new reports can be submitted
+  const allReports = await reportDAL.findAllByEventId(eventId);
+  const approvedReport = allReports.find((r) => r.status === "approved");
+  if (approvedReport) {
+    throw new ForbiddenError(
+      "An approved report already exists for this event. The reporting process is complete and no new reports can be submitted."
+    );
+  }
+
+  // Check if there's a pending report - event planner must wait for approval/rejection
+  const pendingReport = allReports.find((r) => r.status === "pending");
+  if (pendingReport) {
+    throw new ForbiddenError(
+      "A report is currently pending approval. Please wait for the Global Director to approve or reject it before submitting a new report."
+    );
   }
 
   // Validate required fields
@@ -79,11 +91,6 @@ export async function submitReport(
     mediaUrls = await Promise.all(mediaFiles.map((file) => storageService.uploadReportMedia(eventId, file)));
   }
 
-  // If existing report is rejected, delete it first
-  if (existingReport && existingReport.status === "rejected") {
-    await reportDAL.deleteReport(existingReport.id);
-  }
-
   // Create report
   const report = await reportDAL.insert({
     event_id: eventId,
@@ -102,6 +109,9 @@ export async function submitReport(
   if (approverIds.length === 0) {
     throw new ValidationError("No approvers found in the approval chain. Please contact your system administrator.");
   }
+
+  // Delete any existing approval chain for this report (in case of resubmission)
+  await approvalDAL.deleteByEventIdAndType(eventId, "report");
 
   // Create approval chain for report
   await approvalDAL.createChain(eventId, approverIds, "report");
@@ -181,7 +191,8 @@ export async function updateReport(
     status: "pending",
   });
 
-  // Recreate approval chain
+  // Delete existing approval chain and recreate it
+  await approvalDAL.deleteByEventIdAndType(reportRow.event_id, "report");
   const approverIds = await buildApprovalChain(event.creator_id);
   await approvalDAL.createChain(reportRow.event_id, approverIds, "report");
 
@@ -202,10 +213,18 @@ export async function updateReport(
 }
 
 /**
- * Get report by event ID
+ * Get report by event ID (returns approved report if exists, otherwise most recent)
+ * @deprecated Use getAllReportsByEventId to get all reports
  */
 export async function getReportByEventId(eventId: string): Promise<Report | null> {
   return reportDAL.findByEventId(eventId);
+}
+
+/**
+ * Get all reports for an event
+ */
+export async function getAllReportsByEventId(eventId: string): Promise<Report[]> {
+  return reportDAL.findAllByEventId(eventId);
 }
 
 /**
@@ -273,8 +292,27 @@ export async function getPendingReports(userId: string): Promise<PendingReport[]
 
 /**
  * Approve a report (called from approval service when last approver)
+ * Ensures only one approved report per event by rejecting other pending reports
  */
 export async function approveReport(reportId: string): Promise<Report> {
+  // Get the report to find its event_id
+  const report = await reportDAL.findById(reportId);
+  if (!report) {
+    throw new NotFoundError("Report", reportId);
+  }
+
+  // Get all reports for this event
+  const allReports = await reportDAL.findAllByEventId(report.event_id);
+
+  // If there's already an approved report, reject it (shouldn't happen due to DB constraint, but safety check)
+  const existingApproved = allReports.find((r) => r.status === "approved" && r.id !== reportId);
+  if (existingApproved) {
+    await reportDAL.update(existingApproved.id, {
+      status: "rejected",
+    });
+  }
+
+  // Approve the current report
   return reportDAL.update(reportId, {
     status: "approved",
   });
@@ -306,7 +344,11 @@ async function notifyGlobalDirectorsOfPendingReportApprovals(): Promise<void> {
     return;
   }
 
-  const distinctEventIds = new Set(pendingApprovals.map((a) => a.event_id).filter(Boolean));
+  const distinctEventIds = new Set(
+    (pendingApprovals as Array<{ event_id: string | null }>)
+      .map((a) => a.event_id)
+      .filter((id): id is string => Boolean(id))
+  );
   const pendingCount = distinctEventIds.size;
 
   const { data: globalDirectors, error: directorsError } = await supabase

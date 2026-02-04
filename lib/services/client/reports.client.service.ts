@@ -104,10 +104,17 @@ export async function submitReport(eventId: string, data: SubmitReportData): Pro
 }
 
 /**
- * Get report for an event
+ * Get report for an event (returns approved report if exists, otherwise most recent)
  */
 export async function getReportByEventId(eventId: string): Promise<Report | null> {
   return apiClient.get<Report | null>(`/api/events/${eventId}/report`);
+}
+
+/**
+ * Get all reports for an event
+ */
+export async function getAllReportsByEventId(eventId: string): Promise<Report[]> {
+  return apiClient.get<Report[]>(`/api/events/${eventId}/report?all=true`);
 }
 
 /**

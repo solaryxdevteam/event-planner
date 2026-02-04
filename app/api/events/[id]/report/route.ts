@@ -128,7 +128,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
 /**
  * GET /api/events/[id]/report
- * Get report for an event
+ * Get reports for an event
+ * Query param: all=true to get all reports, otherwise returns single report (approved or most recent)
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -143,21 +144,24 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const getAll = searchParams.get("all") === "true";
 
-    // Get report
-    const report = await reportService.getReportByEventId(id);
-
-    if (!report) {
+    if (getAll) {
+      // Get all reports for the event
+      const reports = await reportService.getAllReportsByEventId(id);
       return NextResponse.json({
         success: true,
-        data: null,
+        data: reports,
+      });
+    } else {
+      // Get single report (backward compatibility)
+      const report = await reportService.getReportByEventId(id);
+      return NextResponse.json({
+        success: true,
+        data: report,
       });
     }
-
-    return NextResponse.json({
-      success: true,
-      data: report,
-    });
   } catch (error) {
     console.error("Failed to fetch report:", error);
 

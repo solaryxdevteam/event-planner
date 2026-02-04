@@ -10,17 +10,14 @@
 import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, X, Loader2, AlertCircle, ExternalLink, Plus, Trash2, FileText } from "lucide-react";
-import { useSubmitReport, useUpdateReport } from "@/lib/hooks/use-reports";
+import { Upload, X, Loader2, ExternalLink, Plus, Trash2, FileText, AlertCircle } from "lucide-react";
+import { useSubmitReport } from "@/lib/hooks/use-reports";
 import { z } from "zod";
 import { toast } from "sonner";
-import type { Report } from "@/lib/types/database.types";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 
 const reportSchema = z.object({
@@ -38,30 +35,26 @@ type ReportFormData = z.infer<typeof reportSchema>;
 interface ReportFormProps {
   eventId: string;
   event: EventWithRelations;
-  existingReport?: Report | null;
   onSuccess?: () => void;
 }
 
-export function ReportForm({ eventId, event, existingReport, onSuccess }: ReportFormProps) {
+export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [externalLinks, setExternalLinks] = useState<Array<{ url: string; title: string }>>(
-    existingReport?.external_links || []
-  );
+  const [externalLinks, setExternalLinks] = useState<Array<{ url: string; title: string }>>([]);
   const [newLinkUrl, setNewLinkUrl] = useState("");
   const [newLinkTitle, setNewLinkTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const submitReport = useSubmitReport();
-  const updateReport = useUpdateReport();
 
   const form = useForm<ReportFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(reportSchema) as any,
     defaultValues: {
-      attendance_count: existingReport?.attendance_count || 0,
-      summary: existingReport?.summary || "",
-      feedback: existingReport?.feedback || "",
-      net_profit: existingReport?.net_profit ?? undefined,
+      attendance_count: 0,
+      summary: "",
+      feedback: "",
+      net_profit: undefined,
     },
   });
 
@@ -111,34 +104,18 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
 
   const onSubmit = async (data: ReportFormData) => {
     try {
-      if (existingReport && existingReport.status === "rejected") {
-        // Update existing rejected report
-        await updateReport.mutateAsync({
-          reportId: existingReport.id,
-          eventId,
-          data: {
-            attendance_count: data.attendance_count,
-            summary: data.summary,
-            feedback: data.feedback || null,
-            external_links: externalLinks.length > 0 ? externalLinks : null,
-            net_profit: data.net_profit ?? null,
-            mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined,
-          },
-        });
-      } else {
-        // Submit new report
-        await submitReport.mutateAsync({
-          eventId,
-          data: {
-            attendance_count: data.attendance_count,
-            summary: data.summary,
-            feedback: data.feedback || null,
-            external_links: externalLinks.length > 0 ? externalLinks : null,
-            net_profit: data.net_profit ?? null,
-            mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined,
-          },
-        });
-      }
+      // Always create a new report (archived reports are never updated)
+      await submitReport.mutateAsync({
+        eventId,
+        data: {
+          attendance_count: data.attendance_count,
+          summary: data.summary,
+          feedback: data.feedback || null,
+          external_links: externalLinks.length > 0 ? externalLinks : null,
+          net_profit: data.net_profit ?? null,
+          mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined,
+        },
+      });
 
       onSuccess?.();
     } catch {
@@ -146,20 +123,10 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
     }
   };
 
-  const isSubmitting = submitReport.isPending || updateReport.isPending;
-  const isResubmission = existingReport?.status === "rejected";
+  const isSubmitting = submitReport.isPending;
 
   return (
     <div className="space-y-6">
-      {isResubmission && (
-        <Alert className="border-orange-200 bg-orange-50 dark:bg-orange-950">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertDescription className="text-orange-800 dark:text-orange-200">
-            Your previous report was rejected. Please review the feedback and resubmit with corrections.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         {/* Attendance Count */}
         <div className="space-y-3">
@@ -316,26 +283,6 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
               ))}
             </div>
           )}
-
-          {/* Existing Media from Report */}
-          {existingReport?.media_urls && existingReport.media_urls.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-sm font-medium">Previously uploaded media:</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {existingReport.media_urls.map((url, index) => (
-                  <div key={index} className="relative aspect-video bg-muted rounded overflow-hidden">
-                    {url.match(/\.(jpg|jpeg|png|gif)$/i) ? (
-                      <Image src={url} alt={`Media ${index + 1}`} fill className="object-cover" unoptimized />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-xs text-muted-foreground">Video</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* External Links */}
@@ -400,10 +347,10 @@ export function ReportForm({ eventId, event, existingReport, onSuccess }: Report
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isResubmission ? "Resubmitting..." : "Submitting..."}
+                Submitting...
               </>
             ) : (
-              <>{isResubmission ? "Resubmit Report" : "Submit Report"}</>
+              "Submit Report"
             )}
           </Button>
         </div>
