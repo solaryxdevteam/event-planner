@@ -23,7 +23,8 @@ interface AddressAutocompleteProps {
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 
 // Debounce function
-function debounce<T extends (...args: unknown[]) => void>(func: T, wait: number): T {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function debounce<T extends (...args: any[]) => void>(func: T, wait: number): T {
   let timeout: NodeJS.Timeout | null = null;
   return ((...args: Parameters<T>) => {
     if (timeout) clearTimeout(timeout);

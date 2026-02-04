@@ -37,6 +37,7 @@ export default function VenuesPage() {
   const { data: profile } = useProfile();
   const userRole = profile?.role || "event_planner";
   const canCreateVenue = profile?.role === UserRole.EVENT_PLANNER || profile?.role === UserRole.GLOBAL_DIRECTOR;
+  const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
 
   // Prepare filters for API call
   const venueFilters: VenueFiltersHook = useMemo(
@@ -209,7 +210,7 @@ export default function VenuesPage() {
 
           {/* Loading State - Skeleton */}
           {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6">
               {Array.from({ length: pageSize }).map((_, i) => (
                 <VenueCardSkeleton key={i} />
               ))}
@@ -218,7 +219,7 @@ export default function VenuesPage() {
             <VenueList
               venues={venues}
               onDelete={handleDelete}
-              onBan={handleBan}
+              onBan={isGlobalDirector ? handleBan : undefined}
               userRole={userRole}
               currentPage={currentPage}
               totalPages={totalPages}

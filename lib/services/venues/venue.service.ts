@@ -17,18 +17,22 @@ import type { Database } from "@/lib/types/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { requireActiveUser } from "@/lib/auth/server";
 import { UserRole } from "@/lib/types/roles";
+import { isGlobalDirector } from "@/lib/permissions/roles";
+import * as eventDAL from "@/lib/data-access/events.dal";
 
 type Venue = Database["public"]["Tables"]["venues"]["Row"];
 
 /**
  * Get all venues visible to the current user
  * Implements pyramid visibility through backend authorization
+ * Global directors can see all venues
  */
 export async function getVenues(options?: { search?: string }): Promise<VenueWithCreator[]> {
   const user = await requireActiveUser();
 
-  // Get subordinate user IDs for authorization
-  const subordinateIds = await getSubordinateUserIds(user.id);
+  // Global directors can see all venues
+  const isGD = await isGlobalDirector(user.id);
+  const subordinateIds = isGD ? null : await getSubordinateUserIds(user.id);
 
   if (options?.search && options.search.trim().length > 0) {
     return venueDAL.search(options.search.trim(), subordinateIds, true);
@@ -44,8 +48,13 @@ export async function getVenues(options?: { search?: string }): Promise<VenueWit
 export async function getVenuesWithFilters(filters: venueDAL.VenueFilterOptions): Promise<venueDAL.PaginatedVenues> {
   const user = await requireActiveUser();
 
-  // Get subordinate user IDs for authorization
-  const subordinateIds = await getSubordinateUserIds(user.id);
+  // Global directors can see all venues
+  const isGD = await isGlobalDirector(user.id);
+
+  // If onlyOwn is true, only use the current user's ID (not subordinates)
+  // Otherwise, get subordinate user IDs for authorization (pyramid visibility)
+  // For global directors, pass null to skip creator_id filter (see all venues)
+  const subordinateIds = isGD ? null : filters.onlyOwn ? [user.id] : await getSubordinateUserIds(user.id);
 
   return venueDAL.findAllWithFilters(subordinateIds, filters);
 }
@@ -53,12 +62,14 @@ export async function getVenuesWithFilters(filters: venueDAL.VenueFilterOptions)
 /**
  * Get a single venue by short_id
  * Checks visibility permissions via backend authorization
+ * Global directors can see all venues
  */
 export async function getVenueByShortId(shortId: string): Promise<VenueWithCreator> {
   const user = await requireActiveUser();
 
-  // Get subordinate user IDs for authorization
-  const subordinateIds = await getSubordinateUserIds(user.id);
+  // Global directors can see all venues
+  const isGD = await isGlobalDirector(user.id);
+  const subordinateIds = isGD ? null : await getSubordinateUserIds(user.id);
 
   const venue = await venueDAL.findByShortId(shortId, subordinateIds, true);
 
@@ -286,6 +297,7 @@ export async function deleteVenue(id: string): Promise<void> {
  * Ban a venue (soft delete with admin override)
  * - Only Global Directors can ban venues
  * - Can ban any venue regardless of creator (no subordinate filtering for admins)
+ * - Cannot ban venues with upcoming events
  * - Logs audit trail with ban reason
  */
 export async function banVenue(id: string, reason?: string): Promise<void> {
@@ -303,6 +315,14 @@ export async function banVenue(id: string, reason?: string): Promise<void> {
   const venue = await venueDAL.findById(id, subordinateIds, false);
   if (!venue) {
     throw new NotFoundError("Venue", id);
+  }
+
+  // Check if venue has upcoming events
+  const hasUpcoming = await eventDAL.hasUpcomingEvents(id);
+  if (hasUpcoming) {
+    throw new ForbiddenError(
+      "Cannot ban venue: This venue has upcoming events. Please cancel or reschedule all upcoming events before banning the venue."
+    );
   }
 
   // Soft delete (ban)

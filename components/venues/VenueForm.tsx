@@ -161,6 +161,8 @@ export function VenueForm({
   const updateVenueMutation = useUpdateVenue();
   const checkDuplicateMutation = useCheckVenueDuplicate();
 
+  const today = new Date();
+
   // Duplicate venue state
   const [duplicateVenue, setDuplicateVenue] = useState<{
     id: string;
@@ -693,6 +695,13 @@ export function VenueForm({
     }
   };
 
+  const minDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    today.setFullYear(today.getFullYear() - 1);
+    return today;
+  }, []);
+
   // Get today's date and max date (1 year from now)
   const maxDate = useMemo(() => {
     const today = new Date();
@@ -1081,7 +1090,7 @@ export function VenueForm({
                 <DateInput
                   value={availabilityStartDate}
                   onChange={handleStartDateChange}
-                  min={today}
+                  min={minDate}
                   max={maxDate}
                   placeholder="Pick a date"
                   label="Availability Start Date"
@@ -1193,7 +1202,6 @@ export function VenueForm({
                 onImagesChange={(images) => form.setValue("images", images)}
                 venueId={venueId}
                 error={form.formState.errors.images?.message}
-                onFilesChange={setUploadedImageFiles}
               />
             </CardContent>
           </Card>

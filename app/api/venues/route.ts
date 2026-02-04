@@ -61,6 +61,7 @@ export async function GET(request: NextRequest) {
       seatedMax: searchParams.get("seatedMax") ? parseInt(searchParams.get("seatedMax")!, 10) : undefined,
       page: parseInt(searchParams.get("page") || "1", 10),
       pageSize: parseInt(searchParams.get("pageSize") || "9", 10),
+      onlyOwn: searchParams.get("onlyOwn") === "true",
     };
 
     // Get venues with filters

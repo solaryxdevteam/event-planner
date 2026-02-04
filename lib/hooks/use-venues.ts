@@ -7,6 +7,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { CreateVenueInput, UpdateVenueInput } from "@/lib/validation/venues.schema";
 import * as venueClientService from "@/lib/services/client/venues.client.service";
+import type { VenueFilters } from "@/lib/services/client/venues.client.service";
 import { toast } from "sonner";
 
 // Re-export types from client service

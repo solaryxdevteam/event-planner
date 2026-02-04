@@ -27,6 +27,7 @@ export interface VenueFilters {
   seatedMax?: number;
   page?: number;
   pageSize?: number;
+  onlyOwn?: boolean;
 }
 
 /**
@@ -62,6 +63,7 @@ export async function fetchVenues(filters: VenueFilters): Promise<PaginatedVenue
   if (filters.seatedMax !== undefined) params.seatedMax = filters.seatedMax;
   if (filters.page) params.page = filters.page;
   if (filters.pageSize) params.pageSize = filters.pageSize;
+  if (filters.onlyOwn !== undefined) params.onlyOwn = filters.onlyOwn;
 
   return apiClient.get<PaginatedVenues>("/api/venues", { params });
 }
@@ -149,6 +151,14 @@ export async function checkVenueDuplicate(
     country,
     excludeId,
   });
+}
+
+/**
+ * Check if venue has upcoming events
+ */
+export async function checkVenueUpcomingEvents(venueId: string): Promise<boolean> {
+  const result = await apiClient.get<{ hasUpcomingEvents: boolean }>(`/api/venues/${venueId}/upcoming-events`);
+  return result.hasUpcomingEvents;
 }
 
 // =============================================

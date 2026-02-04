@@ -74,11 +74,11 @@ interface VenueWithCreatorRaw extends Venue {
 /**
  * Get all venues filtered by subordinate user IDs
  *
- * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates)
+ * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates), or null for global directors (see all venues)
  * @param options - Additional query options
  */
 export async function findAll(
-  subordinateUserIds: string[],
+  subordinateUserIds: string[] | null,
   options?: {
     includeCreator?: boolean;
     activeOnly?: boolean;
@@ -86,11 +86,9 @@ export async function findAll(
 ): Promise<VenueWithCreator[]> {
   const supabase = await createClient();
 
-  let query = supabase
-    .from("venues")
-    .select(
-      options?.includeCreator
-        ? `
+  let query = supabase.from("venues").select(
+    options?.includeCreator
+      ? `
           *,
           creator:users!venues_creator_id_fkey (
             id,
@@ -110,10 +108,15 @@ export async function findAll(
             code
           )
         `
-        : "*"
-    )
-    .in("creator_id", subordinateUserIds) // Backend authorization filter
-    .order("name", { ascending: true });
+      : "*"
+  );
+
+  // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
+  if (subordinateUserIds !== null) {
+    query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
+  }
+
+  query = query.order("name", { ascending: true });
 
   if (options?.activeOnly !== false) {
     query = query.eq("is_active", true);
@@ -147,17 +150,17 @@ export async function findAll(
  * Get a single venue by short_id (with authorization check)
  *
  * @param shortId - Venue short ID (format: venue-XXXXX)
- * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates)
+ * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates), or null for global directors (see all venues)
  * @param includeCreator - Whether to include creator information
  */
 export async function findByShortId(
   shortId: string,
-  subordinateUserIds: string[],
+  subordinateUserIds: string[] | null,
   includeCreator: boolean = true
 ): Promise<VenueWithCreator | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("venues")
     .select(
       includeCreator
@@ -183,9 +186,14 @@ export async function findByShortId(
         `
         : "*"
     )
-    .eq("short_id", shortId)
-    .in("creator_id", subordinateUserIds) // Backend authorization filter
-    .single();
+    .eq("short_id", shortId);
+
+  // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
+  if (subordinateUserIds !== null) {
+    query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
     if (error.code === "PGRST116") {
@@ -222,17 +230,17 @@ export async function findByShortId(
  * For backward compatibility - prefer findByShortId
  *
  * @param id - Venue UUID
- * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates)
+ * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates), or null for global directors (see all venues)
  * @param includeCreator - Whether to include creator information
  */
 export async function findById(
   id: string,
-  subordinateUserIds: string[],
+  subordinateUserIds: string[] | null,
   includeCreator: boolean = true
 ): Promise<VenueWithCreator | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("venues")
     .select(
       includeCreator
@@ -258,9 +266,14 @@ export async function findById(
         `
         : "*"
     )
-    .eq("id", id)
-    .in("creator_id", subordinateUserIds) // Backend authorization filter
-    .single();
+    .eq("id", id);
+
+  // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
+  if (subordinateUserIds !== null) {
+    query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
     if (error.code === "PGRST116") {
@@ -443,17 +456,17 @@ export async function unbanVenue(id: string): Promise<void> {
  * Search venues by name or city (filtered by subordinate user IDs)
  *
  * @param searchQuery - Search term for name, city, or address
- * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates)
+ * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates), or null for global directors (see all venues)
  * @param includeCreator - Whether to include creator information
  */
 export async function search(
   searchQuery: string,
-  subordinateUserIds: string[],
+  subordinateUserIds: string[] | null,
   includeCreator: boolean = true
 ): Promise<VenueWithCreator[]> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("venues")
     .select(
       includeCreator
@@ -479,13 +492,17 @@ export async function search(
         `
         : "*"
     )
-    .in("creator_id", subordinateUserIds) // Backend authorization filter
     .eq("is_active", true)
     .or(
       `name.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,street.ilike.%${searchQuery}%,address.ilike.%${searchQuery}%`
-    )
-    .order("name", { ascending: true })
-    .limit(50);
+    );
+
+  // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
+  if (subordinateUserIds !== null) {
+    query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
+  }
+
+  const { data, error } = await query.order("name", { ascending: true }).limit(50);
 
   if (error) {
     throw new Error(`Failed to search venues: ${error.message}`);
@@ -530,6 +547,7 @@ export interface VenueFilterOptions {
   page?: number; // Page number (1-indexed)
   pageSize?: number; // Items per page
   includeCreator?: boolean;
+  onlyOwn?: boolean; // If true, only return venues created by the current user (not subordinates)
 }
 
 export interface PaginatedVenues {
@@ -541,7 +559,7 @@ export interface PaginatedVenues {
 }
 
 export async function findAllWithFilters(
-  subordinateUserIds: string[],
+  subordinateUserIds: string[] | null,
   options: VenueFilterOptions = {}
 ): Promise<PaginatedVenues> {
   const supabase = await createClient();
@@ -562,11 +580,9 @@ export async function findAllWithFilters(
   } = options;
 
   // Build base query
-  let query = supabase
-    .from("venues")
-    .select(
-      includeCreator
-        ? `
+  let query = supabase.from("venues").select(
+    includeCreator
+      ? `
           *,
           creator:users!venues_creator_id_fkey (
             id,
@@ -586,10 +602,14 @@ export async function findAllWithFilters(
             code
           )
         `
-        : "*",
-      { count: "exact" }
-    )
-    .in("creator_id", subordinateUserIds); // Backend authorization filter
+      : "*",
+    { count: "exact" }
+  );
+
+  // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
+  if (subordinateUserIds !== null) {
+    query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
+  }
 
   // Apply status filter (AND)
   if (status === "active") {
