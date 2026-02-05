@@ -14,6 +14,7 @@ import {
   FileText,
   Clock,
   BarChart3,
+  HelpCircle,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -167,6 +168,11 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
           },
         ]
       : []),
+    {
+      title: "Help Center",
+      url: "/dashboard/help",
+      icon: HelpCircle,
+    },
     {
       title: "Profile",
       url: "/dashboard/profile",

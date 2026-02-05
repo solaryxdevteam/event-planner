@@ -11,11 +11,13 @@ import type { Database } from "@/lib/types/database.types";
 import { UserTable } from "./UserTable";
 import { UserFormDialog } from "./UserFormDialog";
 import { CreateInvitationDialog } from "./CreateInvitationDialog";
-import { HierarchyTreeFlow } from "@/components/users/HierarchyTreeFlow";
+import { HierarchyTreeFlow } from "@/components/users/hierarchy";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Mail } from "lucide-react";
 import { useUsers, type UserFilters } from "@/lib/hooks/use-users";
+import * as usersClientService from "@/lib/services/client/users.client.service";
+import { useQueryClient } from "@tanstack/react-query";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -26,6 +28,7 @@ interface UserManagementClientProps {
 export function UserManagementClient({ initialUsers }: UserManagementClientProps) {
   // initialUsers is kept for backward compatibility but not currently used
   void initialUsers;
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isInvitationDialogOpen, setIsInvitationDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -83,10 +86,37 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
     setIsEditDialogOpen(true);
   };
 
+  // Handler for editing user from hierarchy (by userId)
+  const handleEditUserFromHierarchy = async (userId: string) => {
+    // First try to find user in current users list
+    let userToEdit = users.find((u) => u.id === userId);
+
+    // If not found, try to fetch from all users (without filters)
+    if (!userToEdit) {
+      try {
+        const allUsersData = await usersClientService.fetchUsers({ limit: 1000 });
+        userToEdit = allUsersData.data.find((u) => u.id === userId);
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+      }
+    }
+
+    if (userToEdit) {
+      setEditingUser(userToEdit);
+      setIsEditDialogOpen(true);
+      // Don't switch tabs - keep user on hierarchy tab
+    } else {
+      console.error("User not found:", userId);
+      // Could show a toast/notification here
+    }
+  };
+
   const handleEditDialogClose = (open: boolean) => {
     setIsEditDialogOpen(open);
     if (!open) {
       setEditingUser(undefined);
+      // Invalidate hierarchy query to refresh after user update
+      queryClient.invalidateQueries({ queryKey: ["users", "hierarchy"] });
     }
   };
 
@@ -143,7 +173,7 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
         </TabsContent>
 
         <TabsContent value="hierarchy" className="space-y-4">
-          <HierarchyTreeFlow isActive={activeTab === "hierarchy"} />
+          <HierarchyTreeFlow isActive={activeTab === "hierarchy"} onEditUser={handleEditUserFromHierarchy} />
         </TabsContent>
       </Tabs>
 
