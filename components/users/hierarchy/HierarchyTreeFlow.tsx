@@ -25,9 +25,8 @@ export function HierarchyTreeFlow({ isActive = true, onEditUser }: HierarchyTree
   const error = queryError ? (queryError as Error).message : null;
   const [layoutedNodes, setLayoutedNodes] = useState<Node[]>([]);
   const [layoutedEdges, setLayoutedEdges] = useState<Edge[]>([]);
-  const [isLayouting, setIsLayouting] = useState(false);
-  const previousTreeRef = useRef<typeof tree>([]);
-  const previousIsActiveRef = useRef(isActive);
+  const [computedLayoutKey, setComputedLayoutKey] = useState<string>("");
+  const previousCurrentLayoutKeyRef = useRef<string>("");
 
   // Convert tree to flow data (memoized by tree reference)
   // Hooks must be called unconditionally - moved before early returns
@@ -38,64 +37,56 @@ export function HierarchyTreeFlow({ isActive = true, onEditUser }: HierarchyTree
     return convertTreeToFlowData(tree, onEditUser);
   }, [tree, onEditUser]);
 
+  // Create a stable key for the current tree + active state to detect when recalculation is needed
+  // Include a counter that increments when tab becomes active to force recalculation
+  const currentLayoutKey = useMemo(() => {
+    if (!isActive || tree.length === 0) {
+      return "";
+    }
+    // Include isActive in the key to ensure recalculation when switching back
+    return `${isActive}-${JSON.stringify(tree)}`;
+  }, [isActive, tree]);
+
   // Layout the nodes using dagre (async) - memoized by initialNodes/edges
   // Hooks must be called unconditionally - moved before early returns
   // Only compute layout when active and we have nodes to layout
   const shouldComputeLayout = isActive && initialNodes.length > 0;
 
-  useEffect(() => {
-    const wasActive = previousIsActiveRef.current;
-    const becameInactive = wasActive && !isActive;
-    const becameActive = !wasActive && isActive;
+  // Derive loading state: we're loading if we should compute but the computed key doesn't match current key
+  const isLayouting = shouldComputeLayout && currentLayoutKey !== computedLayoutKey;
 
-    // Update ref for next render
-    previousIsActiveRef.current = isActive;
+  useEffect(() => {
+    // Track previous layout key to detect when switching from inactive to active
+    const previousKey = previousCurrentLayoutKeyRef.current;
+    previousCurrentLayoutKeyRef.current = currentLayoutKey;
 
     // If tab is inactive, don't compute layout
     if (!shouldComputeLayout) {
-      // Clear layouted nodes/edges when tab becomes inactive
-      // Use setTimeout to avoid synchronous setState in effect
-      if (becameInactive) {
-        setTimeout(() => {
-          setLayoutedNodes([]);
-          setLayoutedEdges([]);
-          setIsLayouting(false);
-        }, 0);
-      }
       return;
     }
 
-    // Check if tree data has changed
-    const treeChanged = JSON.stringify(tree) !== JSON.stringify(previousTreeRef.current);
+    // Check if we need to recalculate layout
+    // Recalculate if:
+    // 1. Computed key doesn't match current key, OR
+    // 2. We're transitioning from inactive (empty key) to active (non-empty key)
+    //    This ensures we always recalculate when switching back to the tab
+    const transitioningFromInactive = previousKey === "" && currentLayoutKey !== "";
+    const needsLayout = currentLayoutKey !== computedLayoutKey || transitioningFromInactive;
 
-    // Need to recalculate if:
-    // - Tree data changed
-    // - We don't have layouted nodes yet
-    // - Tab just became active (to ensure fresh layout)
-    const needsLayout = treeChanged || layoutedNodes.length === 0 || becameActive;
-
-    if (!needsLayout && layoutedNodes.length > 0) {
-      // Already have layouted data and nothing changed, no need to recalculate
+    if (!needsLayout) {
+      // Already have layouted data for this tree/state, no need to recalculate
       return;
     }
 
-    // Update tree ref after checking for changes
-    if (treeChanged) {
-      previousTreeRef.current = tree;
-    }
-
+    // Start layout calculation - only set state in async callbacks
     let cancelled = false;
-    // Use setTimeout to avoid synchronous setState in effect
-    setTimeout(() => {
-      setIsLayouting(true);
-    }, 0);
 
     getLayoutedElements(initialNodes, initialEdges)
       .then(({ nodes, edges }) => {
         if (!cancelled) {
           setLayoutedNodes(nodes);
           setLayoutedEdges(edges);
-          setIsLayouting(false);
+          setComputedLayoutKey(currentLayoutKey);
         }
       })
       .catch(() => {
@@ -103,24 +94,28 @@ export function HierarchyTreeFlow({ isActive = true, onEditUser }: HierarchyTree
           // Fallback to original positions if layout fails
           setLayoutedNodes(initialNodes);
           setLayoutedEdges(initialEdges);
-          setIsLayouting(false);
+          setComputedLayoutKey(currentLayoutKey);
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [shouldComputeLayout, initialNodes, initialEdges, isActive, tree, layoutedNodes.length]);
+  }, [shouldComputeLayout, initialNodes, initialEdges, currentLayoutKey, computedLayoutKey]);
 
-  // Derive final nodes/edges to use - empty when we shouldn't compute layout
-  // This avoids synchronous setState in effects
+  // Derive final nodes/edges to use - empty when we shouldn't compute layout or keys don't match
+  // This ensures we don't show stale data when switching tabs
   const finalNodes = useMemo(() => {
-    return shouldComputeLayout ? layoutedNodes : [];
-  }, [shouldComputeLayout, layoutedNodes]);
+    if (!shouldComputeLayout) return [];
+    // Only show nodes if the computed key matches current key (prevents showing stale data)
+    return currentLayoutKey === computedLayoutKey ? layoutedNodes : [];
+  }, [shouldComputeLayout, layoutedNodes, currentLayoutKey, computedLayoutKey]);
 
   const finalEdges = useMemo(() => {
-    return shouldComputeLayout ? layoutedEdges : [];
-  }, [shouldComputeLayout, layoutedEdges]);
+    if (!shouldComputeLayout) return [];
+    // Only show edges if the computed key matches current key (prevents showing stale data)
+    return currentLayoutKey === computedLayoutKey ? layoutedEdges : [];
+  }, [shouldComputeLayout, layoutedEdges, currentLayoutKey, computedLayoutKey]);
 
   // Don't initialize React Flow if tab is not active - saves significant resources
   // Only show loading state if we're actively loading, otherwise show placeholder
