@@ -60,9 +60,18 @@ export async function middleware(request: NextRequest) {
   // This allows API routes to use requireAuth() which will throw if not authenticated
   const isApiRoute = request.nextUrl.pathname.startsWith("/api");
 
-  // Get user status from database if authenticated
+  // Only fetch user status when needed for redirect decisions (no cookie caching)
+  // We only need status for redirects, not for regular navigation
   let userStatus: string | null = null;
-  if (user) {
+  const needsStatusCheck =
+    user &&
+    !isApiRoute &&
+    (pathname === "/" ||
+      pathname.startsWith("/auth/login") ||
+      pathname.startsWith("/auth/register") ||
+      pathname.startsWith("/dashboard"));
+
+  if (needsStatusCheck) {
     const { data: dbUser } = await supabase.from("users").select("status").eq("id", user.id).single();
     userStatus = dbUser?.status || null;
   }
