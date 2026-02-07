@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useCallback, useEffect, memo } from "react";
+import { useCallback, useEffect, memo, useMemo } from "react";
 import {
   ReactFlow,
   Background,
@@ -18,8 +18,9 @@ import {
   useEdgesState,
   useReactFlow,
   ConnectionMode,
+  type ColorMode,
 } from "@xyflow/react";
-import type { HierarchyNode } from "@/lib/hooks/use-user-hierarchy";
+import { useTheme } from "next-themes";
 import { nodeTypes } from "./node-types";
 
 interface FlowContentProps {
@@ -27,21 +28,19 @@ interface FlowContentProps {
   layoutedEdges: Edge[];
 }
 
-// Memoized node color function for MiniMap
-const getNodeColor = (node: Node) => {
-  const data = node.data as unknown as HierarchyNode & { roleColor?: string };
-  if (data.roleColor?.includes("red")) return "#fecaca";
-  if (data.roleColor?.includes("orange")) return "#fed7aa";
-  if (data.roleColor?.includes("purple")) return "#e9d5ff";
-  if (data.roleColor?.includes("green")) return "#bbf7d0";
-  if (data.roleColor?.includes("blue")) return "#bfdbfe";
-  return "#e5e7eb";
-};
-
 export const FlowContent = memo(function FlowContent({ layoutedNodes, layoutedEdges }: FlowContentProps) {
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
   const { fitView } = useReactFlow();
+  const { theme, resolvedTheme } = useTheme();
+
+  // Convert theme to React Flow's ColorMode
+  const colorMode: ColorMode = useMemo(() => {
+    const currentTheme = resolvedTheme || theme;
+    if (currentTheme === "dark") return "dark";
+    if (currentTheme === "light") return "light";
+    return "system";
+  }, [theme, resolvedTheme]);
 
   // Update nodes and edges when layouted data changes, then fit view
   useEffect(() => {
@@ -76,11 +75,12 @@ export const FlowContent = memo(function FlowContent({ layoutedNodes, layoutedEd
       connectionMode={ConnectionMode.Loose}
       minZoom={0.1}
       maxZoom={2}
+      colorMode={colorMode}
       fitView
     >
       <Background />
       <Controls />
-      <MiniMap nodeColor={getNodeColor} className="bg-background" />
+      <MiniMap className="bg-background" />
     </ReactFlow>
   );
 });

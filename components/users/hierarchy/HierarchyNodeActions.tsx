@@ -68,7 +68,7 @@ export function HierarchyNodeActions({ node, onEditUser }: HierarchyNodeActionsP
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="default" size="sm" className="h-6 hover:bg-slate-700">
+          <Button variant="default" size="sm" className="h-6">
             <span>Edit</span>
           </Button>
         </DropdownMenuTrigger>
