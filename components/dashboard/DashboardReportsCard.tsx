@@ -154,7 +154,7 @@ export function DashboardReportsCard() {
       <Card className="min-w-0 overflow-hidden gap-2 p-3 sm:p-4 shadow-none">
         <CardHeader className="flex flex-col gap-2 sm:gap-4 space-y-0 px-0">
           {/* Title and View all in one line */}
-          <div className="flex items-center justify-between gap-2">
+          <div className="w-full flex items-center justify-between gap-2">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />
               Reports
