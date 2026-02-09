@@ -41,6 +41,9 @@ mcp.json
 # vercel
 .vercel
 
+# app error logs (file-based logging)
+/logs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/server";
 import { UnauthorizedError } from "@/lib/utils/errors";
 import * as reportService from "@/lib/services/reports/report.service";
+import { logErrorToFile } from "@/lib/utils/file-logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+    logErrorToFile("GET /api/reports", error);
     console.error("GET /api/reports error:", err.message, err instanceof Error ? err.stack : "");
     return NextResponse.json({ success: false, error: err.message || "Failed to load reports" }, { status: 500 });
   }

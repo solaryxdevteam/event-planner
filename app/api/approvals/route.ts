@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth/server";
 import * as approvalService from "@/lib/services/approvals/approval.service";
 import type { ApprovalType } from "@/lib/types/database.types";
+import { logErrorToFile } from "@/lib/utils/file-logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export async function GET(request: Request) {
     return NextResponse.json(approvals);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
+    logErrorToFile("GET /api/approvals", error);
     console.error("GET /api/approvals error:", err.message, err instanceof Error ? err.stack : "");
     return NextResponse.json({ message: err.message || "Failed to fetch approvals" }, { status: 500 });
   }
