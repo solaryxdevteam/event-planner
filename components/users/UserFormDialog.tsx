@@ -17,7 +17,9 @@ import {
   type UpdateUserInput,
   type UserFormInput,
 } from "@/lib/validation/users.schema";
-import { createUserDirectly, updateUser, checkGlobalDirectorPassword, getPotentialParents } from "@/lib/actions/users";
+import { updateUser, checkGlobalDirectorPassword, getPotentialParents } from "@/lib/actions/users";
+import { createUser } from "@/lib/services/client/users.client.service";
+import { ApiError } from "@/lib/services/client/api-client";
 import { useCountries, useStatesByCountry, useDefaultCountry } from "@/lib/hooks/use-locations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -225,22 +227,18 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
           }
         }
 
-        // Create user directly with password
-        const response = await createUserDirectly({
+        // Create user via client service (calls POST /api/users)
+        await createUser({
           ...data,
           password: userPassword,
         } as CreateUserInput & { password: string });
 
-        if (response.success) {
-          const fullName = data.last_name ? `${data.first_name} ${data.last_name}` : data.first_name;
-          toast.success(`User ${fullName} created successfully`);
-          onOpenChange(false);
-          form.reset();
-          setPassword("");
-          router.refresh();
-        } else {
-          toast.error(response.error || "Failed to create user");
-        }
+        const fullName = data.last_name ? `${data.first_name} ${data.last_name}` : data.first_name;
+        toast.success(`User ${fullName} created successfully`);
+        onOpenChange(false);
+        form.reset();
+        setPassword("");
+        router.refresh();
       } else {
         // Edit mode - update user
         if (!user) {
@@ -299,8 +297,12 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
         }
       }
     } catch (error) {
-      toast.error("An unexpected error occurred");
-      console.error(error);
+      if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else {
+        toast.error("An unexpected error occurred");
+        console.error(error);
+      }
     } finally {
       setIsSubmitting(false);
     }
