@@ -6,6 +6,7 @@ import { getEventsForCalendar } from "@/lib/actions/dashboard";
 import { useEvents } from "@/lib/hooks/use-events";
 import { useApprovals } from "@/lib/hooks/use-approvals";
 import { useVenues } from "@/lib/hooks/use-venues";
+import { useProfile } from "@/lib/hooks/use-profile";
 import { MonthlyCalendar } from "./MonthlyCalendar";
 import { DashboardReportsCard } from "./DashboardReportsCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { Calendar, ListChecks, Building2, MapPin, ChevronRight } from "lucide-re
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import Link from "next/link";
 import Image from "next/image";
+import { UserRole } from "@/lib/types/roles";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 
@@ -147,6 +149,9 @@ export function DashboardClient() {
   const monthStart = useMemo(() => startOfMonth(calendarViewingDate), [calendarViewingDate]);
   const monthEnd = useMemo(() => endOfMonth(calendarViewingDate), [calendarViewingDate]);
 
+  const { data: profile } = useProfile();
+  const isEventPlanner = profile?.role === UserRole.EVENT_PLANNER;
+
   const { data: currentEvents = [], isLoading: currentEventsLoading } = useEvents({
     status: ["approved_scheduled"],
     pageSize: LIMIT,
@@ -222,47 +227,49 @@ export function DashboardClient() {
             />
           </div>
 
-          <Card className="min-w-0 overflow-hidden p-3 sm:p-4 shadow-none gap-2">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 gap-2">
-              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
-                <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />
-                Pending Approvals
-              </CardTitle>
-              <Button variant="ghost" size="sm" asChild className="shrink-0">
-                <Link href="/dashboard/approvals">View all</Link>
-              </Button>
-            </CardHeader>
-            <CardContent className="p-0">
-              {approvalsLoading ? (
-                <div className="space-y-3">
-                  {[1, 2, 3].map((i) => (
-                    <Skeleton key={i} className="h-16 w-full rounded" />
-                  ))}
-                </div>
-              ) : displayApprovals.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed bg-muted/30">
-                  <ListChecks className="h-10 w-10 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">No pending approvals</p>
-                  <Button variant="outline" size="sm" className="mt-3" asChild>
-                    <Link href="/dashboard/approvals">Go to approvals</Link>
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-0">
-                  {displayApprovals.map(
-                    (approval: {
-                      id: string;
-                      event_id: string;
-                      approval_type?: string;
-                      event?: { title?: string; starts_at?: string; short_id?: string };
-                    }) => (
-                      <PendingApprovalRow key={approval.id} approval={approval} />
-                    )
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {!isEventPlanner && (
+            <Card className="min-w-0 overflow-hidden p-3 sm:p-4 shadow-none gap-2">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 gap-2">
+                <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 sm:h-5 sm:w-5" />
+                  Pending Approvals
+                </CardTitle>
+                <Button variant="ghost" size="sm" asChild className="shrink-0">
+                  <Link href="/dashboard/approvals">View all</Link>
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {approvalsLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-16 w-full rounded" />
+                    ))}
+                  </div>
+                ) : displayApprovals.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed bg-muted/30">
+                    <ListChecks className="h-10 w-10 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">No pending approvals</p>
+                    <Button variant="outline" size="sm" className="mt-3" asChild>
+                      <Link href="/dashboard/approvals">Go to approvals</Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-0">
+                    {displayApprovals.map(
+                      (approval: {
+                        id: string;
+                        event_id: string;
+                        approval_type?: string;
+                        event?: { title?: string; starts_at?: string; short_id?: string };
+                      }) => (
+                        <PendingApprovalRow key={approval.id} approval={approval} />
+                      )
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="min-w-0 overflow-hidden p-3 sm:p-4 shadow-none">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-0 gap-2">
