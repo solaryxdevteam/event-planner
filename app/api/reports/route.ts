@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("GET /api/reports error:", error);
-    const message = error instanceof Error ? error.message : "Failed to load reports";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error("GET /api/reports error:", err.message, err instanceof Error ? err.stack : "");
+    return NextResponse.json({ success: false, error: err.message || "Failed to load reports" }, { status: 500 });
   }
 }
