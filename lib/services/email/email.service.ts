@@ -8,8 +8,18 @@ import { Resend } from "resend";
 import type { Invitation, User } from "@/lib/types/database.types";
 import * as templatesService from "./templates.service";
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize Resend so we don't throw at module load when RESEND_API_KEY is unset (e.g. in production env)
+let resendInstance: Resend | null = null;
+
+function getResend(): Resend {
+  if (resendInstance) return resendInstance;
+  const key = process.env.RESEND_API_KEY;
+  if (!key) {
+    throw new Error("RESEND_API_KEY is not set. Add it to your environment variables to enable email sending.");
+  }
+  resendInstance = new Resend(key);
+  return resendInstance;
+}
 
 // Get the "from" email address from environment variables
 // You should verify this domain in Resend dashboard
@@ -34,7 +44,7 @@ export async function sendInvitationEmail(invitation: Invitation, countryName: s
     const htmlContent = templatesService.renderInvitationEmail(invitation, countryName, invitationLink);
 
     // Send email via Resend
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: invitation.email,
       subject: "You've been invited to join the Event Management Platform",
@@ -65,7 +75,7 @@ export async function sendRegistrationCongratulationEmail(user: User): Promise<v
     const htmlContent = templatesService.renderRegistrationCongratulation(user);
 
     // Send email via Resend
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: user.email,
       subject: "Welcome! Your registration is pending activation",
@@ -97,7 +107,7 @@ export async function sendUserCreatedCongratulationEmail(user: User, creatorName
     const htmlContent = templatesService.renderUserCreatedCongratulation(user, creatorName);
 
     // Send email via Resend
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: user.email,
       subject: "Welcome to the Event Management Platform",
@@ -123,7 +133,7 @@ export async function sendUserCreatedCongratulationEmail(user: User, creatorName
 export async function sendEventApprovedEmail(toEmail: string, eventTitle: string, eventId: string): Promise<void> {
   try {
     const htmlContent = templatesService.renderEventApprovedEmail(eventTitle, eventId);
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: toEmail,
       subject: "Your event has been approved",
@@ -152,7 +162,7 @@ export async function sendEventRejectedEmail(
 ): Promise<void> {
   try {
     const htmlContent = templatesService.renderEventRejectedEmail(eventTitle, eventId, comment);
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: toEmail,
       subject: "Your event was not approved",
@@ -176,7 +186,7 @@ export async function sendEventRejectedEmail(
 export async function sendReportDueReminderEmail(toEmail: string, eventTitle: string, eventId: string): Promise<void> {
   try {
     const htmlContent = templatesService.renderReportDueReminderEmail(eventTitle, eventId);
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: toEmail,
       subject: "Report required for your event",
@@ -200,7 +210,7 @@ export async function sendReportDueReminderEmail(toEmail: string, eventTitle: st
 export async function sendReportsPendingApprovalReminderEmail(toEmail: string, pendingCount: number): Promise<void> {
   try {
     const htmlContent = templatesService.renderReportsPendingApprovalReminderEmail(pendingCount);
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
       to: toEmail,
       subject: "Reports awaiting your approval",
