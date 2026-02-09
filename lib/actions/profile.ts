@@ -33,12 +33,16 @@ export async function getCurrentUserProfile(): Promise<ActionResponse<User>> {
   }, "getCurrentUserProfile");
 }
 
+/** Result of updateProfile when password was changed (client should sign out) */
+export type UpdateProfileResult = User & { passwordChanged?: true };
+
 /**
  * Update user profile (first_name, last_name, company, state_id, city, phone, password)
  *
  * IMPORTANT: Users with status='pending' cannot update their profile
+ * When password is changed, the client should sign the user out so they re-login with the new password.
  */
-export async function updateProfile(data: UpdateProfileInput): Promise<ActionResponse<User>> {
+export async function updateProfile(data: UpdateProfileInput): Promise<ActionResponse<UpdateProfileResult>> {
   return handleAsync(async () => {
     const { id: userId, dbUser } = await requireAuth();
 
@@ -67,8 +71,10 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
     // password_confirmation is destructured but not used (password is validated separately)
     void _unusedPasswordConfirmation;
 
+    let passwordChanged = false;
     if (password && password.trim() !== "") {
       await passwordService.updatePassword(userId, password);
+      passwordChanged = true;
     }
 
     // Prepare update object
@@ -84,7 +90,13 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
     // Only Global Director can update email, role, and status
     if (isGlobalDirector) {
       if (email !== undefined) {
-        updateData.email = email;
+        const newEmail = email.trim().toLowerCase();
+        const currentEmail = (dbUser.email ?? "").trim().toLowerCase();
+        if (newEmail !== currentEmail) {
+          // Update Supabase Auth email first so user can sign in with new email
+          await passwordService.updateAuthEmail(userId, newEmail);
+        }
+        updateData.email = newEmail;
       }
       if (role !== undefined) {
         updateData.role = role;
@@ -104,7 +116,11 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
     revalidatePath("/dashboard/profile");
     revalidatePath("/profile");
 
-    return updatedUser;
+    const result: UpdateProfileResult = { ...updatedUser };
+    if (passwordChanged) {
+      result.passwordChanged = true;
+    }
+    return result;
   }, "updateProfile");
 }
 

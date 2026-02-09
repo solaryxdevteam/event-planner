@@ -57,6 +57,27 @@ export async function updatePassword(userId: string, newPassword: string): Promi
   }
 }
 
+/**
+ * Update user email in Supabase Auth (admin).
+ * Uses email_confirm: true so the user can sign in with the new email immediately
+ * without a confirmation link.
+ *
+ * @param userId - User ID (auth user id)
+ * @param newEmail - New email address
+ */
+export async function updateAuthEmail(userId: string, newEmail: string): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { error } = await supabase.auth.admin.updateUserById(userId, {
+    email: newEmail,
+    email_confirm: true,
+  });
+
+  if (error) {
+    throw new Error(`Failed to update auth email: ${error.message}`);
+  }
+}
+
 import { randomBytes } from "crypto";
 
 /**

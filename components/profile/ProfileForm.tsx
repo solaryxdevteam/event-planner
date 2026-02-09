@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { updateProfile } from "@/lib/actions/profile";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
 import { useStatesByCountry } from "@/lib/hooks/use-locations";
+import { signOut } from "@/lib/auth/client";
 import type { User, UserStatus } from "@/lib/types/database.types";
 import { UserRole } from "@/lib/types/roles";
 
@@ -26,6 +28,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ user }: ProfileFormProps) {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [showPasswordFields, setShowPasswordFields] = useState(false);
 
   // Check if user is pending - if so, disable all fields
@@ -55,7 +58,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
 
   const updateProfileMutation = useMutation({
     mutationFn: updateProfile,
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       if (response.success && response.data) {
         // Invalidate profile queries
         queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -74,6 +77,13 @@ export function ProfileForm({ user }: ProfileFormProps) {
           role: isGlobalDirector ? response.data.role : undefined,
           status: isGlobalDirector ? response.data.status : undefined,
         });
+        // If password was changed, sign out and redirect to login
+        if ("passwordChanged" in response.data && response.data.passwordChanged) {
+          toast.success("Password updated. Please sign in with your new password.");
+          await signOut();
+          router.push("/auth/login");
+          return;
+        }
         toast.success("Profile updated successfully");
         // Reset password fields after successful update
         if (showPasswordFields) {
