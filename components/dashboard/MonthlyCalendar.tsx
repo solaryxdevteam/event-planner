@@ -195,7 +195,7 @@ export function MonthlyCalendar({
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <div
           ref={calendarRef}
-          className="relative [&_.rdp-day]:rounded-full [&_.rdp-day_button]:rounded-full [&_.rdp-today]:rounded-full"
+          className="relative [&_.rdp-day]:rounded-full [&_.rdp-day_button]:rounded-full [&_.rdp-today]:rounded-full calendar-dashboard"
         >
           <CalendarUi
             captionLayout="dropdown"

@@ -133,3 +133,13 @@
     display: none;
   }
 }
+
+.calendar-dashboard {
+  min-height: 520px;
+}
+
+@media (min-width: 768px) {
+  .calendar-dashboard {
+    min-height: 312px;
+  }
+}
