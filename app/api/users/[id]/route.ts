@@ -1,6 +1,7 @@
 /**
  * User by ID API Route
  *
+ * GET /api/users/[id] - Get minimal user info (Global Director only, for combobox display)
  * PUT /api/users/[id] - Update a user (Global Director only)
  * DELETE /api/users/[id] - Deactivate a user (Global Director only)
  */
@@ -14,6 +15,33 @@ import { UserRole } from "@/lib/types/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/users/[id]
+ * Get minimal user info (for Reports To combobox display)
+ */
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await requireRole([UserRole.GLOBAL_DIRECTOR]);
+    const { id } = await params;
+    const user = await userService.getUserMinimal(id);
+    if (!user) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    }
+    return NextResponse.json({ success: true, data: user });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 401 });
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to fetch user" },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * PUT /api/users/[id]

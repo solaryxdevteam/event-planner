@@ -7,8 +7,10 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Calendar,
+  CalendarDays,
   CheckSquare,
   Building2,
+  Music2,
   Users,
   User,
   FileText,
@@ -90,6 +92,12 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
           },
         ]
       : []),
+    // Calendar - for all users
+    {
+      title: "Calendar",
+      url: "/dashboard/calendar",
+      icon: CalendarDays,
+    },
     // Events - for all users
     {
       title: "Events",
@@ -134,6 +142,14 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
                 title: "Reports",
                 url: "/dashboard/approvals?type=report",
               },
+              {
+                title: "Marketing Reports",
+                url: "/dashboard/approvals?type=marketing_report",
+              },
+              {
+                title: "Venues",
+                url: "/dashboard/approvals?type=venues",
+              },
             ],
           },
         ]
@@ -142,6 +158,11 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
       title: "Venue Management",
       url: "/dashboard/venues",
       icon: Building2,
+    },
+    {
+      title: "DJs",
+      url: "/dashboard/djs",
+      icon: Music2,
     },
     // User Management - only for curators
     ...(isCurator
@@ -255,6 +276,7 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
             last_name: userData.last_name,
             email: userData.email,
             avatar: userData.avatar || undefined,
+            role: userRole,
           }}
         />
       </SidebarFooter>

@@ -21,11 +21,23 @@ import type { Report } from "@/lib/types/database.types";
 
 export interface SubmitReportInput {
   attendance_count: number;
-  summary: string;
+  total_ticket_sales?: number | null;
+  total_bar_sales?: number | null;
+  total_table_sales?: number | null;
+  detailed_report: string;
+  incidents?: string | null;
+  summary?: string;
   feedback?: string | null;
   external_links?: Array<{ url: string; title: string }> | null;
   net_profit?: number | null;
-  mediaFiles?: File[];
+  /** Reels URLs when form uses upload-on-select (like DJForm/VenueForm). */
+  reelsUrls?: string[];
+  /** Photo URLs when form uses upload-on-select. */
+  mediaUrls?: string[];
+  /** Reels as files (legacy multipart submit). Server receives Blob from formData(). */
+  reelsFiles?: (File | Blob)[];
+  /** Photos as files (legacy multipart submit). */
+  mediaFiles?: (File | Blob)[];
 }
 
 /**
@@ -35,7 +47,7 @@ export async function submitReport(
   userId: string,
   eventId: string,
   reportData: SubmitReportInput,
-  mediaFiles?: File[]
+  mediaFiles?: (File | Blob)[]
 ): Promise<Report> {
   const subordinateIds = await getSubordinateUserIds(userId);
   const event = await eventDAL.findById(eventId, subordinateIds, false);
@@ -73,33 +85,68 @@ export async function submitReport(
   }
 
   // Validate required fields
-  if (!reportData.attendance_count || reportData.attendance_count < 0) {
-    throw new ValidationError("Attendance count is required and must be >= 0");
+  if (reportData.attendance_count < 0) {
+    throw new ValidationError("Total number of attendance is required and must be >= 0");
   }
 
-  if (!reportData.summary || reportData.summary.trim().length === 0) {
-    throw new ValidationError("Summary is required");
+  if (!reportData.detailed_report || reportData.detailed_report.trim().length === 0) {
+    throw new ValidationError("Detailed event report is required");
   }
 
-  if (reportData.summary.length < 20 || reportData.summary.length > 1000) {
-    throw new ValidationError("Summary must be between 20 and 1000 characters");
+  if (reportData.detailed_report.length < 20 || reportData.detailed_report.length > 10000) {
+    throw new ValidationError("Detailed event report must be between 20 and 10000 characters");
   }
 
-  // Upload media files if provided
-  let mediaUrls: string[] = [];
-  if (mediaFiles && mediaFiles.length > 0) {
-    mediaUrls = await Promise.all(mediaFiles.map((file) => storageService.uploadReportMedia(eventId, file)));
+  const reelsUrlsFromInput = reportData.reelsUrls ?? [];
+  const mediaUrlsFromInput = reportData.mediaUrls ?? [];
+  const reelsFiles = reportData.reelsFiles ?? [];
+  const photoFiles = reportData.mediaFiles ?? mediaFiles ?? [];
+
+  let reelsUrls: string[];
+  let mediaUrls: string[];
+
+  if (reelsUrlsFromInput.length >= 3 && mediaUrlsFromInput.length >= 10) {
+    reelsUrls = reelsUrlsFromInput;
+    mediaUrls = mediaUrlsFromInput;
+  } else if (reelsFiles.length >= 3 && photoFiles.length >= 10) {
+    reelsUrls = await Promise.all(reelsFiles.map((file) => storageService.uploadReportMedia(eventId, file)));
+    mediaUrls = await Promise.all(photoFiles.map((file) => storageService.uploadReportMedia(eventId, file)));
+  } else {
+    if (reelsUrlsFromInput.length > 0 || mediaUrlsFromInput.length > 0) {
+      if (reelsUrlsFromInput.length < 3) {
+        throw new ValidationError("Reels: minimum 3 files required");
+      }
+      if (mediaUrlsFromInput.length < 10) {
+        throw new ValidationError("Upload photos: minimum 10 files required");
+      }
+    }
+    if (reelsFiles.length < 3) {
+      throw new ValidationError("Reels: minimum 3 files required");
+    }
+    if (photoFiles.length < 10) {
+      throw new ValidationError("Upload photos: minimum 10 files required");
+    }
+    reelsUrls = [];
+    mediaUrls = [];
   }
+
+  const summary = reportData.detailed_report.slice(0, 1000);
 
   // Create report
   const report = await reportDAL.insert({
     event_id: eventId,
     attendance_count: reportData.attendance_count,
-    summary: reportData.summary,
+    summary,
     feedback: reportData.feedback || null,
     media_urls: mediaUrls,
     external_links: reportData.external_links || [],
     net_profit: reportData.net_profit ?? null,
+    total_ticket_sales: reportData.total_ticket_sales ?? null,
+    total_bar_sales: reportData.total_bar_sales ?? null,
+    total_table_sales: reportData.total_table_sales ?? null,
+    reels_urls: reelsUrls,
+    detailed_report: reportData.detailed_report,
+    incidents: reportData.incidents ?? null,
     status: "pending",
   });
 
@@ -141,7 +188,7 @@ export async function updateReport(
   userId: string,
   reportId: string,
   reportData: SubmitReportInput,
-  mediaFiles?: File[]
+  mediaFiles?: (File | Blob)[]
 ): Promise<Report> {
   const supabase = await createClient();
   const subordinateIds = await getSubordinateUserIds(userId);
@@ -171,23 +218,39 @@ export async function updateReport(
     throw new ForbiddenError("Only rejected reports can be updated");
   }
 
-  // Upload new media files if provided
+  const photoFiles = reportData.mediaFiles ?? mediaFiles ?? [];
+  const reelsFiles = reportData.reelsFiles ?? [];
   let mediaUrls: string[] = (reportRow.media_urls as string[] | null) || [];
-  if (mediaFiles && mediaFiles.length > 0) {
+  let reelsUrls: string[] = (reportRow.reels_urls as string[] | null) || [];
+  if (photoFiles.length > 0) {
     const newMediaUrls = await Promise.all(
-      mediaFiles.map((file) => storageService.uploadReportMedia(reportRow.event_id, file))
+      photoFiles.map((file) => storageService.uploadReportMedia(reportRow.event_id, file))
     );
     mediaUrls = [...mediaUrls, ...newMediaUrls];
   }
+  if (reelsFiles.length > 0) {
+    const newReelsUrls = await Promise.all(
+      reelsFiles.map((file) => storageService.uploadReportMedia(reportRow.event_id, file))
+    );
+    reelsUrls = [...reelsUrls, ...newReelsUrls];
+  }
 
-  // Update report
+  const summary =
+    reportData.detailed_report != null ? reportData.detailed_report.slice(0, 1000) : (reportRow.summary as string);
+
   const updatedReport = await reportDAL.update(reportId, {
     attendance_count: reportData.attendance_count,
-    summary: reportData.summary,
+    summary,
     feedback: reportData.feedback || null,
     media_urls: mediaUrls,
     external_links: reportData.external_links || [],
     net_profit: reportData.net_profit ?? null,
+    total_ticket_sales: reportData.total_ticket_sales ?? null,
+    total_bar_sales: reportData.total_bar_sales ?? null,
+    total_table_sales: reportData.total_table_sales ?? null,
+    reels_urls: reelsUrls,
+    detailed_report: reportData.detailed_report ?? null,
+    incidents: reportData.incidents ?? null,
     status: "pending",
   });
 
@@ -377,7 +440,7 @@ async function notifyGlobalDirectorsOfPendingReportApprovals(): Promise<void> {
 }
 
 /**
- * List approved reports with filters, sort, pagination (for reports list page)
+ * List approved reports with filters, pagination (for reports list page)
  */
 export async function listApprovedReports(
   userId: string,
@@ -386,7 +449,8 @@ export async function listApprovedReports(
     venueId?: string | null;
     dateFrom?: string | null;
     dateTo?: string | null;
-    sortByNetProfit?: "asc" | "desc" | null;
+    userId?: string | null;
+    djId?: string | null;
     page?: number;
     limit?: number;
   }
@@ -398,7 +462,8 @@ export async function listApprovedReports(
     venueId: params.venueId ?? null,
     dateFrom: params.dateFrom ?? null,
     dateTo: params.dateTo ?? null,
-    sortByNetProfit: params.sortByNetProfit ?? null,
+    userId: params.userId ?? null,
+    djId: params.djId ?? null,
     page: params.page ?? 1,
     limit: params.limit ?? 10,
   });
@@ -414,6 +479,8 @@ export async function getReportChartData(
     venueId?: string | null;
     dateFrom?: string | null;
     dateTo?: string | null;
+    userId?: string | null;
+    djId?: string | null;
   }
 ) {
   const subordinateIds = await getSubordinateUserIds(userId);
@@ -423,5 +490,7 @@ export async function getReportChartData(
     venueId: params.venueId ?? null,
     dateFrom: params.dateFrom ?? null,
     dateTo: params.dateTo ?? null,
+    userId: params.userId ?? null,
+    djId: params.djId ?? null,
   });
 }

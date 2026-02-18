@@ -2,12 +2,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SearchIcon, XIcon, CheckIcon } from "lucide-react";
+import { SearchIcon, XIcon, CheckIcon, PlusIcon } from "lucide-react";
 import Image from "next/image";
 import { useVenues } from "@/lib/hooks/use-venues";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
@@ -25,6 +26,7 @@ export function VenueSelectionDialog({
   selectedVenueId,
   onSelectVenue,
 }: VenueSelectionDialogProps) {
+  const router = useRouter();
   const [searchValue, setSearchValue] = useState("");
 
   // Fetch active venues with search filter
@@ -54,6 +56,11 @@ export function VenueSelectionDialog({
 
   const handleSearchClear = () => {
     setSearchValue("");
+  };
+
+  const handleAddNewVenue = () => {
+    onOpenChange(false);
+    router.push("/dashboard/venues/new");
   };
 
   return (
@@ -111,37 +118,43 @@ export function VenueSelectionDialog({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pr-4 pb-4">
-              {venues.map((venue) => {
-                const firstImage = venue.images && venue.images.length > 0 ? venue.images[0] : null;
+              {/* Add new venue card - first */}
+              <Card
+                className="cursor-pointer overflow-hidden shadow-sm hover:shadow-md transition-shadow border-dashed border-2 border-muted-foreground/30 hover:border-primary/50 hover:bg-muted/30 py-0"
+                onClick={handleAddNewVenue}
+              >
+                <div className="relative flex h-full items-center justify-center bg-muted overflow-hidden">
+                  <div className="flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                    <PlusIcon className="h-14 w-14" />
+                    <span className="text-sm font-medium">Add new venue</span>
+                    <span className="text-xs text-center px-4">Create a new venue to use for events</span>
+                    <span className="text-xs text-center px-4">Click to go to the venue creation page</span>
+                  </div>
+                </div>
+              </Card>
 
-                // Format location: country/state/city
-                const locationParts = [venue.country, venue.state, venue.city].filter(Boolean);
+              {venues.map((venue) => {
+                // Cover image: first media item with isCover, or first photo
+                const media = venue.media && Array.isArray(venue.media) ? venue.media : [];
+                const coverItem =
+                  media.find((m: { isCover?: boolean; type?: string }) => m.isCover && m.type === "photo") ||
+                  media.find((m: { type?: string }) => m.type === "photo");
+                const coverImageUrl = coverItem && typeof coverItem.url === "string" ? coverItem.url : null;
+
+                // Format location: country / city (state removed from schema)
+                const locationParts = [venue.country, venue.city].filter(Boolean);
                 const location = locationParts.join(" / ");
 
-                // Format dates
-                const formatDate = (dateString: string | null) => {
-                  if (!dateString) return null;
-                  try {
-                    return new Date(dateString).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    });
-                  } catch {
-                    return null;
-                  }
-                };
-
-                const startDate = formatDate(venue.availability_start_date);
-                const endDate = formatDate(venue.availability_end_date);
-
-                // Format capacity
+                // Format capacity (total_capacity, number_of_tables, ticket_capacity)
                 const capacityParts: string[] = [];
-                if (venue.capacity_standing) {
-                  capacityParts.push(`Standing: ${venue.capacity_standing.toLocaleString()}`);
+                if (venue.total_capacity != null) {
+                  capacityParts.push(`Total: ${venue.total_capacity.toLocaleString()}`);
                 }
-                if (venue.capacity_seated) {
-                  capacityParts.push(`Seated: ${venue.capacity_seated.toLocaleString()}`);
+                if (venue.number_of_tables != null) {
+                  capacityParts.push(`Tables: ${venue.number_of_tables.toLocaleString()}`);
+                }
+                if (venue.ticket_capacity != null) {
+                  capacityParts.push(`Tickets: ${venue.ticket_capacity.toLocaleString()}`);
                 }
                 const capacity = capacityParts.length > 0 ? capacityParts.join(" / ") : "Not specified";
 
@@ -157,8 +170,8 @@ export function VenueSelectionDialog({
                   >
                     {/* Image Section */}
                     <div className="relative flex h-60 items-center justify-center bg-muted overflow-hidden">
-                      {firstImage ? (
-                        <Image src={firstImage} alt={venue.name} fill className="object-cover" unoptimized />
+                      {coverImageUrl ? (
+                        <Image src={coverImageUrl} alt={venue.name} fill className="object-cover" unoptimized />
                       ) : (
                         <div className="flex items-center justify-center w-full h-full text-muted-foreground">
                           <span className="text-sm">No image available</span>
@@ -193,53 +206,22 @@ export function VenueSelectionDialog({
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3 pb-3">
-                      {(startDate || endDate) && (
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs font-medium text-muted-foreground">Availability</span>
-                          <div className="flex flex-wrap gap-2 text-sm">
-                            {startDate && (
-                              <Badge variant="outline" className="rounded-sm text-xs">
-                                From: {startDate}
-                              </Badge>
-                            )}
-                            {endDate && (
-                              <Badge variant="outline" className="rounded-sm text-xs">
-                                To: {endDate}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-medium text-muted-foreground">Capacity</span>
                         <p className="text-sm">{capacity}</p>
                       </div>
-                      {venue.technical_specs && (
+                      {(venue.sounds?.trim() || venue.lights?.trim() || venue.screens?.trim()) && (
                         <div className="flex flex-col gap-1">
                           <span className="text-xs font-medium text-muted-foreground">Technical Specs</span>
-                          <div className="flex flex-wrap gap-2 text-sm">
-                            {venue.technical_specs.sound && (
-                              <Badge variant="secondary" className="rounded-sm text-xs">
-                                Sound
-                              </Badge>
-                            )}
-                            {venue.technical_specs.lights && (
-                              <Badge variant="secondary" className="rounded-sm text-xs">
-                                Lights
-                              </Badge>
-                            )}
-                            {venue.technical_specs.screens && (
-                              <Badge variant="secondary" className="rounded-sm text-xs">
-                                Screens
-                              </Badge>
-                            )}
-                            {venue.technical_specs &&
-                              !venue.technical_specs.sound &&
-                              !venue.technical_specs.lights &&
-                              !venue.technical_specs.screens && (
-                                <span className="text-xs text-muted-foreground">No specs available</span>
-                              )}
-                          </div>
+                          <p className="text-sm line-clamp-2">
+                            {[
+                              venue.sounds?.trim() && `Sounds: ${venue.sounds.trim()}`,
+                              venue.lights?.trim() && `Lights: ${venue.lights.trim()}`,
+                              venue.screens?.trim() && `Screens: ${venue.screens.trim()}`,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
                         </div>
                       )}
                     </CardContent>

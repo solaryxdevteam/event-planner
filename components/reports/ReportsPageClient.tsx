@@ -1,10 +1,14 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useApprovedReportsList } from "@/lib/hooks/use-reports";
 import { useEvents } from "@/lib/hooks/use-events";
 import { useVenues } from "@/lib/hooks/use-venues";
-import { ReportsFilters, type ReportsFiltersState } from "./ReportsFilters";
+import { useActiveDjs } from "@/lib/hooks/use-djs";
+import { apiClient } from "@/lib/services/client/api-client";
+import { ReportsFilters, type ReportsFiltersState, type UserOption } from "./ReportsFilters";
+import { ReportsSummaryCards } from "./ReportsSummaryCards";
 import { ReportsChart } from "./ReportsChart";
 import { ReportsTable } from "./ReportsTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,6 +19,16 @@ import { useIsMobile } from "@/hooks/use-mobile";
 
 const LIMIT = 10;
 
+async function fetchReportUsers(): Promise<UserOption[]> {
+  const response = await apiClient.get<{
+    data: UserOption[];
+    pagination: { total: number; page: number; limit: number; totalPages: number };
+  }>("/api/users", {
+    params: { limit: 200, statusFilter: "active" },
+  });
+  return response.data ?? [];
+}
+
 export function ReportsPageClient() {
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -24,7 +38,8 @@ export function ReportsPageClient() {
     venueId: null,
     dateFrom: null,
     dateTo: null,
-    sortByNetProfit: null,
+    userId: null,
+    djId: null,
   });
   const [appliedFilters, setAppliedFilters] = useState<ReportsFiltersState>(filters);
 
@@ -36,7 +51,8 @@ export function ReportsPageClient() {
       venueId: appliedFilters.venueId,
       dateFrom: appliedFilters.dateFrom,
       dateTo: appliedFilters.dateTo,
-      sortByNetProfit: appliedFilters.sortByNetProfit,
+      userId: appliedFilters.userId,
+      djId: appliedFilters.djId,
       chart: true,
     }),
     [page, appliedFilters]
@@ -53,6 +69,14 @@ export function ReportsPageClient() {
   };
   const chartData = listData?.chartData;
 
+  const summary = useMemo(() => {
+    const data = chartData ?? [];
+    const totalEvents = data.reduce((s, d) => s + d.event_count, 0);
+    const totalSales = data.reduce((s, d) => s + d.table_sales + d.ticket_sales + d.bar_sales, 0);
+    const avgSalesPerEvent = totalEvents > 0 ? totalSales / totalEvents : null;
+    return { totalEvents, totalSales, avgSalesPerEvent };
+  }, [chartData]);
+
   const { data: eventsData, isLoading: isLoadingEvents } = useEvents({
     status: "completed_archived",
     pageSize: 200,
@@ -64,6 +88,14 @@ export function ReportsPageClient() {
     pageSize: 500,
   });
   const venueOptions = venuesResponse?.data ?? [];
+
+  const { data: userOptions = [], isLoading: isLoadingUsers } = useQuery({
+    queryKey: ["reports", "users"],
+    queryFn: fetchReportUsers,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: djOptions = [], isLoading: isLoadingDjs } = useActiveDjs();
 
   const handleApply = () => {
     setAppliedFilters(filters);
@@ -82,7 +114,8 @@ export function ReportsPageClient() {
     appliedFilters.venueId ||
     appliedFilters.dateFrom ||
     appliedFilters.dateTo ||
-    appliedFilters.sortByNetProfit;
+    appliedFilters.userId ||
+    appliedFilters.djId;
 
   const filtersContent = (
     <ReportsFilters
@@ -91,8 +124,12 @@ export function ReportsPageClient() {
       onApply={handleApply}
       eventOptions={eventOptions}
       venueOptions={venueOptions}
+      userOptions={userOptions}
+      djOptions={djOptions}
       isLoadingEvents={isLoadingEvents}
       isLoadingVenues={isLoadingVenues}
+      isLoadingUsers={isLoadingUsers}
+      isLoadingDjs={isLoadingDjs}
     />
   );
 
@@ -129,7 +166,15 @@ export function ReportsPageClient() {
       {/* Desktop Filters */}
       {!isMobile && filtersContent}
 
-      {/* 2. Chart */}
+      {/* Summary stats */}
+      <ReportsSummaryCards
+        totalEvents={summary.totalEvents}
+        totalSales={summary.totalSales}
+        avgSalesPerEvent={summary.avgSalesPerEvent}
+        isLoading={isLoadingReports}
+      />
+
+      {/* Chart */}
       <ReportsChart data={chartData} isLoading={isLoadingReports} />
 
       {/* 3. Table (includes empty state when no reports) */}

@@ -63,16 +63,32 @@ export async function deleteAvatar(userId: string, avatarUrl: string): Promise<v
  * @param file - Media file
  * @returns Public URL of uploaded media
  */
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "video/quicktime": "mov",
+};
+
 export async function uploadReportMedia(eventId: string, file: File | Buffer | Blob): Promise<string> {
-  // Generate unique filename
   const timestamp = Date.now();
-  const extension = file instanceof File ? file.name.split(".").pop() : "jpg";
+  let extension = "jpg";
+  let contentType = "image/jpeg";
+  if (file instanceof File) {
+    extension = file.name.split(".").pop() ?? MIME_TO_EXT[file.type] ?? "jpg";
+    contentType = file.type || contentType;
+  } else if (file instanceof Blob && file.type) {
+    extension = MIME_TO_EXT[file.type] ?? file.type.split("/")[1] ?? "jpg";
+    contentType = file.type;
+  }
   const filename = `${eventId}-${timestamp}.${extension}`;
   const path = `reports/${eventId}/${filename}`;
 
-  // Upload file to reports bucket
   await storageDal.uploadFile("reports", path, file, {
-    contentType: file instanceof File ? file.type : "image/jpeg",
+    contentType,
     cacheControl: "3600",
     upsert: true,
   });
@@ -176,6 +192,26 @@ export async function uploadTemporaryVenueImage(userId: string, file: File | Buf
 }
 
 /**
+ * Upload temporary venue file (floor plan or media: image, video, PDF)
+ * Used before venue creation or for any venue file upload
+ */
+export async function uploadTemporaryVenueFile(userId: string, file: File | Buffer | Blob): Promise<string> {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 9);
+  const extension = file instanceof File ? file.name.split(".").pop() || "bin" : "bin";
+  const filename = `temp-${userId}-${timestamp}-${random}.${extension}`;
+  const path = `venues/temp/${userId}/${filename}`;
+
+  await storageDal.uploadFile("venues", path, file, {
+    contentType: file instanceof File ? file.type : "application/octet-stream",
+    cacheControl: "3600",
+    upsert: true,
+  });
+
+  return storageDal.getPublicUrl("venues", path);
+}
+
+/**
  * Delete venue image
  *
  * @param venueId - Venue ID
@@ -194,4 +230,50 @@ export async function deleteVenueImage(venueId: string, imageUrl: string): Promi
   } catch (error) {
     console.error("Failed to delete venue image:", error);
   }
+}
+
+/**
+ * Upload temporary DJ file (picture, technical rider, hospitality rider)
+ * Uses venues bucket with djs/ prefix
+ */
+export async function uploadTemporaryDjFile(userId: string, file: File | Buffer | Blob): Promise<string> {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 9);
+  const extension = file instanceof File ? file.name.split(".").pop() || "bin" : "bin";
+  const filename = `temp-${userId}-${timestamp}-${random}.${extension}`;
+  const path = `djs/temp/${userId}/${filename}`;
+
+  await storageDal.uploadFile("venues", path, file, {
+    contentType: file instanceof File ? file.type : "application/octet-stream",
+    cacheControl: "3600",
+    upsert: true,
+  });
+
+  return storageDal.getPublicUrl("venues", path);
+}
+
+/**
+ * Upload event marketing file (flyer or video).
+ * Path: reports/events/{eventId}/marketing/flyers|videos/
+ */
+export async function uploadEventMarketingFile(
+  eventId: string,
+  file: File | Buffer | Blob,
+  type: "flyer" | "video"
+): Promise<{ url: string; name: string }> {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 9);
+  const name = file instanceof File ? file.name : `upload-${timestamp}.bin`;
+  const extension = file instanceof File ? file.name.split(".").pop() || "bin" : "bin";
+  const filename = `${timestamp}-${random}.${extension}`;
+  const path = `events/${eventId}/marketing/${type}s/${filename}`;
+
+  await storageDal.uploadFile("reports", path, file, {
+    contentType: file instanceof File ? file.type : "application/octet-stream",
+    cacheControl: "3600",
+    upsert: true,
+  });
+
+  const url = storageDal.getPublicUrl("reports", path);
+  return { url, name };
 }

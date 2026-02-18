@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getEventsForCalendar } from "@/lib/actions/dashboard";
 import { useEvents } from "@/lib/hooks/use-events";
-import { useApprovals } from "@/lib/hooks/use-approvals";
+import { useApprovals, useVenueApprovals } from "@/lib/hooks/use-approvals";
 import { useVenues } from "@/lib/hooks/use-venues";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { MonthlyCalendar } from "./MonthlyCalendar";
@@ -14,6 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, ListChecks, Building2, MapPin, ChevronRight } from "lucide-react";
+
+/** Approval type label for badge (event request, event modification, etc.) */
+const APPROVAL_TYPE_LABELS: Record<string, string> = {
+  event: "Event request",
+  modification: "Event modification",
+  cancellation: "Event cancellation",
+  report: "Event report",
+  venue: "Venue request",
+};
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import Link from "next/link";
 import Image from "next/image";
@@ -41,7 +50,7 @@ const statusVariants: Record<string, "default" | "secondary" | "destructive" | "
 
 function UpcomingEventCard({ event }: { event: EventWithRelations }) {
   const startDate = event.starts_at ? new Date(event.starts_at) : null;
-  const venueImage = event.venue?.images?.[0];
+  const venueImage = event.venue?.media?.[0]?.url;
   const shortId = (event as { short_id?: string }).short_id ?? event.id;
 
   return (
@@ -74,26 +83,21 @@ function UpcomingEventCard({ event }: { event: EventWithRelations }) {
   );
 }
 
-function PendingApprovalRow({
+/** Single row for an event approval in the dashboard pending list */
+function PendingEventApprovalRow({
   approval,
+  typeLabel,
 }: {
   approval: {
     event_id: string;
     approval_type?: string;
     event?: { title?: string; starts_at?: string; short_id?: string };
   };
+  typeLabel: string;
 }) {
   const event = approval.event;
   const linkId = event?.short_id ?? approval.event_id;
   const dateStr = event?.starts_at ? format(new Date(event.starts_at), "EEE, MMM d, yyyy") : "";
-  const label =
-    approval.approval_type === "modification"
-      ? "Modification"
-      : approval.approval_type === "cancellation"
-        ? "Cancellation"
-        : approval.approval_type === "report"
-          ? "Report Review"
-          : "Pending Approval";
 
   return (
     <Link
@@ -110,7 +114,44 @@ function PendingApprovalRow({
         )}
       </div>
       <Badge variant="outline" className="shrink-0 text-xs">
-        {label}
+        {typeLabel}
+      </Badge>
+      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+    </Link>
+  );
+}
+
+/** Single row for a venue approval in the dashboard pending list */
+function PendingVenueApprovalRow({
+  approval,
+}: {
+  approval: {
+    id: string;
+    venue_id: string;
+    venue?: { name?: string; short_id?: string; city?: string; country?: string };
+  };
+}) {
+  const venue = approval.venue;
+  const shortId = venue?.short_id;
+  const href = shortId ? `/dashboard/venues/${shortId}/edit` : "/dashboard/approvals?type=venues";
+  const locationStr = venue?.city || venue?.country ? [venue.city, venue.country].filter(Boolean).join(", ") : "";
+
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-3 py-3 border-b last:border-0 hover:bg-muted/50 rounded-md px-2 -mx-2 transition-colors"
+    >
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-sm truncate">{venue?.name ?? "Venue"}</p>
+        {locationStr && (
+          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+            <MapPin className="h-3 w-3" />
+            {locationStr}
+          </p>
+        )}
+      </div>
+      <Badge variant="outline" className="shrink-0 text-xs">
+        {APPROVAL_TYPE_LABELS.venue}
       </Badge>
       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
     </Link>
@@ -119,14 +160,18 @@ function PendingApprovalRow({
 
 function DashboardVenueCard({ venue }: { venue: VenueWithCreator }) {
   const shortId = (venue as { short_id?: string }).short_id;
-  const firstImage = venue.images?.[0];
+  const media = venue.media && Array.isArray(venue.media) ? venue.media : [];
+  const cover =
+    media.find((m: { isCover?: boolean; type?: string }) => m.isCover && m.type === "photo") ||
+    media.find((m: { type?: string }) => m.type === "photo");
+  const coverUrl = cover && typeof cover.url === "string" ? cover.url : null;
 
   return (
     <Link href={shortId ? `/dashboard/venues/${shortId}/edit` : `/dashboard/venues`} className="block">
       <Card className="overflow-hidden shadow-none p-0 gap-2">
         <div className="relative h-36 bg-muted flex items-center justify-center overflow-hidden">
-          {firstImage ? (
-            <Image src={firstImage} alt={venue.name} fill className="object-cover" unoptimized />
+          {coverUrl ? (
+            <Image src={coverUrl} alt={venue.name} fill className="object-cover" unoptimized />
           ) : (
             <Building2 className="h-12 w-12 text-muted-foreground" />
           )}
@@ -162,13 +207,104 @@ export function DashboardClient() {
     queryFn: () => getEventsForCalendar(monthStart, monthEnd),
   });
 
-  const { data: approvals = [], isLoading: approvalsLoading } = useApprovals();
+  const { data: eventApprovals = [], isLoading: eventApprovalsLoading } = useApprovals({
+    approval_type: "event",
+  });
+  const { data: modificationApprovals = [], isLoading: modificationLoading } = useApprovals({
+    approval_type: "modification",
+  });
+  const { data: cancellationApprovals = [], isLoading: cancellationLoading } = useApprovals({
+    approval_type: "cancellation",
+  });
+  const { data: reportApprovals = [], isLoading: reportLoading } = useApprovals({
+    approval_type: "report",
+  });
+  const { data: venueApprovals = [], isLoading: venueApprovalsLoading } = useVenueApprovals();
+
+  const approvalsLoading =
+    eventApprovalsLoading || modificationLoading || cancellationLoading || reportLoading || venueApprovalsLoading;
+
+  // Combined list: event approvals (with type) + venue approvals, sorted by created_at desc, then slice
+  const displayApprovals = useMemo(() => {
+    type EventApprovalItem = {
+      type: "event";
+      id: string;
+      event_id: string;
+      approval_type: string;
+      event?: { title?: string; starts_at?: string; short_id?: string; created_at?: string };
+      created_at?: string;
+    };
+    type VenueApprovalItem = {
+      type: "venue";
+      id: string;
+      venue_id: string;
+      venue?: { name?: string; short_id?: string; city?: string; country?: string; created_at?: string };
+      created_at?: string;
+    };
+    const eventItems: EventApprovalItem[] = [
+      ...(Array.isArray(eventApprovals) ? eventApprovals : []).map(
+        (a: { id: string; event_id: string; approval_type?: string; event?: unknown; created_at?: string }) => ({
+          type: "event" as const,
+          id: a.id,
+          event_id: a.event_id,
+          approval_type: a.approval_type ?? "event",
+          event: a.event as EventApprovalItem["event"],
+          created_at: a.created_at ?? (a.event as { created_at?: string })?.created_at,
+        })
+      ),
+      ...(Array.isArray(modificationApprovals) ? modificationApprovals : []).map(
+        (a: { id: string; event_id: string; approval_type?: string; event?: unknown; created_at?: string }) => ({
+          type: "event" as const,
+          id: a.id,
+          event_id: a.event_id,
+          approval_type: "modification",
+          event: a.event as EventApprovalItem["event"],
+          created_at: a.created_at ?? (a.event as { created_at?: string })?.created_at,
+        })
+      ),
+      ...(Array.isArray(cancellationApprovals) ? cancellationApprovals : []).map(
+        (a: { id: string; event_id: string; event?: unknown; created_at?: string }) => ({
+          type: "event" as const,
+          id: a.id,
+          event_id: a.event_id,
+          approval_type: "cancellation",
+          event: a.event as EventApprovalItem["event"],
+          created_at: a.created_at ?? (a.event as { created_at?: string })?.created_at,
+        })
+      ),
+      ...(Array.isArray(reportApprovals) ? reportApprovals : []).map(
+        (a: { id: string; event_id: string; event?: unknown; created_at?: string }) => ({
+          type: "event" as const,
+          id: a.id,
+          event_id: a.event_id,
+          approval_type: "report",
+          event: a.event as EventApprovalItem["event"],
+          created_at: a.created_at ?? (a.event as { created_at?: string })?.created_at,
+        })
+      ),
+    ];
+    const venueItems: VenueApprovalItem[] = (Array.isArray(venueApprovals) ? venueApprovals : []).map(
+      (a: { id: string; venue_id: string; venue?: unknown; created_at?: string }) => ({
+        type: "venue" as const,
+        id: a.id,
+        venue_id: a.venue_id,
+        venue: a.venue as VenueApprovalItem["venue"],
+        created_at: a.created_at ?? (a.venue as { created_at?: string })?.created_at,
+      })
+    );
+    const combined: (EventApprovalItem | VenueApprovalItem)[] = [...eventItems, ...venueItems];
+    combined.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+    return combined.slice(0, LIMIT);
+  }, [eventApprovals, modificationApprovals, cancellationApprovals, reportApprovals, venueApprovals]);
 
   const { data: venuesResponse, isLoading: venuesLoading } = useVenues({ status: "active", pageSize: LIMIT });
   const venues = venuesResponse?.data ?? [];
 
   const displayEvents = currentEvents.slice(0, LIMIT);
-  const displayApprovals = Array.isArray(approvals) ? approvals.slice(0, LIMIT) : [];
   const displayVenues = venues.slice(0, LIMIT);
 
   return (
@@ -255,14 +391,15 @@ export function DashboardClient() {
                   </div>
                 ) : (
                   <div className="space-y-0">
-                    {displayApprovals.map(
-                      (approval: {
-                        id: string;
-                        event_id: string;
-                        approval_type?: string;
-                        event?: { title?: string; starts_at?: string; short_id?: string };
-                      }) => (
-                        <PendingApprovalRow key={approval.id} approval={approval} />
+                    {displayApprovals.map((item) =>
+                      item.type === "event" ? (
+                        <PendingEventApprovalRow
+                          key={item.id}
+                          approval={item}
+                          typeLabel={APPROVAL_TYPE_LABELS[item.approval_type] ?? "Event request"}
+                        />
+                      ) : (
+                        <PendingVenueApprovalRow key={item.id} approval={item} />
                       )
                     )}
                   </div>

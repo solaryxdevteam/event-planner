@@ -2,21 +2,25 @@
  * User Hierarchy API Route
  *
  * GET /api/users/hierarchy
- * Returns the complete user hierarchy tree structure
- * Used by hierarchy visualization components
+ * Returns hierarchy tree: full tree for Global Director, pyramid only for others
  */
 
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth/server";
 import * as hierarchyService from "@/lib/services/users/hierarchy.service";
+import { UserRole } from "@/lib/types/roles";
 
 export async function GET() {
   try {
-    // Require authentication
-    await requireAuth();
+    const user = await requireAuth();
+    if (!user) {
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+    }
 
-    // Get hierarchy tree
-    const tree = await hierarchyService.getHierarchyTree();
+    const tree =
+      user.dbUser.role === UserRole.GLOBAL_DIRECTOR
+        ? await hierarchyService.getHierarchyTree()
+        : await hierarchyService.getHierarchyTreeForUser(user.id);
 
     return NextResponse.json({
       success: true,

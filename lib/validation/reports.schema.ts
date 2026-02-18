@@ -21,12 +21,21 @@ export const submitReportSchema = z.object({
   eventId: z.string().uuid("Invalid event ID"),
   attendance_count: z
     .number()
-    .int("Attendance count must be a whole number")
-    .nonnegative("Attendance count must be 0 or greater"),
+    .int("Total number of attendance must be a whole number")
+    .nonnegative("Total number of attendance must be 0 or greater"),
+  total_ticket_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  total_bar_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  total_table_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  detailed_report: z
+    .string()
+    .min(20, "Detailed event report must be at least 20 characters")
+    .max(10000, "Detailed event report must be less than 10000 characters"),
+  incidents: z.string().max(2000, "Incidents must be less than 2000 characters").optional().nullable(),
   summary: z
     .string()
     .min(20, "Summary must be at least 20 characters")
-    .max(1000, "Summary must be less than 1000 characters"),
+    .max(1000, "Summary must be less than 1000 characters")
+    .optional(),
   feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
   external_links: z.array(externalLinkSchema).optional().nullable(),
   net_profit: z.number().nullable().optional(),
@@ -41,11 +50,13 @@ export const updateReportSchema = z.object({
     .number()
     .int("Attendance count must be a whole number")
     .nonnegative("Attendance count must be 0 or greater"),
-  summary: z
-    .string()
-    .min(20, "Summary must be at least 20 characters")
-    .max(1000, "Summary must be less than 1000 characters"),
-  feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
+  total_ticket_sales: z.number().nonnegative().optional().nullable(),
+  total_bar_sales: z.number().nonnegative().optional().nullable(),
+  total_table_sales: z.number().nonnegative().optional().nullable(),
+  detailed_report: z.string().min(20).max(10000).optional(),
+  incidents: z.string().max(2000).optional().nullable(),
+  summary: z.string().min(20).max(1000).optional(),
+  feedback: z.string().max(2000).optional().nullable(),
   external_links: z.array(externalLinkSchema).optional().nullable(),
   net_profit: z.number().nullable().optional(),
 });

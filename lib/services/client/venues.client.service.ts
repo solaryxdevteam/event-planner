@@ -7,7 +7,7 @@
  */
 
 import { apiClient } from "./api-client";
-import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
+import type { VenueWithCreator, VenueStatusFilter } from "@/lib/data-access/venues.dal";
 import type { CreateVenueInput, UpdateVenueInput } from "@/lib/validation/venues.schema";
 import type { PaginatedVenues } from "@/lib/data-access/venues.dal";
 
@@ -16,15 +16,13 @@ import type { PaginatedVenues } from "@/lib/data-access/venues.dal";
  */
 export interface VenueFilters {
   search?: string;
-  state?: string | null;
-  status?: "all" | "active" | "banned";
-  specs?: string[];
-  dateFrom?: string;
-  dateTo?: string;
-  standingMin?: number;
-  standingMax?: number;
-  seatedMin?: number;
-  seatedMax?: number;
+  status?: VenueStatusFilter;
+  totalCapacityMin?: number;
+  totalCapacityMax?: number;
+  numberOfTablesMin?: number;
+  numberOfTablesMax?: number;
+  ticketCapacityMin?: number;
+  ticketCapacityMax?: number;
   page?: number;
   pageSize?: number;
   onlyOwn?: boolean;
@@ -50,17 +48,14 @@ export async function fetchVenuesWithSearch(search?: string): Promise<VenueWithC
  */
 export async function fetchVenues(filters: VenueFilters): Promise<PaginatedVenues> {
   const params: Record<string, string | number | boolean | null | undefined> = {};
-
   if (filters.search) params.search = filters.search;
-  if (filters.state && filters.state !== "all") params.state = filters.state;
   if (filters.status) params.status = filters.status;
-  if (filters.specs && filters.specs.length > 0) params.specs = filters.specs.join(",");
-  if (filters.dateFrom) params.dateFrom = filters.dateFrom;
-  if (filters.dateTo) params.dateTo = filters.dateTo;
-  if (filters.standingMin !== undefined) params.standingMin = filters.standingMin;
-  if (filters.standingMax !== undefined) params.standingMax = filters.standingMax;
-  if (filters.seatedMin !== undefined) params.seatedMin = filters.seatedMin;
-  if (filters.seatedMax !== undefined) params.seatedMax = filters.seatedMax;
+  if (filters.totalCapacityMin !== undefined) params.totalCapacityMin = filters.totalCapacityMin;
+  if (filters.totalCapacityMax !== undefined) params.totalCapacityMax = filters.totalCapacityMax;
+  if (filters.numberOfTablesMin !== undefined) params.numberOfTablesMin = filters.numberOfTablesMin;
+  if (filters.numberOfTablesMax !== undefined) params.numberOfTablesMax = filters.numberOfTablesMax;
+  if (filters.ticketCapacityMin !== undefined) params.ticketCapacityMin = filters.ticketCapacityMin;
+  if (filters.ticketCapacityMax !== undefined) params.ticketCapacityMax = filters.ticketCapacityMax;
   if (filters.page) params.page = filters.page;
   if (filters.pageSize) params.pageSize = filters.pageSize;
   if (filters.onlyOwn !== undefined) params.onlyOwn = filters.onlyOwn;
@@ -83,10 +78,11 @@ export async function fetchVenueByShortId(shortId: string): Promise<VenueWithCre
 }
 
 /**
- * Create a venue
+ * Create a venue.
+ * For Global Directors, include verificationToken from OTP verification (venue_create + create).
  */
 export async function createVenue(
-  input: CreateVenueInput
+  input: CreateVenueInput & { verificationToken?: string }
 ): Promise<{ venue: VenueWithCreator; isDuplicate: boolean; duplicateVenue?: VenueWithCreator }> {
   return apiClient.post<{ venue: VenueWithCreator; isDuplicate: boolean; duplicateVenue?: VenueWithCreator }>(
     "/api/venues",

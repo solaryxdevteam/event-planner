@@ -28,7 +28,6 @@ export interface EventApprovalWithApprover extends EventApproval {
     title: string;
     status: string;
     starts_at: string;
-    ends_at: string | null;
     created_at?: string;
     creator?: {
       id: string;
@@ -41,13 +40,12 @@ export interface EventApprovalWithApprover extends EventApproval {
       name: string;
       address: string;
       city?: string | null;
-      state?: string | null;
       country?: string | null;
     } | null;
-    budget_amount?: string | null;
-    budget_currency?: string | null;
     expected_attendance?: number | null;
-    description?: string | null;
+    minimum_ticket_price?: number | null;
+    minimum_table_price?: number | null;
+    notes?: string | null;
   };
 }
 
@@ -68,12 +66,11 @@ interface EventApprovalWithApproverRaw extends EventApproval {
     title: string;
     status: string;
     starts_at: string;
-    ends_at: string | null;
     created_at?: string;
-    description?: string | null;
-    budget_amount?: string | null;
-    budget_currency?: string | null;
     expected_attendance?: number | null;
+    minimum_ticket_price?: number | null;
+    minimum_table_price?: number | null;
+    notes?: string | null;
     creator?: {
       id: string;
       first_name: string;
@@ -86,7 +83,6 @@ interface EventApprovalWithApproverRaw extends EventApproval {
       name: string;
       address: string;
       city?: string | null;
-      state?: string | null;
       country?: string | null;
     } | null;
   } | null;
@@ -175,12 +171,11 @@ export async function findPendingForUser(
             title,
             status,
             starts_at,
-            ends_at,
             created_at,
-            description,
-            budget_amount,
-            budget_currency,
             expected_attendance,
+            minimum_ticket_price,
+            minimum_table_price,
+            notes,
             creator:users!events_creator_id_fkey (
               id,
               first_name,
@@ -193,7 +188,6 @@ export async function findPendingForUser(
               name,
               address,
               city,
-              state,
               country
             )
           )
@@ -311,7 +305,11 @@ export async function updateStatus(
     .single();
 
   if (error) {
-    throw new Error(`Failed to update approval status: ${error.message}`);
+    const hint =
+      error.message?.includes("action_type") && error.message?.includes("audit_logs")
+        ? " Run db/drop_legacy_audit_trigger.sql on your database to remove the legacy audit trigger, then try again."
+        : "";
+    throw new Error(`Failed to update approval status: ${error.message}${hint}`);
   }
 
   return data;
@@ -324,7 +322,7 @@ export async function updateStatus(
 export async function createChain(
   eventId: string,
   approverIds: string[],
-  approvalType: "event" | "modification" | "cancellation" | "report"
+  approvalType: "event" | "modification" | "cancellation" | "report" | "marketing_report"
 ): Promise<EventApproval[]> {
   const supabase = await createClient();
 
@@ -356,7 +354,7 @@ export async function createChain(
  */
 export async function deleteByEventIdAndType(
   eventId: string,
-  approvalType: "event" | "modification" | "cancellation" | "report"
+  approvalType: "event" | "modification" | "cancellation" | "report" | "marketing_report"
 ): Promise<void> {
   const supabase = await createClient();
 

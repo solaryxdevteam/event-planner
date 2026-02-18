@@ -69,6 +69,7 @@ export function getRoleLevel(role: Role): number {
   const levels: Record<Role, number> = {
     [UserRole.EVENT_PLANNER]: 1,
     [UserRole.CITY_CURATOR]: 2,
+    [UserRole.MARKETING_MANAGER]: 2,
     [UserRole.REGIONAL_CURATOR]: 3,
     [UserRole.LEAD_CURATOR]: 4,
     [UserRole.GLOBAL_DIRECTOR]: 5,
@@ -120,6 +121,7 @@ export function getRoleDisplayName(role: Role): string {
   const displayNames: Record<Role, string> = {
     [UserRole.EVENT_PLANNER]: "Event Planner",
     [UserRole.CITY_CURATOR]: "City Curator",
+    [UserRole.MARKETING_MANAGER]: "Marketing Manager",
     [UserRole.REGIONAL_CURATOR]: "Regional Curator",
     [UserRole.LEAD_CURATOR]: "Lead Curator",
     [UserRole.GLOBAL_DIRECTOR]: "Global Director",

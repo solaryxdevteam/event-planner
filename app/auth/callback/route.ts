@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
 
       // Check user status
       if (userData.status === "pending") {
-        // User is pending activation
-        return NextResponse.redirect(`${origin}/auth/pending`);
+        // User is pending activation; send to requested page (e.g. profile) or pending page
+        return NextResponse.redirect(`${origin}${redirectTo || "/auth/pending"}`);
       }
 
       if (userData.status === "inactive") {

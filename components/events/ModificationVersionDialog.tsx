@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, FileText, Users, Banknote } from "lucide-react";
+import { Calendar, FileText, Users, Banknote } from "lucide-react";
 import { format } from "date-fns";
 import { useApproveEvent, useRejectEvent } from "@/lib/hooks/use-approvals";
 import { useEventApprovals } from "@/lib/hooks/use-approvals";
@@ -59,13 +59,11 @@ const statusLabels: Record<string, string> = {
 
 type VersionData = {
   title: string;
-  description: string | null;
   starts_at: string;
-  ends_at: string | null;
   venue_id: string | null;
   expected_attendance: number | null;
-  budget_amount: number | null;
-  budget_currency: string | null;
+  minimum_ticket_price: number | null;
+  minimum_table_price: number | null;
   notes: string | null;
 };
 
@@ -80,19 +78,16 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
   const rejectMutation = useRejectEvent();
   const { data: approvals } = useEventApprovals(eventId);
 
-  // Check if user has a pending approval for this modification
+  // Only show approve/reject when it is the user's turn (status = "pending"). No bypass for Global Director.
   const hasPendingApproval = approvals?.some(
     (a: EventApprovalWithApprover) =>
-      a.approval_type === "modification" &&
-      a.approver_id === profile?.id &&
-      (a.status === "pending" || a.status === "waiting")
+      a.approval_type === "modification" && a.approver_id === profile?.id && a.status === "pending"
   );
 
   const canApproveReject = version.status === "in_review" && hasPendingApproval;
 
   const versionData = version.version_data as VersionData;
   const startsAt = versionData.starts_at ? new Date(versionData.starts_at) : null;
-  const endsAt = versionData.ends_at ? new Date(versionData.ends_at) : null;
 
   const handleApprove = async () => {
     if (!comment.trim()) {
@@ -165,35 +160,24 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
                 <p className="text-sm font-medium">{versionData.title}</p>
               </div>
 
-              {/* Description */}
-              {versionData.description && (
+              {/* Notes */}
+              {versionData.notes && (
                 <div className="space-y-2">
-                  <Label>Description</Label>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{versionData.description}</p>
+                  <Label>Notes</Label>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{versionData.notes}</p>
                 </div>
               )}
 
-              {/* Date and Time */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {startsAt && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <Label>Start Date & Time</Label>
-                    </div>
-                    <p className="text-sm">{format(startsAt, "PPp")}</p>
+              {/* Start Date and Time */}
+              {startsAt && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <Label>Start Date & Time</Label>
                   </div>
-                )}
-                {endsAt && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <Label>End Date & Time</Label>
-                    </div>
-                    <p className="text-sm">{format(endsAt, "PPp")}</p>
-                  </div>
-                )}
-              </div>
+                  <p className="text-sm">{format(startsAt, "PPp")}</p>
+                </div>
+              )}
 
               {/* Expected Attendance */}
               {versionData.expected_attendance && (
@@ -206,30 +190,35 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
                 </div>
               )}
 
-              {/* Budget */}
-              {versionData.budget_amount && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Banknote className="h-4 w-4 text-muted-foreground" />
-                    <Label>Budget</Label>
-                  </div>
-                  <p className="text-sm font-medium">
-                    {new Intl.NumberFormat("en-US", {
-                      style: "currency",
-                      currency: versionData.budget_currency || "USD",
-                    }).format(Number(versionData.budget_amount))}
-                  </p>
-                </div>
-              )}
-
-              {/* Notes */}
-              {versionData.notes && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <Label>Internal Notes</Label>
-                  </div>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{versionData.notes}</p>
+              {/* Min prices */}
+              {(versionData.minimum_ticket_price != null || versionData.minimum_table_price != null) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {versionData.minimum_ticket_price != null && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Banknote className="h-4 w-4 text-muted-foreground" />
+                        <Label>Min. ticket price</Label>
+                      </div>
+                      <p className="text-sm font-medium">
+                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                          Number(versionData.minimum_ticket_price)
+                        )}
+                      </p>
+                    </div>
+                  )}
+                  {versionData.minimum_table_price != null && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Banknote className="h-4 w-4 text-muted-foreground" />
+                        <Label>Min. table price</Label>
+                      </div>
+                      <p className="text-sm font-medium">
+                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                          Number(versionData.minimum_table_price)
+                        )}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

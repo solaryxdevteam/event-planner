@@ -49,9 +49,7 @@ export function DraftDialog({
         {existingDraft && (
           <div className="py-4 space-y-2">
             <p className="text-sm font-medium">{existingDraft.title || "Untitled Event"}</p>
-            {existingDraft.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">{existingDraft.description}</p>
-            )}
+            {existingDraft.notes && <p className="text-sm text-muted-foreground line-clamp-2">{existingDraft.notes}</p>}
           </div>
         )}
         <DialogFooter>

@@ -24,8 +24,18 @@ function getResend(): Resend {
 // Get the "from" email address from environment variables
 // You should verify this domain in Resend dashboard
 const getFromEmail = (): string => {
-  const fromEmail = process.env.RESEND_FROM_EMAIL || process.env.EMAIL_FROM || "onboarding@resend.dev";
+  const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
   return fromEmail;
+};
+
+// In development, Resend only allows sending to your own email. Override recipient so all emails go to dev inbox.
+// const DEV_EMAIL = "dev@solaryxdev.com";
+const getEffectiveToEmail = (originalTo: string): string => {
+  // if (process.env.NODE_ENV === "development") {
+  //   console.log("[Email] Development: redirecting to", DEV_EMAIL, "(original:", originalTo, ")");
+  //   return DEV_EMAIL;
+  // }
+  return originalTo;
 };
 
 /**
@@ -46,8 +56,8 @@ export async function sendInvitationEmail(invitation: Invitation, countryName: s
     // Send email via Resend
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: invitation.email,
-      subject: "You've been invited to join the Event Management Platform",
+      to: getEffectiveToEmail(invitation.email),
+      subject: `You've been invited to join the ${process.env.NEXT_PUBLIC_APP_NAME}`,
       html: htmlContent,
     });
 
@@ -59,6 +69,33 @@ export async function sendInvitationEmail(invitation: Invitation, countryName: s
     console.log("Invitation email sent successfully:", data);
   } catch (error) {
     console.error("Error sending invitation email:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send user email verification OTP (after registration)
+ */
+export async function sendUserEmailVerificationOtp(
+  email: string,
+  otpCode: string,
+  expiresMinutes: number
+): Promise<void> {
+  try {
+    const htmlContent = templatesService.renderUserEmailVerificationOtp(otpCode, expiresMinutes);
+    const { data, error } = await getResend().emails.send({
+      from: getFromEmail(),
+      to: getEffectiveToEmail(email),
+      subject: `Verify your email - ${process.env.NEXT_PUBLIC_APP_NAME}`,
+      html: htmlContent,
+    });
+    if (error) {
+      console.error("Failed to send verification OTP email:", error);
+      throw new Error(`Failed to send verification email: ${error.message}`);
+    }
+    console.log("User email verification OTP sent:", data);
+  } catch (error) {
+    console.error("Error sending user email verification OTP:", error);
     throw error;
   }
 }
@@ -77,7 +114,7 @@ export async function sendRegistrationCongratulationEmail(user: User): Promise<v
     // Send email via Resend
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: user.email,
+      to: getEffectiveToEmail(user.email),
       subject: "Welcome! Your registration is pending activation",
       html: htmlContent,
     });
@@ -109,8 +146,8 @@ export async function sendUserCreatedCongratulationEmail(user: User, creatorName
     // Send email via Resend
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: user.email,
-      subject: "Welcome to the Event Management Platform",
+      to: getEffectiveToEmail(user.email),
+      subject: `Welcome to the ${process.env.NEXT_PUBLIC_APP_NAME}`,
       html: htmlContent,
     });
 
@@ -135,7 +172,7 @@ export async function sendEventApprovedEmail(toEmail: string, eventTitle: string
     const htmlContent = templatesService.renderEventApprovedEmail(eventTitle, eventId);
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: toEmail,
+      to: getEffectiveToEmail(toEmail),
       subject: "Your event has been approved",
       html: htmlContent,
     });
@@ -146,6 +183,42 @@ export async function sendEventApprovedEmail(toEmail: string, eventTitle: string
     console.log("Event approved email sent successfully:", data);
   } catch (error) {
     console.error("Error sending event approved email:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send event calendar invite email (HTML + .ics attachment)
+ * Sent after global approval to event planner, DJs, subordinates, and marketing manager.
+ */
+export async function sendEventCalendarInviteEmail(
+  toEmail: string,
+  eventTitle: string,
+  eventShortId: string,
+  icsContent: string
+): Promise<void> {
+  try {
+    const htmlContent = templatesService.renderEventCalendarInviteEmail(eventTitle, eventShortId);
+    const icsBuffer = Buffer.from(icsContent, "utf-8");
+    const { data, error } = await getResend().emails.send({
+      from: getFromEmail(),
+      to: getEffectiveToEmail(toEmail),
+      subject: `Calendar invite: ${eventTitle}`,
+      html: htmlContent,
+      attachments: [
+        {
+          filename: "event.ics",
+          content: icsBuffer,
+        },
+      ],
+    });
+    if (error) {
+      console.error("Failed to send event calendar invite email:", error);
+      throw new Error(`Failed to send event calendar invite email: ${error.message}`);
+    }
+    console.log("Event calendar invite email sent successfully:", data);
+  } catch (error) {
+    console.error("Error sending event calendar invite email:", error);
     throw error;
   }
 }
@@ -164,7 +237,7 @@ export async function sendEventRejectedEmail(
     const htmlContent = templatesService.renderEventRejectedEmail(eventTitle, eventId, comment);
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: toEmail,
+      to: getEffectiveToEmail(toEmail),
       subject: "Your event was not approved",
       html: htmlContent,
     });
@@ -188,7 +261,7 @@ export async function sendReportDueReminderEmail(toEmail: string, eventTitle: st
     const htmlContent = templatesService.renderReportDueReminderEmail(eventTitle, eventId);
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: toEmail,
+      to: getEffectiveToEmail(toEmail),
       subject: "Report required for your event",
       html: htmlContent,
     });
@@ -212,7 +285,7 @@ export async function sendReportsPendingApprovalReminderEmail(toEmail: string, p
     const htmlContent = templatesService.renderReportsPendingApprovalReminderEmail(pendingCount);
     const { data, error } = await getResend().emails.send({
       from: getFromEmail(),
-      to: toEmail,
+      to: getEffectiveToEmail(toEmail),
       subject: "Reports awaiting your approval",
       html: htmlContent,
     });
@@ -223,6 +296,94 @@ export async function sendReportsPendingApprovalReminderEmail(toEmail: string, p
     console.log("Reports pending approval reminder email sent successfully:", data);
   } catch (error) {
     console.error("Error sending reports pending approval reminder email:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send verification OTP email to approver.
+ * Used before approve/reject actions.
+ */
+export async function sendVerificationOtpEmail(
+  toEmail: string,
+  otpCode: string,
+  validMinutes: number = 2
+): Promise<void> {
+  try {
+    const htmlContent = templatesService.renderVerificationOtpEmail(otpCode, validMinutes);
+    const { data, error } = await getResend().emails.send({
+      from: getFromEmail(),
+      to: getEffectiveToEmail(toEmail),
+      subject: "Your verification code for approval",
+      html: htmlContent,
+    });
+    if (error) {
+      console.error("Failed to send verification OTP email:", error);
+      throw new Error(`Failed to send verification OTP email: ${error.message}`);
+    }
+    console.log("Verification OTP email sent successfully:", data);
+  } catch (error) {
+    console.error("Error sending verification OTP email:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send venue contact verification email (link + OTP).
+ */
+export async function sendVenueContactVerificationEmail(
+  toEmail: string,
+  contactPersonName: string,
+  venueName: string,
+  verifyUrl: string,
+  otpCode: string,
+  validMinutes: number = 15
+): Promise<void> {
+  try {
+    const htmlContent = templatesService.renderVenueContactVerificationEmail(
+      contactPersonName,
+      venueName,
+      verifyUrl,
+      otpCode,
+      validMinutes
+    );
+    const { data, error } = await getResend().emails.send({
+      from: getFromEmail(),
+      to: getEffectiveToEmail(toEmail),
+      subject: "Verify your email for " + venueName,
+      html: htmlContent,
+    });
+    if (error) {
+      console.error("Failed to send venue contact verification email:", error);
+      throw new Error(`Failed to send verification email: ${error.message}`);
+    }
+    console.log("Venue contact verification email sent successfully:", data);
+  } catch (error) {
+    console.error("Error sending venue contact verification email:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send DJ added notification email
+ * Sent when a DJ is added to the platform (verification/notification to the DJ)
+ */
+export async function sendDjAddedEmail(djName: string, djEmail: string): Promise<void> {
+  try {
+    const htmlContent = templatesService.renderDjAddedEmail(djName, djEmail);
+    const { data, error } = await getResend().emails.send({
+      from: getFromEmail(),
+      to: getEffectiveToEmail(djEmail),
+      subject: "You've been added to our DJ roster",
+      html: htmlContent,
+    });
+    if (error) {
+      console.error("Failed to send DJ added email:", error);
+      throw new Error(`Failed to send DJ added email: ${error.message}`);
+    }
+    console.log("DJ added email sent successfully:", data);
+  } catch (error) {
+    console.error("Error sending DJ added email:", error);
     throw error;
   }
 }

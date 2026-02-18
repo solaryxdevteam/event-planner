@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { DateInput } from "@/components/ui/date-input";
 import { LocationCombobox } from "@/components/ui/location-combobox";
-import { PhoneInput } from "@/components/ui/phone-input";
-import { PriceInput } from "@/components/ui/price-input";
 import {
   venueStep1Schema,
   venueStep2Schema,
@@ -23,29 +19,36 @@ import { useCreateVenue, useUpdateVenue, useCheckVenueDuplicate } from "@/lib/ho
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 import { AddressAutocomplete } from "./AddressAutocomplete";
 import { VenueMapSelector } from "./VenueMapSelector";
-import { VenueImageUpload } from "./VenueImageUpload";
-import { useStatesByCountry } from "@/lib/hooks/use-locations";
-import { getCountryCoordinates, getStateCoordinates } from "@/lib/utils/country-coordinates";
-import { getCountryCode } from "@/lib/utils/country-to-code";
+import { VenueFloorPlansUpload } from "./VenueFloorPlansUpload";
+import { VenueMediaUpload } from "./VenueMediaUpload";
+import { getCountryCoordinates } from "@/lib/utils/country-coordinates";
+import { useCountries } from "@/lib/hooks/use-locations";
 import { MAX_TEXTAREA_LENGTH } from "@/lib/validation/venues.schema";
 import { toast } from "sonner";
 import { ArrowLeft, ArrowRight, Loader2, Home, User, CreditCard, ChevronRight, Save, FileText } from "lucide-react";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useVenueTemplates, useVenueTemplate } from "@/lib/hooks/use-venues";
 import { SaveVenueTemplateDialog } from "./SaveVenueTemplateDialog";
 import { UseVenueTemplateDialog } from "./UseVenueTemplateDialog";
+import { useProfile } from "@/lib/hooks/use-profile";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 
 interface VenueFormProps {
   mode: "create" | "edit";
   venue?: VenueWithCreator;
-  defaultState: string;
   defaultCountry: string;
   defaultCountryId?: string;
-  defaultStateId?: string;
 }
 
 type VenueFormData = CreateVenueInput;
+
+/** Normalize legacy string[] or mixed shape to { url, name }[] */
+function normalizeFloorPlans(
+  raw: (string | { url: string; name?: string })[] | null | undefined
+): { url: string; name?: string }[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw.map((item) => (typeof item === "string" ? { url: item } : { url: item.url, name: item.name }));
+}
 
 // Step indicator component matching the image style (horizontal, no borders)
 function StepIndicator({
@@ -132,38 +135,30 @@ function StepIndicator({
 }
 
 // Character counter component for textareas
-function CharacterCounter({ current: currentLength, max: maxLength }: { current: number; max: number }) {
-  return (
-    <div className="text-xs text-muted-foreground text-right mt-1">
-      {currentLength.toLocaleString()}/{maxLength.toLocaleString()}
-    </div>
-  );
-}
+// function CharacterCounter({ current: currentLength, max: maxLength }: { current: number; max: number }) {
+//   return (
+//     <div className="text-xs text-muted-foreground text-right mt-1">
+//       {currentLength.toLocaleString()}/{maxLength.toLocaleString()}
+//     </div>
+//   );
+// }
 
-export function VenueForm({
-  mode,
-  venue,
-  defaultState,
-  defaultCountry,
-  defaultCountryId,
-  defaultStateId,
-}: VenueFormProps) {
+export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: VenueFormProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [venueId, setVenueId] = useState<string | undefined>(venue?.id);
-  const [selectedStateId, setSelectedStateId] = useState<string | undefined>(defaultStateId);
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [showUseTemplateDialog, setShowUseTemplateDialog] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [pendingCreateData, setPendingCreateData] = useState<CreateVenueInput | null>(null);
 
-  // React Query mutations
+  const { data: profile, isLoading: profileLoading } = useProfile();
+
   const createVenueMutation = useCreateVenue();
   const updateVenueMutation = useUpdateVenue();
   const checkDuplicateMutation = useCheckVenueDuplicate();
 
-  const today = new Date();
-
-  // Duplicate venue state
   const [duplicateVenue, setDuplicateVenue] = useState<{
     id: string;
     short_id: string | null;
@@ -173,35 +168,16 @@ export function VenueForm({
     country: string | null;
   } | null>(null);
 
-  // Template queries
   const { isLoading: templatesLoading } = useVenueTemplates();
   const { data: selectedTemplate, isLoading: isLoadingTemplate } = useVenueTemplate(selectedTemplateId);
-  const [availabilityStartDate, setAvailabilityStartDate] = useState<Date | undefined>(
-    venue?.availability_start_date ? new Date(venue.availability_start_date) : undefined
-  );
-  const [availabilityEndDate, setAvailabilityEndDate] = useState<Date | undefined>(
-    venue?.availability_end_date ? new Date(venue.availability_end_date) : undefined
-  );
+  const { data: countries = [] } = useCountries();
 
   const isEditing = mode === "edit";
 
-  // Get states for the country
-  const { data: states = [], isLoading: loadingStates } = useStatesByCountry(defaultCountryId ?? null);
-
-  // Get country center coordinates for map
-  const countryCenter = useMemo(() => getCountryCoordinates(defaultCountry), [defaultCountry]);
-
-  // Get state center coordinates for map
-  const selectedState = states.find((s) => s.id === selectedStateId);
-  const stateCenter = useMemo(() => {
-    if (selectedState) {
-      return getStateCoordinates(selectedState.name, defaultCountry);
-    }
-    return undefined;
-  }, [selectedState, defaultCountry]);
-
-  // Get country code for phone input
-  const phoneDefaultCountry = useMemo(() => getCountryCode(defaultCountry), [defaultCountry]);
+  const countryCenter = useMemo(
+    () => getCountryCoordinates(venue?.country || defaultCountry),
+    [venue?.country, defaultCountry]
+  );
 
   // Initialize form with default values
   const form = useForm<VenueFormData>({
@@ -216,69 +192,44 @@ export function VenueForm({
           name: venue.name,
           street: venue.street || venue.address || "",
           city: venue.city,
-          state: venue.state || defaultState || null,
           country: venue.country || defaultCountry,
           country_id: venue.country_id || defaultCountryId || null,
-          state_id: venue.state_id || defaultStateId || null,
           location_lat: venue.location_lat ?? undefined,
           location_lng: venue.location_lng ?? undefined,
-          capacity_standing: venue.capacity_standing ?? undefined,
-          capacity_seated: venue.capacity_seated ?? undefined,
-          available_rooms_halls: venue.available_rooms_halls ?? undefined,
-          technical_specs: venue.technical_specs
-            ? {
-                sound: venue.technical_specs.sound ?? false,
-                lights: venue.technical_specs.lights ?? false,
-                screens: venue.technical_specs.screens ?? false,
-              }
-            : undefined,
-          availability_start_date: venue.availability_start_date
-            ? format(new Date(venue.availability_start_date), "yyyy-MM-dd")
-            : undefined,
-          availability_end_date: venue.availability_end_date
-            ? format(new Date(venue.availability_end_date), "yyyy-MM-dd")
-            : undefined,
-          base_pricing: venue.base_pricing ?? undefined,
+          total_capacity: venue.total_capacity ?? undefined,
+          number_of_tables: venue.number_of_tables ?? undefined,
+          ticket_capacity: venue.ticket_capacity ?? undefined,
+          sounds: venue.sounds ?? undefined,
+          lights: venue.lights ?? undefined,
+          screens: venue.screens ?? undefined,
           contact_person_name: venue.contact_person_name || "",
           contact_email: venue.contact_email ?? undefined,
-          contact_phone: venue.contact_phone ?? undefined,
-          restrictions: venue.restrictions ?? undefined,
-          images: venue.images || [],
+          floor_plans: normalizeFloorPlans(venue.floor_plans),
+          media: venue.media || [],
         }
       : {
-          state: defaultState || null,
           country: defaultCountry,
           country_id: defaultCountryId || null,
-          state_id: defaultStateId || null,
-          technical_specs: {
-            sound: false,
-            lights: false,
-            screens: false,
-          },
-          images: [],
+          floor_plans: [],
+          media: [],
+          sounds: undefined,
+          lights: undefined,
+          screens: undefined,
         },
   });
 
-  // Update state and state_id when stateId changes
+  const hasSetDefaultCountry = useRef(false);
   useEffect(() => {
-    if (selectedStateId && states.length > 0) {
-      const selectedState = states.find((s) => s.id === selectedStateId);
-      if (selectedState) {
-        form.setValue("state", selectedState.name);
-        form.setValue("state_id", selectedState.id);
-      }
-    } else if (!selectedStateId) {
-      form.setValue("state", null);
-      form.setValue("state_id", null);
+    if (!defaultCountryId || venue) {
+      if (venue) hasSetDefaultCountry.current = false;
+      return;
     }
-  }, [selectedStateId, states, form]);
-
-  // Set country_id when form initializes or country changes
-  useEffect(() => {
-    if (defaultCountryId) {
-      form.setValue("country_id", defaultCountryId);
-    }
-  }, [defaultCountryId, form]);
+    if (hasSetDefaultCountry.current) return;
+    hasSetDefaultCountry.current = true;
+    form.setValue("country_id", defaultCountryId);
+    const c = countries.find((x) => x.id === defaultCountryId);
+    if (c) form.setValue("country", c.name);
+  }, [defaultCountryId, venue, countries, form]);
 
   // Check for duplicates when key fields change (debounced)
   const watchedName = form.watch("name");
@@ -300,12 +251,14 @@ export function VenueForm({
       // Only check if all required fields have meaningful content
       if (name && name.length >= 2 && street && street.length >= 2 && city && city.length >= 2 && country) {
         try {
+          // When editing, always exclude current venue by id from props so we don't flag self as duplicate (avoids race with venueId state after redirect)
+          const excludeId = isEditing && venue?.id ? venue.id : venueId;
           const result = await checkDuplicateMutation.mutateAsync({
             name,
             street,
             city,
             country,
-            excludeId: venueId, // Exclude current venue when editing
+            excludeId,
           });
 
           setDuplicateVenue(result.duplicateVenue);
@@ -318,63 +271,57 @@ export function VenueForm({
 
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watchedName, watchedStreet, watchedCity, watchedCountry, venueId]);
+  }, [watchedName, watchedStreet, watchedCity, watchedCountry, venueId, isEditing, venue?.id]);
 
-  // Load template data when a template is selected
   useEffect(() => {
     if (selectedTemplate && !isEditing) {
-      const templateData = selectedTemplate.template_data;
-
-      // Load template data into form
-      if (templateData.name) form.setValue("name", templateData.name);
-      if (templateData.street) form.setValue("street", templateData.street);
-      if (templateData.city) form.setValue("city", templateData.city);
-      if (templateData.state) {
-        form.setValue("state", templateData.state);
-        // Try to find matching state ID
-        if (templateData.state_id) {
-          setSelectedStateId(templateData.state_id);
-          form.setValue("state_id", templateData.state_id);
-        } else if (templateData.state) {
-          const matchingState = states.find((s) => s.name === templateData.state);
-          if (matchingState) {
-            setSelectedStateId(matchingState.id);
-            form.setValue("state_id", matchingState.id);
-          }
+      const templateData = selectedTemplate.template_data as Record<string, unknown>;
+      if (templateData.name) form.setValue("name", templateData.name as string);
+      if (templateData.street) form.setValue("street", templateData.street as string);
+      if (templateData.city) form.setValue("city", templateData.city as string);
+      if (templateData.country) form.setValue("country", templateData.country as string);
+      if (templateData.country_id) form.setValue("country_id", templateData.country_id as string);
+      if (templateData.location_lat !== undefined) form.setValue("location_lat", templateData.location_lat as number);
+      if (templateData.location_lng !== undefined) form.setValue("location_lng", templateData.location_lng as number);
+      if (templateData.total_capacity !== undefined)
+        form.setValue("total_capacity", templateData.total_capacity as number);
+      if (templateData.number_of_tables !== undefined)
+        form.setValue("number_of_tables", templateData.number_of_tables as number);
+      if (templateData.ticket_capacity !== undefined)
+        form.setValue("ticket_capacity", templateData.ticket_capacity as number);
+      if (templateData.sounds !== undefined) form.setValue("sounds", templateData.sounds as string);
+      if (templateData.lights !== undefined) form.setValue("lights", templateData.lights as string);
+      if (templateData.screens !== undefined) form.setValue("screens", templateData.screens as string);
+      if (
+        (templateData.sounds === undefined ||
+          templateData.lights === undefined ||
+          templateData.screens === undefined) &&
+        templateData.technical_specs_text
+      ) {
+        try {
+          const o = JSON.parse(templateData.technical_specs_text as string) as Record<string, string>;
+          if (templateData.sounds === undefined && o.sounds !== undefined) form.setValue("sounds", o.sounds);
+          if (templateData.lights === undefined && o.lights !== undefined) form.setValue("lights", o.lights);
+          if (templateData.screens === undefined && o.screens !== undefined) form.setValue("screens", o.screens);
+        } catch {
+          /* ignore */
         }
       }
-      if (templateData.country) form.setValue("country", templateData.country);
-      if (templateData.country_id) form.setValue("country_id", templateData.country_id);
-      if (templateData.location_lat !== undefined) form.setValue("location_lat", templateData.location_lat);
-      if (templateData.location_lng !== undefined) form.setValue("location_lng", templateData.location_lng);
-      if (templateData.capacity_standing !== undefined)
-        form.setValue("capacity_standing", templateData.capacity_standing);
-      if (templateData.capacity_seated !== undefined) form.setValue("capacity_seated", templateData.capacity_seated);
-      if (templateData.available_rooms_halls !== undefined)
-        form.setValue("available_rooms_halls", templateData.available_rooms_halls);
-      if (templateData.technical_specs) form.setValue("technical_specs", templateData.technical_specs);
-      if (templateData.availability_start_date) {
-        const startDate = new Date(templateData.availability_start_date);
-        setAvailabilityStartDate(startDate);
-        form.setValue("availability_start_date", format(startDate, "yyyy-MM-dd"));
-      }
-      if (templateData.availability_end_date) {
-        const endDate = new Date(templateData.availability_end_date);
-        setAvailabilityEndDate(endDate);
-        form.setValue("availability_end_date", format(endDate, "yyyy-MM-dd"));
-      }
-      if (templateData.base_pricing !== undefined) form.setValue("base_pricing", templateData.base_pricing);
-      if (templateData.contact_person_name) form.setValue("contact_person_name", templateData.contact_person_name);
-      if (templateData.contact_email) form.setValue("contact_email", templateData.contact_email);
-      if (templateData.contact_phone) form.setValue("contact_phone", templateData.contact_phone);
-      if (templateData.restrictions !== undefined) form.setValue("restrictions", templateData.restrictions);
-      if (templateData.images) form.setValue("images", templateData.images);
-
-      // Close the dialog after template is loaded
+      if (templateData.contact_person_name)
+        form.setValue("contact_person_name", templateData.contact_person_name as string);
+      if (templateData.contact_email !== undefined)
+        form.setValue("contact_email", templateData.contact_email as string);
+      if (templateData.floor_plans)
+        form.setValue(
+          "floor_plans",
+          normalizeFloorPlans(templateData.floor_plans as (string | { url: string; name?: string })[])
+        );
+      if (templateData.media)
+        form.setValue("media", templateData.media as { url: string; type: "photo" | "video"; isCover?: boolean }[]);
       setShowUseTemplateDialog(false);
       toast.success(`Template "${selectedTemplate.name}" loaded`);
     }
-  }, [selectedTemplate, form, states, isEditing]);
+  }, [selectedTemplate, form, isEditing]);
 
   // Calculate step errors for visual feedback (only after submission or duplicate)
   // Since validation only happens on onSubmit, errors only exist after form submission
@@ -395,18 +342,17 @@ export function VenueForm({
     const step1Fields: (keyof VenueFormData)[] = ["name", "street", "city", "country"];
     errors[1] = errors[1] || step1Fields.some((field) => !!form.formState.errors[field]);
 
-    // Check step 2
     const step2Fields: (keyof VenueFormData)[] = [
-      "capacity_standing",
-      "capacity_seated",
-      "availability_start_date",
-      "availability_end_date",
-      "base_pricing",
+      "total_capacity",
+      "number_of_tables",
+      "ticket_capacity",
+      "sounds",
+      "lights",
+      "screens",
     ];
     errors[2] = step2Fields.some((field) => !!form.formState.errors[field]);
 
-    // Check step 3
-    const step3Fields: (keyof VenueFormData)[] = ["contact_person_name", "contact_email", "contact_phone"];
+    const step3Fields: (keyof VenueFormData)[] = ["contact_person_name", "contact_email", "floor_plans", "media"];
     errors[3] = step3Fields.some((field) => !!form.formState.errors[field]);
 
     return errors;
@@ -432,19 +378,11 @@ export function VenueForm({
     // Trigger validation for all fields in the current step
     const stepFields: (keyof VenueFormData)[] = [];
     if (step === 1) {
-      stepFields.push("name", "street", "city", "country", "state", "location_lat", "location_lng");
+      stepFields.push("name", "street", "city", "country", "location_lat", "location_lng");
     } else if (step === 2) {
-      stepFields.push(
-        "capacity_standing",
-        "capacity_seated",
-        "available_rooms_halls",
-        "technical_specs",
-        "availability_start_date",
-        "availability_end_date",
-        "base_pricing"
-      );
+      stepFields.push("total_capacity", "number_of_tables", "ticket_capacity", "sounds", "lights", "screens");
     } else if (step === 3) {
-      stepFields.push("contact_person_name", "contact_email", "contact_phone", "restrictions", "images");
+      stepFields.push("contact_person_name", "contact_email", "floor_plans", "media");
     }
 
     // Trigger validation for step fields
@@ -560,10 +498,10 @@ export function VenueForm({
       return;
     }
 
-    // Images are already uploaded via API, so we can use them directly
-    const submitData = {
+    const submitData: CreateVenueInput = {
       ...data,
-      images: data.images || [], // Use uploaded image URLs
+      floor_plans: data.floor_plans || [],
+      media: data.media || [],
     };
 
     try {
@@ -571,6 +509,12 @@ export function VenueForm({
         await updateVenueMutation.mutateAsync({ id: venueId, input: submitData });
         router.push("/dashboard/venues");
       } else {
+        // Global Directors must verify via OTP before creating a venue
+        if (profile?.role === "global_director") {
+          setPendingCreateData(submitData);
+          setShowOtpDialog(true);
+          return;
+        }
         const result = await createVenueMutation.mutateAsync(submitData);
         if (result.isDuplicate) {
           // This shouldn't happen since we check in Step 1, but handle it anyway
@@ -598,35 +542,53 @@ export function VenueForm({
     }
   };
 
+  const handleOtpVerified = async (verificationToken: string) => {
+    if (!pendingCreateData) return;
+    setShowOtpDialog(false);
+    try {
+      const result = await createVenueMutation.mutateAsync({
+        ...pendingCreateData,
+        verificationToken,
+      });
+      setPendingCreateData(null);
+      if (result.isDuplicate) {
+        setDuplicateVenue(result.duplicateVenue || null);
+        toast.error("Cannot create duplicate venue", {
+          description: "A venue with the same name, address, and city already exists. Please modify the venue details.",
+        });
+        setCurrentStep(1);
+      } else {
+        const newVenue = result.venue;
+        setVenueId(newVenue.id);
+        const shortId = newVenue.short_id;
+        if (shortId) {
+          router.push(`/dashboard/venues/${shortId}/edit`);
+        } else {
+          router.push(`/dashboard/venues/${newVenue.id}/edit`);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to create venue after OTP:", error);
+      setPendingCreateData(null);
+    }
+  };
+
   const handleAddressChange = (
     address: string,
     lat: number | null,
     lng: number | null,
     city?: string,
-    region?: string,
-    country?: string
+    _region?: string,
+    _country?: string
   ) => {
-    // country parameter is part of the interface but not currently used
-    void country;
+    void _region;
+    void _country;
     form.setValue("street", address);
     if (lat !== null && lng !== null) {
       form.setValue("location_lat", lat);
       form.setValue("location_lng", lng);
     }
-    if (city) {
-      form.setValue("city", city);
-    }
-    if (region) {
-      form.setValue("state", region);
-      // Try to find matching state in the list
-      const matchingState = states.find((s) => s.name.toLowerCase().includes(region.toLowerCase()));
-      if (matchingState) {
-        setSelectedStateId(matchingState.id);
-        form.setValue("state_id", matchingState.id);
-      }
-    }
-    // Don't update country - it's locked
-    // country_id is already set via useEffect
+    if (city) form.setValue("city", city);
   };
 
   const handleLocationSelect = async (lat: number, lng: number) => {
@@ -675,18 +637,6 @@ export function VenueForm({
         if (city) {
           form.setValue("city", city);
         }
-
-        // Update state if available
-        const region = data.address.state || "";
-        if (region) {
-          form.setValue("state", region);
-          // Try to find matching state in the list
-          const matchingState = states.find((s) => s.name.toLowerCase().includes(region.toLowerCase()));
-          if (matchingState) {
-            setSelectedStateId(matchingState.id);
-            form.setValue("state_id", matchingState.id);
-          }
-        }
       }
     } catch (error) {
       console.error("Error reverse geocoding address:", error);
@@ -694,56 +644,6 @@ export function VenueForm({
       // The coordinates are still set, which is the main requirement
     }
   };
-
-  const minDate = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    today.setFullYear(today.getFullYear() - 1);
-    return today;
-  }, []);
-
-  // Get today's date and max date (1 year from now)
-  const maxDate = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const max = new Date(today);
-    max.setFullYear(max.getFullYear() + 1);
-    return max;
-  }, []);
-
-  // Handle date changes
-  const handleStartDateChange = (date: Date | undefined) => {
-    setAvailabilityStartDate(date);
-    if (date) {
-      form.setValue("availability_start_date", format(date, "yyyy-MM-dd"));
-      // If end date is before new start date, clear it
-      if (availabilityEndDate && date > availabilityEndDate) {
-        setAvailabilityEndDate(undefined);
-        form.setValue("availability_end_date", undefined);
-      }
-    } else {
-      form.setValue("availability_start_date", undefined);
-    }
-  };
-
-  const handleEndDateChange = (date: Date | undefined) => {
-    setAvailabilityEndDate(date);
-    if (date) {
-      form.setValue("availability_end_date", format(date, "yyyy-MM-dd"));
-    } else {
-      form.setValue("availability_end_date", undefined);
-    }
-  };
-
-  // Calculate max end date (1 year from start or maxDate)
-  const maxEndDate = useMemo(() => {
-    if (availabilityStartDate) {
-      const oneYearFromStart = new Date(availabilityStartDate);
-      oneYearFromStart.setFullYear(oneYearFromStart.getFullYear() + 1);
-      return oneYearFromStart < maxDate ? oneYearFromStart : maxDate;
-    }
-    return maxDate;
-  }, [availabilityStartDate, maxDate]);
 
   // Handle template selection from dialog
   const handleTemplateSelect = (templateId: string) => {
@@ -755,15 +655,7 @@ export function VenueForm({
     setShowSaveTemplateDialog(true);
   };
 
-  // Get current form data for template saving
-  const getCurrentFormData = (): CreateVenueInput => {
-    const formValues = form.getValues();
-    return {
-      ...formValues,
-      availability_start_date: availabilityStartDate ? format(availabilityStartDate, "yyyy-MM-dd") : undefined,
-      availability_end_date: availabilityEndDate ? format(availabilityEndDate, "yyyy-MM-dd") : undefined,
-    };
-  };
+  const getCurrentFormData = (): CreateVenueInput => form.getValues();
 
   return (
     <>
@@ -774,7 +666,7 @@ export function VenueForm({
         {/* Use Template - Only show in create mode */}
         {!isEditing && (
           <Card>
-            <CardContent className="flex items-center justify-between gap-4 pt-6">
+            <CardContent className="flex items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="text-sm font-medium">Use a saved template</div>
                 <p className="text-xs text-muted-foreground">
@@ -826,7 +718,7 @@ export function VenueForm({
         {currentStep === 1 && (
           <Card>
             <CardContent className="space-y-4 p-1 sm:p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Venue Name */}
                 <div className="space-y-2">
                   <Label htmlFor="name">
@@ -843,47 +735,24 @@ export function VenueForm({
                   )}
                 </div>
 
-                {/* Country - Locked */}
-                <div className="space-y-2">
-                  <Label htmlFor="country">
-                    Country <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="country"
-                    {...form.register("country")}
-                    value={defaultCountry}
-                    disabled
-                    className="bg-muted cursor-not-allowed"
-                    aria-invalid={!!form.formState.errors.country}
-                  />
-                  {form.formState.errors.country && (
-                    <p className="text-sm text-destructive">{form.formState.errors.country.message}</p>
-                  )}
-                </div>
-
-                {/* State - Using LocationCombobox */}
+                {/* Country - selectable */}
                 <div className="space-y-2">
                   <LocationCombobox
-                    value={selectedStateId}
+                    value={form.watch("country_id") ?? undefined}
                     onValueChange={(value) => {
-                      setSelectedStateId(value);
-                      if (value) {
-                        const selectedState = states.find((s) => s.id === value);
-                        if (selectedState) {
-                          form.setValue("state", selectedState.name);
-                          form.setValue("state_id", selectedState.id);
-                        }
+                      const c = countries.find((x) => x.id === value);
+                      if (c) {
+                        form.setValue("country_id", c.id);
+                        form.setValue("country", c.name);
                       } else {
-                        form.setValue("state", null);
-                        form.setValue("state_id", null);
+                        form.setValue("country_id", null);
+                        form.setValue("country", "");
                       }
                     }}
-                    options={states.map((s) => ({ id: s.id, name: s.name }))}
-                    placeholder="Select state"
-                    disabled={!defaultCountryId || loadingStates}
-                    loading={loadingStates}
-                    label="State"
-                    error={form.formState.errors.state?.message}
+                    options={countries.map((c) => ({ id: c.id, name: c.name }))}
+                    placeholder="Select country"
+                    label="Country"
+                    error={form.formState.errors.country?.message}
                   />
                 </div>
 
@@ -915,6 +784,11 @@ export function VenueForm({
                   onChange={handleAddressChange}
                   placeholder="Enter street address (autocomplete enabled)"
                   error={form.formState.errors.street?.message}
+                  geocodeOnBlur
+                  geocodeContext={{
+                    city: form.watch("city") || undefined,
+                    country: form.watch("country") || undefined,
+                  }}
                 />
               </div>
 
@@ -924,7 +798,7 @@ export function VenueForm({
                 lng={form.watch("location_lng") ?? null}
                 onLocationSelect={handleLocationSelect}
                 countryCenter={countryCenter}
-                stateCenter={stateCenter}
+                stateCenter={undefined}
                 error={form.formState.errors.location_lat?.message || form.formState.errors.location_lng?.message}
               />
 
@@ -978,150 +852,96 @@ export function VenueForm({
         {currentStep === 2 && (
           <Card>
             <CardContent className="space-y-4 p-1 sm:p-6">
-              {/* Capacity Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="capacity_standing">Standing Capacity</Label>
+                  <Label htmlFor="total_capacity">Total Capacity</Label>
                   <Input
-                    id="capacity_standing"
+                    id="total_capacity"
                     type="number"
                     min="0"
                     max="99999999"
-                    {...form.register("capacity_standing", { valueAsNumber: true })}
+                    {...form.register("total_capacity", { valueAsNumber: true })}
                     placeholder="0"
-                    aria-invalid={!!form.formState.errors.capacity_standing}
+                    aria-invalid={!!form.formState.errors.total_capacity}
                   />
-                  {form.formState.errors.capacity_standing && (
-                    <p className="text-sm text-destructive">{form.formState.errors.capacity_standing.message}</p>
+                  {form.formState.errors.total_capacity && (
+                    <p className="text-sm text-destructive">{form.formState.errors.total_capacity.message}</p>
                   )}
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="capacity_seated">Seated Capacity</Label>
+                  <Label htmlFor="number_of_tables">Number of Tables</Label>
                   <Input
-                    id="capacity_seated"
+                    id="number_of_tables"
                     type="number"
                     min="0"
                     max="99999999"
-                    {...form.register("capacity_seated", { valueAsNumber: true })}
+                    {...form.register("number_of_tables", { valueAsNumber: true })}
                     placeholder="0"
-                    aria-invalid={!!form.formState.errors.capacity_seated}
+                    aria-invalid={!!form.formState.errors.number_of_tables}
                   />
-                  {form.formState.errors.capacity_seated && (
-                    <p className="text-sm text-destructive">{form.formState.errors.capacity_seated.message}</p>
+                  {form.formState.errors.number_of_tables && (
+                    <p className="text-sm text-destructive">{form.formState.errors.number_of_tables.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ticket_capacity">Ticket Capacity</Label>
+                  <Input
+                    id="ticket_capacity"
+                    type="number"
+                    min="0"
+                    max="99999999"
+                    {...form.register("ticket_capacity", { valueAsNumber: true })}
+                    placeholder="0"
+                    aria-invalid={!!form.formState.errors.ticket_capacity}
+                  />
+                  {form.formState.errors.ticket_capacity && (
+                    <p className="text-sm text-destructive">{form.formState.errors.ticket_capacity.message}</p>
                   )}
                 </div>
               </div>
-
-              {/* Available Rooms/Halls */}
-              <div className="space-y-2">
-                <Label htmlFor="available_rooms_halls">Available Rooms / Halls</Label>
-                <textarea
-                  id="available_rooms_halls"
-                  {...form.register("available_rooms_halls")}
-                  maxLength={MAX_TEXTAREA_LENGTH}
-                  placeholder="Main Hall, Conference Room A, Conference Room B..."
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-invalid={!!form.formState.errors.available_rooms_halls}
-                />
-                <CharacterCounter
-                  current={(form.watch("available_rooms_halls") || "").length}
-                  max={MAX_TEXTAREA_LENGTH}
-                />
-                {form.formState.errors.available_rooms_halls && (
-                  <p className="text-sm text-destructive">{form.formState.errors.available_rooms_halls.message}</p>
-                )}
-              </div>
-
-              {/* Technical Specs */}
-              <div className="space-y-2">
-                <Label>Technical Specs</Label>
-                <div className="flex gap-6">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="sound"
-                      checked={form.watch("technical_specs")?.sound || false}
-                      onCheckedChange={(checked) => {
-                        form.setValue("technical_specs", {
-                          ...form.watch("technical_specs"),
-                          sound: checked === true,
-                        });
-                      }}
-                    />
-                    <Label htmlFor="sound" className="font-normal cursor-pointer">
-                      Sound
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="lights"
-                      checked={form.watch("technical_specs")?.lights || false}
-                      onCheckedChange={(checked) => {
-                        form.setValue("technical_specs", {
-                          ...form.watch("technical_specs"),
-                          lights: checked === true,
-                        });
-                      }}
-                    />
-                    <Label htmlFor="lights" className="font-normal cursor-pointer">
-                      Lights
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="screens"
-                      checked={form.watch("technical_specs")?.screens || false}
-                      onCheckedChange={(checked) => {
-                        form.setValue("technical_specs", {
-                          ...form.watch("technical_specs"),
-                          screens: checked === true,
-                        });
-                      }}
-                    />
-                    <Label htmlFor="screens" className="font-normal cursor-pointer">
-                      Screens
-                    </Label>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sounds">Sounds</Label>
+                  <textarea
+                    id="sounds"
+                    {...form.register("sounds")}
+                    maxLength={MAX_TEXTAREA_LENGTH}
+                    placeholder="Sound equipment, PA, etc."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={!!form.formState.errors.sounds}
+                  />
+                  {form.formState.errors.sounds && (
+                    <p className="text-sm text-destructive">{form.formState.errors.sounds.message}</p>
+                  )}
                 </div>
-              </div>
-
-              {/* Availability Dates - Editable Calendar */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <DateInput
-                  value={availabilityStartDate}
-                  onChange={handleStartDateChange}
-                  min={minDate}
-                  max={maxDate}
-                  placeholder="Pick a date"
-                  label="Availability Start Date"
-                  error={form.formState.errors.availability_start_date?.message}
-                />
-
-                <DateInput
-                  value={availabilityEndDate}
-                  onChange={handleEndDateChange}
-                  min={availabilityStartDate || today}
-                  max={maxEndDate}
-                  placeholder="Pick a date"
-                  label="Availability End Date"
-                  error={form.formState.errors.availability_end_date?.message}
-                  disabled={!availabilityStartDate}
-                />
-              </div>
-
-              {/* Base Pricing with thousand separator formatting */}
-              <div className="space-y-2">
-                <Label htmlFor="base_pricing">Base Pricing</Label>
-                <PriceInput
-                  id="base_pricing"
-                  value={form.watch("base_pricing")}
-                  onChange={(value) => form.setValue("base_pricing", value, { shouldValidate: false })}
-                  placeholder="0.00"
-                  aria-invalid={!!form.formState.errors.base_pricing}
-                />
-                {form.formState.errors.base_pricing && (
-                  <p className="text-sm text-destructive">{form.formState.errors.base_pricing.message}</p>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="lights">Lights</Label>
+                  <textarea
+                    id="lights"
+                    {...form.register("lights")}
+                    maxLength={MAX_TEXTAREA_LENGTH}
+                    placeholder="Lighting options..."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={!!form.formState.errors.lights}
+                  />
+                  {form.formState.errors.lights && (
+                    <p className="text-sm text-destructive">{form.formState.errors.lights.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="screens">Screens</Label>
+                  <textarea
+                    id="screens"
+                    {...form.register("screens")}
+                    maxLength={MAX_TEXTAREA_LENGTH}
+                    placeholder="Screens, projectors..."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={!!form.formState.errors.screens}
+                  />
+                  {form.formState.errors.screens && (
+                    <p className="text-sm text-destructive">{form.formState.errors.screens.message}</p>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1131,7 +951,6 @@ export function VenueForm({
         {currentStep === 3 && (
           <Card>
             <CardContent className="space-y-4 p-1 sm:p-6">
-              {/* Contact Person Name */}
               <div className="space-y-2">
                 <Label htmlFor="contact_person_name">
                   Contact Person Name <span className="text-destructive">*</span>
@@ -1146,63 +965,40 @@ export function VenueForm({
                   <p className="text-sm text-destructive">{form.formState.errors.contact_person_name.message}</p>
                 )}
               </div>
-
-              {/* Contact Email and Phone */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="contact_email">Contact Email</Label>
-                  <Input
-                    id="contact_email"
-                    type="email"
-                    {...form.register("contact_email")}
-                    placeholder="contact@venue.com"
-                    aria-invalid={!!form.formState.errors.contact_email}
-                  />
-                  {form.formState.errors.contact_email && (
-                    <p className="text-sm text-destructive">{form.formState.errors.contact_email.message}</p>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="contact_phone">Contact Phone</Label>
-                  <PhoneInput
-                    id="contact_phone"
-                    value={form.watch("contact_phone") || undefined}
-                    onChange={(value) => form.setValue("contact_phone", value && value.trim() ? value : null)}
-                    placeholder="Enter phone number"
-                    defaultCountry={phoneDefaultCountry as "US" | "CA" | "GB" | undefined}
-                    className="w-full"
-                  />
-                  {form.formState.errors.contact_phone && (
-                    <p className="text-sm text-destructive">{form.formState.errors.contact_phone.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Restrictions with character counter */}
               <div className="space-y-2">
-                <Label htmlFor="restrictions">Restrictions</Label>
-                <textarea
-                  id="restrictions"
-                  {...form.register("restrictions")}
-                  maxLength={MAX_TEXTAREA_LENGTH}
-                  placeholder="Noise restrictions, time limits, catering rules..."
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-invalid={!!form.formState.errors.restrictions}
+                <Label htmlFor="contact_email">Venue Contact Email (with verification)</Label>
+                <Input
+                  id="contact_email"
+                  type="email"
+                  {...form.register("contact_email")}
+                  placeholder="contact@venue.com"
+                  aria-invalid={!!form.formState.errors.contact_email}
                 />
-                <CharacterCounter current={(form.watch("restrictions") || "").length} max={MAX_TEXTAREA_LENGTH} />
-                {form.formState.errors.restrictions && (
-                  <p className="text-sm text-destructive">{form.formState.errors.restrictions.message}</p>
+                <p className="text-xs text-muted-foreground">
+                  This email will need to be verified by the contact person using an OTP code sent to their inbox. Until
+                  then, the venue will not show a verified badge.
+                </p>
+                {form.formState.errors.contact_email && (
+                  <p className="text-sm text-destructive">{form.formState.errors.contact_email.message}</p>
                 )}
               </div>
-
-              {/* Image Upload */}
-              <VenueImageUpload
-                images={form.watch("images") || []}
-                onImagesChange={(images) => form.setValue("images", images)}
-                venueId={venueId}
-                error={form.formState.errors.images?.message}
-              />
+              <div className="space-y-2">
+                <Label>Floor Plans (PDF, images)</Label>
+                <VenueFloorPlansUpload
+                  floorPlans={normalizeFloorPlans(form.watch("floor_plans"))}
+                  onFloorPlansChange={(items) => form.setValue("floor_plans", items)}
+                  error={form.formState.errors.floor_plans?.message}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Photos / Videos (max 10, set cover image)</Label>
+                <VenueMediaUpload
+                  media={form.watch("media") || []}
+                  onMediaChange={(items) => form.setValue("media", items)}
+                  venueId={venueId}
+                  error={form.formState.errors.media?.message}
+                />
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1262,7 +1058,12 @@ export function VenueForm({
             ) : (
               <Button
                 type="submit"
-                disabled={createVenueMutation.isPending || updateVenueMutation.isPending || !!duplicateVenue}
+                disabled={
+                  createVenueMutation.isPending ||
+                  updateVenueMutation.isPending ||
+                  !!duplicateVenue ||
+                  (!isEditing && profileLoading)
+                }
               >
                 {createVenueMutation.isPending || updateVenueMutation.isPending ? (
                   <>
@@ -1303,6 +1104,23 @@ export function VenueForm({
           }}
           onSelectTemplate={handleTemplateSelect}
           isLoadingTemplate={isLoadingTemplate}
+        />
+      )}
+
+      {/* OTP verification for Global Director venue create */}
+      {!isEditing && profile?.id && (
+        <OtpVerificationDialog
+          open={showOtpDialog}
+          onOpenChange={(open) => {
+            setShowOtpDialog(open);
+            if (!open) setPendingCreateData(null);
+          }}
+          onVerified={handleOtpVerified}
+          contextType="venue_create"
+          contextId={profile.id}
+          action="create"
+          title="Verify before creating venue"
+          description="We sent a verification code to your email. Enter it below to create the venue."
         />
       )}
     </>

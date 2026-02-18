@@ -8,7 +8,7 @@
 import type { Node, Edge } from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type { HierarchyNode } from "@/lib/hooks/use-user-hierarchy";
-import { roleLabels, roleColors, roleRanks, type FlowNodeData } from "./types";
+import { roleLabels, roleColors, roleNodeBg, roleRanks, type FlowNodeData } from "./types";
 
 /**
  * Convert tree structure to nodes and edges
@@ -27,6 +27,7 @@ export function convertTreeToFlowData(
     nodeIdMap.set(node, nodeId);
     const roleLabel = roleLabels[node.role] || node.role;
     const roleColor = roleColors[node.role] || "bg-gray-100 text-gray-800 border-gray-300";
+    const roleNodeBgClass = roleNodeBg[node.role] ?? "bg-card";
     const hasChildren = node.children.length > 0;
     const hasParent = parentId !== null;
 
@@ -37,6 +38,7 @@ export function convertTreeToFlowData(
         ...node,
         roleLabel,
         roleColor,
+        roleNodeBg: roleNodeBgClass,
         hasChildren,
         hasParent,
         onEditUser,

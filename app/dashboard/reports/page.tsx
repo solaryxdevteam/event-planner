@@ -1,7 +1,7 @@
 /**
  * Reports Page
  *
- * Lists approved reports with filters, chart by date (net profit), and table with pagination.
+ * Lists approved reports with filters (event, venue, user, DJ, date), sales chart by date, and table with pagination.
  */
 
 import { ReportsPageClient } from "@/components/reports/ReportsPageClient";
@@ -14,7 +14,8 @@ export default function ReportsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <p className="text-muted-foreground">
-          View approved post-event reports, filter by event or venue, and see net profit by date.
+          View approved post-event reports, filter by event, venue, user, or DJ, and see table, ticket, and bar sales by
+          date.
         </p>
       </div>
       <ReportsPageClient />

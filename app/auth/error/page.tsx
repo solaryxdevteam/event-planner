@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Suspense } from "react";
+import Image from "next/image";
 
 function ErrorContent() {
   const searchParams = useSearchParams();
@@ -19,6 +20,16 @@ function ErrorContent() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
+          <div className="mx-auto mb-2">
+            <Image
+              src="/images/shiraz-house-logo.webp"
+              alt="Shiraz House"
+              width={120}
+              height={48}
+              priority
+              className="h-12 w-auto object-contain"
+            />
+          </div>
           <CardTitle>Authentication Error</CardTitle>
           <CardDescription>There was a problem signing you in</CardDescription>
         </CardHeader>

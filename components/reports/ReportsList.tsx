@@ -30,6 +30,7 @@ import { useProfile } from "@/lib/hooks/use-profile";
 import { useApproveEvent, useRejectEvent, useEventApprovals } from "@/lib/hooks/use-approvals";
 import { UserRole } from "@/lib/types/roles";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 
 interface ReportsListProps {
   reports: Report[];
@@ -55,6 +56,10 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
   const [viewingReport, setViewingReport] = useState<Report | null>(null);
   const [showApproveDialog, setShowApproveDialog] = useState<Report | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState<Report | null>(null);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
+  const [pendingReport, setPendingReport] = useState<Report | null>(null);
+  const [pendingComment, setPendingComment] = useState("");
   const [comment, setComment] = useState("");
 
   const { data: profile } = useProfile();
@@ -127,25 +132,45 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
       : null;
   };
 
-  const handleApprove = async (report: Report) => {
-    if (!comment.trim() || !report.event_id) return;
-    try {
-      await approveMutation.mutateAsync({ eventId: report.event_id, comment });
-      setShowApproveDialog(null);
-      setComment("");
-    } catch (error) {
-      console.error("Error approving report:", error);
-    }
+  const handleApproveContinueToOtp = () => {
+    if (!showApproveDialog || !comment.trim() || !showApproveDialog.event_id) return;
+    setPendingReport(showApproveDialog);
+    setPendingComment(comment);
+    setShowApproveDialog(null);
+    setOtpAction("approve");
+    setShowOtpDialog(true);
   };
 
-  const handleReject = async (report: Report) => {
-    if (!comment.trim() || !report.event_id) return;
+  const handleRejectContinueToOtp = () => {
+    if (!showRejectDialog || !comment.trim() || !showRejectDialog.event_id) return;
+    setPendingReport(showRejectDialog);
+    setPendingComment(comment);
+    setShowRejectDialog(null);
+    setOtpAction("reject");
+    setShowOtpDialog(true);
+  };
+
+  const handleOtpVerified = async (verificationToken: string) => {
+    if (!pendingReport?.event_id) return;
+    setShowOtpDialog(false);
     try {
-      await rejectMutation.mutateAsync({ eventId: report.event_id, comment });
-      setShowRejectDialog(null);
-      setComment("");
+      if (otpAction === "approve") {
+        await approveMutation.mutateAsync({
+          eventId: pendingReport.event_id,
+          comment: pendingComment,
+          verificationToken,
+        });
+      } else {
+        await rejectMutation.mutateAsync({
+          eventId: pendingReport.event_id,
+          comment: pendingComment,
+          verificationToken,
+        });
+      }
+      setPendingReport(null);
+      setPendingComment("");
     } catch (error) {
-      console.error("Error rejecting report:", error);
+      console.error("Error with report approval action:", error);
     }
   };
 
@@ -333,11 +358,8 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
               >
                 Cancel
               </Button>
-              <Button
-                onClick={() => showApproveDialog && handleApprove(showApproveDialog)}
-                disabled={!comment.trim() || isSubmitting}
-              >
-                {isSubmitting ? "Approving..." : "Approve"}
+              <Button onClick={handleApproveContinueToOtp} disabled={!comment.trim() || isSubmitting}>
+                Continue to verification
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -378,14 +400,25 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
               </Button>
               <Button
                 variant="destructive"
-                onClick={() => showRejectDialog && handleReject(showRejectDialog)}
+                onClick={handleRejectContinueToOtp}
                 disabled={!comment.trim() || isSubmitting}
               >
-                {isSubmitting ? "Rejecting..." : "Reject"}
+                Continue to verification
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <OtpVerificationDialog
+          open={showOtpDialog}
+          onOpenChange={setShowOtpDialog}
+          onVerified={handleOtpVerified}
+          contextType="event_approval"
+          contextId={pendingReport?.event_id ?? ""}
+          action={otpAction}
+          title="Verify with OTP"
+          description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+        />
       </CardContent>
     </Card>
   );

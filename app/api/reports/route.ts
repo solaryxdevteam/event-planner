@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/reports
- * Query params: page, limit, eventId, venueId, dateFrom, dateTo, sortByNetProfit (asc|desc)
+ * Query params: page, limit, eventId, venueId, dateFrom, dateTo, userId, djId
  * Returns: { data: { reports, pagination }, chartData?: ReportChartDataPoint[] }
  * If chart=true, also returns chartData for the same filters.
  */
@@ -38,8 +38,8 @@ export async function GET(request: NextRequest) {
     const venueId = searchParams.get("venueId") || null;
     const dateFrom = searchParams.get("dateFrom") || null;
     const dateTo = searchParams.get("dateTo") || null;
-    const sortRaw = searchParams.get("sortByNetProfit");
-    const sortByNetProfit: "asc" | "desc" | null = sortRaw === "asc" || sortRaw === "desc" ? sortRaw : null;
+    const userId = searchParams.get("userId") || null;
+    const djId = searchParams.get("djId") || null;
     const includeChart = searchParams.get("chart") === "true";
 
     const params = {
@@ -47,14 +47,22 @@ export async function GET(request: NextRequest) {
       venueId,
       dateFrom,
       dateTo,
-      sortByNetProfit,
+      userId,
+      djId,
       page,
       limit,
     };
 
     const result = await reportService.listApprovedReports(authUser.id, params);
     const chartData = includeChart
-      ? await reportService.getReportChartData(authUser.id, { eventId, venueId, dateFrom, dateTo })
+      ? await reportService.getReportChartData(authUser.id, {
+          eventId,
+          venueId,
+          dateFrom,
+          dateTo,
+          userId,
+          djId,
+        })
       : undefined;
 
     return NextResponse.json({

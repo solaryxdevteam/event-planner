@@ -26,7 +26,6 @@ import { VenueCard } from "@/components/venues/VenueCard";
 import { PriceInput } from "@/components/ui/price-input";
 import { useVenue } from "@/lib/hooks/use-venues";
 import { cn } from "@/lib/utils";
-import { getCurrencyForCountry } from "@/lib/utils/country-currency";
 
 interface ModificationRequestDialogProps {
   open: boolean;
@@ -42,7 +41,6 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
   const [startsAtDate, setStartsAtDate] = useState<Date | undefined>(
     event.starts_at ? new Date(event.starts_at) : undefined
   );
-  const [endsAtDate, setEndsAtDate] = useState<Date | undefined>(event.ends_at ? new Date(event.ends_at) : undefined);
   const [showVenueDialog, setShowVenueDialog] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<VenueWithCreator | null>(null);
 
@@ -54,13 +52,11 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
     mode: "onChange",
     defaultValues: {
       title: event.title,
-      description: event.description || "",
       starts_at: event.starts_at || null,
-      ends_at: event.ends_at || null,
       venue_id: event.venue_id || null,
       expected_attendance: event.expected_attendance || null,
-      budget_amount: event.budget_amount || null,
-      budget_currency: event.budget_currency || "USD",
+      minimum_ticket_price: event.minimum_ticket_price ?? null,
+      minimum_table_price: event.minimum_table_price ?? null,
       notes: event.notes || null,
       changeReason: "",
     },
@@ -84,19 +80,15 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
     if (open) {
       form.reset({
         title: event.title,
-        description: event.description || "",
         starts_at: event.starts_at || null,
-        ends_at: event.ends_at || null,
         venue_id: event.venue_id || null,
         expected_attendance: event.expected_attendance || null,
-        budget_amount: event.budget_amount || null,
-        budget_currency: event.budget_currency || "USD",
+        minimum_ticket_price: event.minimum_ticket_price ?? null,
+        minimum_table_price: event.minimum_table_price ?? null,
         notes: event.notes || null,
         changeReason: "",
       });
       setStartsAtDate(event.starts_at ? new Date(event.starts_at) : undefined);
-      setEndsAtDate(event.ends_at ? new Date(event.ends_at) : undefined);
-      // Selected venue will be populated from fullVenue or via venue picker
       setSelectedVenue(null);
     }
   }, [open, event, form]);
@@ -104,27 +96,9 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
   const handleVenueSelect = (venue: VenueWithCreator | null) => {
     setSelectedVenue(venue);
     form.setValue("venue_id", venue?.id || null, { shouldValidate: true });
-
-    // Auto-set currency based on venue country code
-    if (venue?.country_location?.code) {
-      const currency = getCurrencyForCountry(venue.country_location);
-      form.setValue("budget_currency", currency, {
-        shouldValidate: false,
-        shouldDirty: false,
-        shouldTouch: false,
-      });
-    } else {
-      form.setValue("budget_currency", "USD", {
-        shouldValidate: false,
-        shouldDirty: false,
-        shouldTouch: false,
-      });
-    }
   };
 
-  const maxAttendance = selectedVenue
-    ? (selectedVenue.capacity_seated || 0) + (selectedVenue.capacity_standing || 0)
-    : undefined;
+  const maxAttendance = selectedVenue?.total_capacity ?? undefined;
 
   const expectedAttendance = form.watch("expected_attendance");
   const attendanceError =
@@ -141,7 +115,6 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
         modificationData: {
           ...modificationData,
           starts_at: startsAtDate ? startsAtDate.toISOString() : null,
-          ends_at: endsAtDate ? endsAtDate.toISOString() : null,
         },
         changeReason: changeReason || undefined,
       });
@@ -269,69 +242,62 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
                 error={form.formState.errors.starts_at?.message}
                 placeholder="Select start date and time"
               />
-
-              <DateTimePickerNew
-                label="Ends At *"
-                value={endsAtDate}
-                onChange={(date) => {
-                  setEndsAtDate(date);
-                  form.setValue("ends_at", date ? date.toISOString() : null, { shouldValidate: true });
-                }}
-                error={form.formState.errors.ends_at?.message}
-                placeholder="Select end date and time"
-                min={startsAtDate}
-              />
             </div>
 
-            {/* Budget */}
-            <div className="space-y-2">
-              <Label>Budget</Label>
-              <div className="grid grid-cols-[1fr_auto] gap-3">
-                <div className="space-y-1">
-                  <PriceInput
-                    id="budget_amount"
-                    placeholder="0.00"
-                    value={form.watch("budget_amount")}
-                    onChange={(value) => {
-                      form.setValue("budget_amount", value || null, { shouldValidate: true });
-                    }}
-                    className={cn(form.formState.errors.budget_amount && "border-destructive")}
-                  />
-                  {form.formState.errors.budget_amount && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {form.formState.errors.budget_amount.message}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center">
-                  <div className="h-10 px-4 bg-muted border border-input rounded-md flex items-center justify-center min-w-[80px]">
-                    <span className="text-sm font-medium">{form.watch("budget_currency") || "USD"}</span>
-                  </div>
-                </div>
+            {/* Min ticket & table price */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="minimum_ticket_price">Min. ticket price</Label>
+                <PriceInput
+                  id="minimum_ticket_price"
+                  placeholder="0.00"
+                  value={form.watch("minimum_ticket_price")}
+                  onChange={(value) => form.setValue("minimum_ticket_price", value ?? null, { shouldValidate: true })}
+                  className={cn(form.formState.errors.minimum_ticket_price && "border-destructive")}
+                />
+                {form.formState.errors.minimum_ticket_price && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {form.formState.errors.minimum_ticket_price.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="minimum_table_price">Min. table price</Label>
+                <PriceInput
+                  id="minimum_table_price"
+                  placeholder="0.00"
+                  value={form.watch("minimum_table_price")}
+                  onChange={(value) => form.setValue("minimum_table_price", value ?? null, { shouldValidate: true })}
+                  className={cn(form.formState.errors.minimum_table_price && "border-destructive")}
+                />
+                {form.formState.errors.minimum_table_price && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {form.formState.errors.minimum_table_price.message}
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Description */}
+            {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
-                id="description"
-                placeholder="Enter event description (optional)"
+                id="notes"
+                placeholder="Enter event notes (optional)"
                 rows={6}
-                {...form.register("description")}
-                className={cn(form.formState.errors.description && "border-destructive")}
+                {...form.register("notes")}
+                className={cn(form.formState.errors.notes && "border-destructive")}
                 maxLength={5000}
               />
-              {form.formState.errors.description && (
+              {form.formState.errors.notes && (
                 <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
-                  {form.formState.errors.description.message}
+                  {form.formState.errors.notes.message}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                {form.watch("description")?.length || 0} / 5,000 characters
-              </p>
+              <p className="text-xs text-muted-foreground">{form.watch("notes")?.length || 0} / 5,000 characters</p>
             </div>
 
             <DialogFooter>

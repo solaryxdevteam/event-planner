@@ -87,7 +87,6 @@ describe("User Actions", () => {
         role: "invalid_role" as any,
         parent_id: null,
         country_id: "invalid-uuid",
-        state_id: "invalid-uuid",
         city_id: "invalid-uuid",
       };
 
@@ -105,7 +104,6 @@ describe("User Actions", () => {
         role: "event_planner" as const,
         parent_id: parentId,
         country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-        state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
         city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
       };
 

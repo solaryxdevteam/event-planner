@@ -7,7 +7,7 @@
 "use client";
 
 import { format, isToday, isYesterday } from "date-fns";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -27,9 +27,13 @@ import {
   ChevronUp,
 } from "lucide-react";
 
+const COLLAPSED_MAX_HEIGHT = "80vh";
+
 interface AuditTimelineProps {
   logs: AuditLogWithUser[];
   isLoading?: boolean;
+  /** When true, timeline is collapsed with max height and "Show more" when content overflows */
+  collapsible?: boolean;
 }
 
 const actionIcons: Record<string, React.ReactNode> = {
@@ -108,8 +112,32 @@ interface TimelineEntry {
   dateHeader: string;
 }
 
-export function AuditTimeline({ logs, isLoading }: AuditTimelineProps) {
+export function AuditTimeline({ logs, isLoading, collapsible = false }: AuditTimelineProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [measuredOverflow, setMeasuredOverflow] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasOverflow = Boolean(collapsible && !historyExpanded && measuredOverflow);
+
+  // Detect if timeline content overflows when collapsible and collapsed
+  useEffect(() => {
+    if (!collapsible || historyExpanded) return;
+    const check = () => {
+      const container = containerRef.current;
+      const content = contentRef.current;
+      if (!container || !content) return;
+      setMeasuredOverflow(content.scrollHeight > container.clientHeight);
+    };
+    const t = requestAnimationFrame(() => check());
+    const ro = new ResizeObserver(check);
+    const container = containerRef.current;
+    if (container) ro.observe(container);
+    return () => {
+      cancelAnimationFrame(t);
+      ro.disconnect();
+    };
+  }, [collapsible, historyExpanded, logs.length]);
 
   // Process logs: group by date and prepare timeline entries
   const timelineEntries = useMemo(() => {
@@ -233,8 +261,11 @@ export function AuditTimeline({ logs, isLoading }: AuditTimelineProps) {
 
   let lastDateKey = "";
 
+  const isCollapsed = collapsible && !historyExpanded;
+  const showLessButton = collapsible && historyExpanded;
+
   return (
-    <Card>
+    <Card ref={containerRef}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Clock className="h-5 w-5" />
@@ -242,134 +273,172 @@ export function AuditTimeline({ logs, isLoading }: AuditTimelineProps) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="relative">
-          {/* Vertical timeline line */}
-          <div className="absolute left-[60px] top-0 bottom-0 w-0.5 bg-border" />
+        <div className="relative overflow-hidden" style={isCollapsed ? { maxHeight: COLLAPSED_MAX_HEIGHT } : undefined}>
+          <div ref={contentRef} className="relative">
+            {/* Vertical timeline line */}
+            <div className="absolute left-[60px] top-0 bottom-0 w-0.5 bg-border" />
 
-          {/* Timeline entries */}
-          <div className="space-y-0">
-            {groupedEntries.map((group) => {
-              const showDateSeparator = group.dateKey !== lastDateKey;
-              lastDateKey = group.dateKey;
+            {/* Timeline entries */}
+            <div className="space-y-0">
+              {groupedEntries.map((group) => {
+                const showDateSeparator = group.dateKey !== lastDateKey;
+                lastDateKey = group.dateKey;
 
-              const actionType = group.actionType;
-              const icon = actionIcons[actionType] || <FileText className="h-4 w-4" />;
-              const color = actionColors[actionType] || "bg-gray-500";
-              const label = actionLabels[actionType] || actionType;
+                const actionType = group.actionType;
+                const icon = actionIcons[actionType] || <FileText className="h-4 w-4" />;
+                const color = actionColors[actionType] || "bg-gray-500";
+                const label = actionLabels[actionType] || actionType;
 
-              const shouldShowExpand = group.entries.length > 1;
-              const isExpanded = expandedGroups.has(group.id);
-              const displayEntries = shouldShowExpand && !isExpanded ? [group.entries[0]] : group.entries;
-              const hiddenCount = shouldShowExpand && !isExpanded ? group.entries.length - 1 : 0;
+                const shouldShowExpand = group.entries.length > 1;
+                const isExpanded = expandedGroups.has(group.id);
+                const displayEntries = shouldShowExpand && !isExpanded ? [group.entries[0]] : group.entries;
+                const hiddenCount = shouldShowExpand && !isExpanded ? group.entries.length - 1 : 0;
 
-              return (
-                <div key={group.id}>
-                  {/* Date separator */}
-                  {showDateSeparator && (
-                    <div className="relative flex items-center py-4">
-                      <div className="absolute left-[60px] right-0 h-px bg-border" />
-                      <div className="relative z-10 bg-background px-2 text-xs font-medium text-muted-foreground">
-                        {group.dateHeader}
+                return (
+                  <div key={group.id}>
+                    {/* Date separator */}
+                    {showDateSeparator && (
+                      <div className="relative flex items-center py-4">
+                        <div className="absolute left-[60px] right-0 h-px bg-border" />
+                        <div className="relative z-10 bg-background px-2 text-xs font-medium text-muted-foreground">
+                          {group.dateHeader}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Timeline entries for this group */}
-                  {displayEntries.map((entry) => {
-                    const log = entry.log;
+                    {/* Timeline entries for this group */}
+                    {displayEntries.map((entry) => {
+                      const log = entry.log;
 
-                    return (
-                      <div key={log.id} className="relative flex gap-4 pb-6">
-                        {/* Timestamp on left */}
-                        <div className="w-[60px] flex-shrink-0 pt-1">
-                          <div className="text-xs text-muted-foreground font-mono">
-                            {format(new Date(log.created_at), "HH:mm:ss")}
+                      return (
+                        <div key={log.id} className="relative flex gap-4 pb-6">
+                          {/* Timestamp on left (local device time) */}
+                          <div className="w-[60px] flex-shrink-0 pt-1">
+                            <div
+                              className="text-xs text-muted-foreground font-mono"
+                              title={new Date(log.created_at).toLocaleString()}
+                            >
+                              {format(new Date(log.created_at), "h:mm a")}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/80">
+                              {format(new Date(log.created_at), "MMM d")}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Icon on timeline */}
-                        <div className="relative z-10 flex-shrink-0">
-                          <div
-                            className={`flex h-8 w-8 items-center justify-center rounded-full ${color} text-white shadow-sm`}
-                          >
-                            {icon}
+                          {/* Icon on timeline */}
+                          <div className="relative z-10 flex-shrink-0">
+                            <div
+                              className={`flex h-8 w-8 items-center justify-center rounded-full ${color} text-white shadow-sm`}
+                            >
+                              {icon}
+                            </div>
                           </div>
-                        </div>
 
-                        {/* Content on right */}
-                        <div className="flex-1 min-w-0 space-y-1">
-                          {/* Action label and user */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">{label}</span>
-                            {log.user ? (
-                              <>
-                                <span className="text-sm text-muted-foreground">by</span>
-                                <div className="flex items-center gap-1.5">
-                                  <Avatar className="h-5 w-5">
-                                    <AvatarFallback className="text-[10px]">
-                                      {getInitials(log.user.name)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm font-medium">{log.user.name}</span>
+                          {/* Content on right */}
+                          <div className="flex-1 min-w-0 space-y-1">
+                            {/* Action label and user */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{label}</span>
+                              {log.user ? (
+                                <>
+                                  <span className="text-sm text-muted-foreground">by</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <Avatar className="h-5 w-5">
+                                      <AvatarFallback className="text-[10px]">
+                                        {getInitials(log.user.name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-sm font-medium">{log.user.name}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                  <User className="h-3.5 w-3.5" />
+                                  <span>System</span>
                                 </div>
-                              </>
-                            ) : (
-                              <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                                <User className="h-3.5 w-3.5" />
-                                <span>System</span>
+                              )}
+                            </div>
+
+                            {/* Comment */}
+                            {log.comment && <p className="text-sm text-muted-foreground mt-1">{log.comment}</p>}
+
+                            {/* Metadata */}
+                            {log.metadata && Object.keys(log.metadata).length > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                                {log.metadata.event_title != null && <p>Event: {String(log.metadata.event_title)}</p>}
+                                {log.metadata.reason != null && <p>Reason: {String(log.metadata.reason)}</p>}
+                                {log.metadata.approver_count != null && (
+                                  <p>Approvers: {String(log.metadata.approver_count)}</p>
+                                )}
                               </div>
                             )}
                           </div>
+                        </div>
+                      );
+                    })}
 
-                          {/* Comment */}
-                          {log.comment && <p className="text-sm text-muted-foreground mt-1">{log.comment}</p>}
-
-                          {/* Metadata */}
-                          {log.metadata && Object.keys(log.metadata).length > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                              {log.metadata.event_title != null && <p>Event: {String(log.metadata.event_title)}</p>}
-                              {log.metadata.reason != null && <p>Reason: {String(log.metadata.reason)}</p>}
-                              {log.metadata.approver_count != null && (
-                                <p>Approvers: {String(log.metadata.approver_count)}</p>
-                              )}
-                            </div>
-                          )}
+                    {/* Expand similar entries button */}
+                    {shouldShowExpand && (
+                      <div className="relative flex items-center pb-4">
+                        {/* Dashed connector line */}
+                        <div className="absolute left-[60px] h-8 w-0.5 border-l border-dashed border-border" />
+                        <div className="relative z-10 ml-[60px]">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto p-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent dark:text-blue-400 dark:hover:text-blue-300"
+                            onClick={() => toggleGroup(group.id)}
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="h-3 w-3 mr-1" />
+                                Collapse {hiddenCount} similar {hiddenCount === 1 ? "entry" : "entries"}
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-3 w-3 mr-1" />
+                                Expand {hiddenCount} similar {hiddenCount === 1 ? "entry" : "entries"}
+                              </>
+                            )}
+                          </Button>
                         </div>
                       </div>
-                    );
-                  })}
-
-                  {/* Expand similar entries button */}
-                  {shouldShowExpand && (
-                    <div className="relative flex items-center pb-4">
-                      {/* Dashed connector line */}
-                      <div className="absolute left-[60px] h-8 w-0.5 border-l border-dashed border-border" />
-                      <div className="relative z-10 ml-[60px]">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-auto p-1 text-xs text-blue-600 hover:text-blue-700 hover:bg-transparent dark:text-blue-400 dark:hover:text-blue-300"
-                          onClick={() => toggleGroup(group.id)}
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="h-3 w-3 mr-1" />
-                              Collapse {hiddenCount} similar {hiddenCount === 1 ? "entry" : "entries"}
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-3 w-3 mr-1" />
-                              Expand {hiddenCount} similar {hiddenCount === 1 ? "entry" : "entries"}
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Gradient overlay and Show more when collapsible, collapsed, and content overflows */}
+          {collapsible && isCollapsed && hasOverflow && (
+            <div
+              className="z-10 absolute bottom-0 left-0 right-0 flex flex-col items-center pt-16 pb-2 bg-gradient-to-t from-card via-card/80 to-transparent pointer-events-none"
+              aria-hidden
+            >
+              <div className="pointer-events-auto">
+                <Button size="sm" className="shadow-md" onClick={() => setHistoryExpanded(true)}>
+                  <ChevronDown className="h-4 w-4 mr-1" />
+                  Show more
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Show less when expanded and collapsible */}
+          {showLessButton && (
+            <div className="pt-4 flex justify-center border-t mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHistoryExpanded(false)}
+                className="text-muted-foreground"
+              >
+                <ChevronUp className="h-4 w-4 mr-1" />
+                Show less
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -35,13 +35,10 @@ export interface VenueWithCreator extends Venue {
     name: string;
     email: string;
     role: string;
+    phone: string | null;
+    avatar_url: string | null;
   };
   country_location?: {
-    id: string;
-    name: string;
-    code: string | null;
-  } | null;
-  state_location?: {
     id: string;
     name: string;
     code: string | null;
@@ -58,13 +55,10 @@ interface VenueWithCreatorRaw extends Venue {
     last_name: string | null;
     email: string;
     role: string;
+    phone: string | null;
+    avatar_url: string | null;
   } | null;
   country_location?: {
-    id: string;
-    name: string;
-    code: string | null;
-  } | null;
-  state_location?: {
     id: string;
     name: string;
     code: string | null;
@@ -101,25 +95,23 @@ export async function findAll(
             id,
             name,
             code
-          ),
-          state_location:locations!venues_state_id_fkey (
-            id,
-            name,
-            code
           )
         `
       : "*"
   );
+
+  // Exclude soft-deleted venues
+  query = query.is("deleted_at", null);
 
   // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
   if (subordinateUserIds !== null) {
     query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
   }
 
-  query = query.order("name", { ascending: true });
+  query = query.order("created_at", { ascending: false });
 
   if (options?.activeOnly !== false) {
-    query = query.eq("is_active", true);
+    query = query.eq("is_active", true).eq("approval_status", "approved");
   }
 
   const { data, error } = await query;
@@ -142,7 +134,6 @@ export async function findAll(
         }
       : undefined,
     country_location: venue.country_location || null,
-    state_location: venue.state_location || null,
   })) as VenueWithCreator[];
 }
 
@@ -171,14 +162,11 @@ export async function findByShortId(
             first_name,
             last_name,
             email,
-            role
+            role,
+            phone,
+            avatar_url
           ),
           country_location:locations!venues_country_id_fkey (
-            id,
-            name,
-            code
-          ),
-          state_location:locations!venues_state_id_fkey (
             id,
             name,
             code
@@ -186,7 +174,8 @@ export async function findByShortId(
         `
         : "*"
     )
-    .eq("short_id", shortId);
+    .eq("short_id", shortId)
+    .is("deleted_at", null);
 
   // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
   if (subordinateUserIds !== null) {
@@ -211,14 +200,17 @@ export async function findByShortId(
       creator:
         includeCreator && typedData.creator
           ? {
-              ...typedData.creator,
+              id: typedData.creator.id,
               name: typedData.creator.last_name
                 ? `${typedData.creator.first_name} ${typedData.creator.last_name}`
                 : typedData.creator.first_name,
+              email: typedData.creator.email,
+              role: typedData.creator.role,
+              phone: typedData.creator.phone ?? null,
+              avatar_url: typedData.creator.avatar_url ?? null,
             }
           : undefined,
       country_location: typedData.country_location || null,
-      state_location: typedData.state_location || null,
     } as VenueWithCreator;
   }
 
@@ -257,16 +249,12 @@ export async function findById(
             id,
             name,
             code
-          ),
-          state_location:locations!venues_state_id_fkey (
-            id,
-            name,
-            code
           )
         `
         : "*"
     )
-    .eq("id", id);
+    .eq("id", id)
+    .is("deleted_at", null);
 
   // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
   if (subordinateUserIds !== null) {
@@ -298,7 +286,6 @@ export async function findById(
             }
           : undefined,
       country_location: typedData.country_location || null,
-      state_location: typedData.state_location || null,
     } as VenueWithCreator;
   }
 
@@ -324,6 +311,7 @@ export async function findDuplicate(
   let query = supabase
     .from("venues")
     .select("*")
+    .is("deleted_at", null)
     .eq("is_active", true)
     .ilike("name", name.trim())
     .ilike("street", street.trim())
@@ -413,9 +401,29 @@ export async function update(id: string, venue: VenueUpdate): Promise<Venue> {
 }
 
 /**
- * Soft delete a venue (set is_active = false)
+ * Soft delete a venue (set deleted_at so it is hidden from all lists and lookups)
  */
 export async function softDelete(id: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("venues")
+    // @ts-expect-error - Supabase type inference issue with Database types
+    .update({
+      deleted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(`Failed to delete venue: ${error.message}`);
+  }
+}
+
+/**
+ * Ban a venue (set is_active = false). Does not set deleted_at; use softDelete for user-initiated delete.
+ */
+export async function banVenue(id: string): Promise<void> {
   const supabase = await createClient();
 
   const { error } = await supabase
@@ -428,7 +436,7 @@ export async function softDelete(id: string): Promise<void> {
     .eq("id", id);
 
   if (error) {
-    throw new Error(`Failed to delete venue: ${error.message}`);
+    throw new Error(`Failed to ban venue: ${error.message}`);
   }
 }
 
@@ -483,15 +491,11 @@ export async function search(
             id,
             name,
             code
-          ),
-          state_location:locations!venues_state_id_fkey (
-            id,
-            name,
-            code
           )
         `
         : "*"
     )
+    .is("deleted_at", null)
     .eq("is_active", true)
     .or(
       `name.ilike.%${searchQuery}%,city.ilike.%${searchQuery}%,street.ilike.%${searchQuery}%,address.ilike.%${searchQuery}%`
@@ -522,7 +526,6 @@ export async function search(
         }
       : undefined,
     country_location: venue.country_location || null,
-    state_location: venue.state_location || null,
   })) as VenueWithCreator[];
 }
 
@@ -533,21 +536,30 @@ export async function search(
  * @param subordinateUserIds - Array of user IDs that the current user can see
  * @param options - Filter and pagination options
  */
+/** Single dropdown: approval status, verified, and is_active */
+export type VenueStatusFilter =
+  | "all"
+  | "active"
+  | "banned"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "verified"
+  | "not_verified";
+
 export interface VenueFilterOptions {
-  search?: string; // Search by name or city
-  state?: string | null; // Filter by state (null = all states)
-  status?: "active" | "banned" | "all"; // Filter by status
-  specs?: string[]; // Filter by technical specs (sound, lights, screens)
-  dateFrom?: string | null; // Filter by availability start date (ISO string)
-  dateTo?: string | null; // Filter by availability end date (ISO string)
-  standingMin?: number | null; // Minimum standing capacity
-  standingMax?: number | null; // Maximum standing capacity
-  seatedMin?: number | null; // Minimum seated capacity
-  seatedMax?: number | null; // Maximum seated capacity
-  page?: number; // Page number (1-indexed)
-  pageSize?: number; // Items per page
+  search?: string;
+  status?: VenueStatusFilter;
+  totalCapacityMin?: number | null;
+  totalCapacityMax?: number | null;
+  numberOfTablesMin?: number | null;
+  numberOfTablesMax?: number | null;
+  ticketCapacityMin?: number | null;
+  ticketCapacityMax?: number | null;
+  page?: number;
+  pageSize?: number;
   includeCreator?: boolean;
-  onlyOwn?: boolean; // If true, only return venues created by the current user (not subordinates)
+  onlyOwn?: boolean;
 }
 
 export interface PaginatedVenues {
@@ -565,15 +577,13 @@ export async function findAllWithFilters(
   const supabase = await createClient();
   const {
     search: searchQuery,
-    state,
-    status = "active",
-    specs = [],
-    dateFrom,
-    dateTo,
-    standingMin,
-    standingMax,
-    seatedMin,
-    seatedMax,
+    status = "all",
+    totalCapacityMin,
+    totalCapacityMax,
+    numberOfTablesMin,
+    numberOfTablesMax,
+    ticketCapacityMin,
+    ticketCapacityMax,
     page = 1,
     pageSize = 9,
     includeCreator = true,
@@ -595,83 +605,71 @@ export async function findAllWithFilters(
             id,
             name,
             code
-          ),
-          state_location:locations!venues_state_id_fkey (
-            id,
-            name,
-            code
           )
         `
       : "*",
     { count: "exact" }
   );
 
+  // Exclude soft-deleted venues
+  query = query.is("deleted_at", null);
+
   // Only filter by creator_id if subordinateUserIds is provided (null means see all venues - for global directors)
   if (subordinateUserIds !== null) {
     query = query.in("creator_id", subordinateUserIds); // Backend authorization filter
   }
 
-  // Apply status filter (AND)
+  // Apply status filter (AND) — one dropdown: approval status, verified, is_active
   if (status === "active") {
-    query = query.eq("is_active", true);
+    query = query.eq("is_active", true).eq("approval_status", "approved");
   } else if (status === "banned") {
     query = query.eq("is_active", false);
+  } else if (status === "pending") {
+    query = query.eq("approval_status", "pending");
+  } else if (status === "approved") {
+    query = query.eq("approval_status", "approved");
+  } else if (status === "rejected") {
+    query = query.eq("approval_status", "rejected");
+  } else if (status === "verified") {
+    query = query.eq("contact_email_verified", true);
+  } else if (status === "not_verified") {
+    query = query.eq("contact_email_verified", false);
   }
-  // "all" means no status filter
+  // "all" = no status filter
 
-  // Apply state filter (AND)
-  if (state && state !== "all") {
-    query = query.eq("state", state);
-  }
-
-  // Apply search filter (AND) - search by name or city only
+  // Apply search filter (AND) — search by name, city, or country
   if (searchQuery && searchQuery.trim().length > 0) {
     const trimmedQuery = searchQuery.trim();
-    query = query.or(`name.ilike.%${trimmedQuery}%,city.ilike.%${trimmedQuery}%`);
-  }
-
-  // Apply date range filter (AND)
-  if (dateFrom) {
-    query = query.gte("availability_start_date", dateFrom);
-  }
-  if (dateTo) {
-    query = query.lte("availability_end_date", dateTo);
-  }
-
-  // Apply technical specs filter (AND) - venue must have ALL selected specs
-  if (specs.length > 0) {
-    specs.forEach((spec) => {
-      if (spec === "sound") {
-        query = query.eq("technical_specs->sound", true);
-      } else if (spec === "lights") {
-        query = query.eq("technical_specs->lights", true);
-      } else if (spec === "screens") {
-        query = query.eq("technical_specs->screens", true);
-      }
-    });
+    query = query.or(`name.ilike.%${trimmedQuery}%,city.ilike.%${trimmedQuery}%,country.ilike.%${trimmedQuery}%`);
   }
 
   // Apply capacity filters (AND)
-  if (standingMin !== null && standingMin !== undefined) {
-    query = query.gte("capacity_standing", standingMin);
+  if (totalCapacityMin !== null && totalCapacityMin !== undefined) {
+    query = query.gte("total_capacity", totalCapacityMin);
   }
-  if (standingMax !== null && standingMax !== undefined) {
-    query = query.lte("capacity_standing", standingMax);
+  if (totalCapacityMax !== null && totalCapacityMax !== undefined) {
+    query = query.lte("total_capacity", totalCapacityMax);
   }
-  if (seatedMin !== null && seatedMin !== undefined) {
-    query = query.gte("capacity_seated", seatedMin);
+  if (numberOfTablesMin !== null && numberOfTablesMin !== undefined) {
+    query = query.gte("number_of_tables", numberOfTablesMin);
   }
-  if (seatedMax !== null && seatedMax !== undefined) {
-    query = query.lte("capacity_seated", seatedMax);
+  if (numberOfTablesMax !== null && numberOfTablesMax !== undefined) {
+    query = query.lte("number_of_tables", numberOfTablesMax);
   }
+  if (ticketCapacityMin !== null && ticketCapacityMin !== undefined) {
+    query = query.gte("ticket_capacity", ticketCapacityMin);
+  }
+  if (ticketCapacityMax !== null && ticketCapacityMax !== undefined) {
+    query = query.lte("ticket_capacity", ticketCapacityMax);
+  }
+
+  // Order by created_at descending (newest first) — applied before range for correct pagination
+  query = query.order("created_at", { ascending: false });
 
   // Apply pagination
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
   query = query.range(from, to);
-
-  // Order by name
-  query = query.order("name", { ascending: true });
 
   const { data, error, count } = await query;
 
@@ -693,7 +691,6 @@ export async function findAllWithFilters(
         }
       : undefined,
     country_location: venue.country_location || null,
-    state_location: venue.state_location || null,
   })) as VenueWithCreator[];
 
   const total = count || 0;

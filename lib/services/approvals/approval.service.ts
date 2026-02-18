@@ -11,31 +11,32 @@ import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import * as approvalDAL from "@/lib/data-access/event-approvals.dal";
 import * as eventVersionDAL from "@/lib/data-access/event-versions.dal";
 import * as reportService from "@/lib/services/reports/report.service";
+import * as marketingReportsDAL from "@/lib/data-access/marketing-reports.dal";
 import * as auditService from "@/lib/services/audit/audit.service";
 import { isLastApprover, getNextApprover } from "@/lib/services/approvals/chain-builder.service";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import { createClient } from "@/lib/supabase/server";
 import * as emailService from "../email/email.service";
+import { buildIcsContent } from "../calendar/ics.service";
 
 /**
  * Approve an event
  * - Marks current approval as approved
- * - If last in chain OR Global Director: sets event status to approved_scheduled
+ * - If last in chain: sets event status (e.g. approved_scheduled)
  * - Else: activates next approver and notifies them
  * - Logs audit
  *
- * Special behavior for Global Directors:
- * - Can approve at any time, even if it's not their turn (status = "waiting")
- * - Their approval immediately finalizes the event (bypasses remaining approvers)
- * - All pending/waiting approvals are marked as "skipped"
+ * Pyramid is enforced for all roles including Global Director: you can only approve when it is your turn (status = "pending").
+ * Global Directors can see all pending/waiting approvals but cannot bypass the chain.
  */
 export async function approveEvent(
   userId: string,
   eventId: string,
   comment: string
-): Promise<{ event: EventWithRelations; isLast: boolean; isGlobalDirectorBypass?: boolean }> {
+): Promise<{ event: EventWithRelations; isLast: boolean }> {
   // Get subordinate user IDs for authorization
   const subordinateIds = await getSubordinateUserIds(userId);
+  const supabase = await createClient();
 
   // Get the event (with authorization check)
   const event = await eventDAL.findById(eventId, subordinateIds, false);
@@ -43,25 +44,7 @@ export async function approveEvent(
     throw new NotFoundError("Event", eventId);
   }
 
-  // Get approver's user record to check their role
-  const supabase = await createClient();
-  const { data: approverUser, error: approverError } = await supabase
-    .from("users")
-    .select("id, role")
-    .eq("id", userId)
-    .single();
-
-  if (approverError || !approverUser) {
-    throw new NotFoundError("User", userId);
-  }
-
-  // Type assertion for Supabase query result
-  type ApproverUser = { id: string; role: string };
-  const approver = approverUser as ApproverUser;
-  const isGlobalDirector = approver.role === "global_director";
-
-  // Get current pending/waiting approval for this user
-  // Need to filter by approval_type to handle different types (event, modification, etc.)
+  // Get current pending approval for this user (must be their turn = status "pending")
   const approvals = await approvalDAL.findByEventId(eventId, false);
   const currentApproval = approvals.find(
     (a) => a.approver_id === userId && (a.status === "pending" || a.status === "waiting")
@@ -73,9 +56,8 @@ export async function approveEvent(
 
   const approvalType = currentApproval.approval_type || "event";
 
-  // Check if this is the current approver's turn
-  // Global Directors can approve at any time, bypassing the queue
-  if (currentApproval.status === "waiting" && !isGlobalDirector) {
+  // Enforce pyramid: only the current approver (status = "pending") can approve. No bypass for any role.
+  if (currentApproval.status === "waiting") {
     throw new ForbiddenError("It is not your turn to approve this event");
   }
 
@@ -85,28 +67,7 @@ export async function approveEvent(
   // Check if this is the last approver (filter by approval_type)
   const isLast = await isLastApprover(eventId, currentApproval.sequence_order, approvalType);
 
-  // IMPORTANT: Global Director approval ALWAYS means final approval, regardless of position in chain
-  // This allows Global Directors to approve events even if intermediate approvers haven't approved yet
-  // Global Director approval OR last approver = final approval
-  if (isLast || isGlobalDirector) {
-    // If Global Director is bypassing intermediate approvers, mark all remaining approvals as approved (skipped)
-    if (isGlobalDirector && !isLast) {
-      const pendingApprovals = approvals.filter(
-        (a) =>
-          a.id !== currentApproval.id &&
-          a.approval_type === approvalType &&
-          (a.status === "pending" || a.status === "waiting")
-      );
-
-      for (const approval of pendingApprovals) {
-        await approvalDAL.updateStatus(
-          approval.id,
-          "approved", // Mark as approved since Global Director approved (bypassing intermediate steps)
-          "Skipped: Global Director approved"
-        );
-      }
-    }
-
+  if (isLast) {
     // Handle final approval based on approval type
     if (approvalType === "modification") {
       // For modifications: apply the version data to the event
@@ -117,13 +78,12 @@ export async function approveEvent(
 
       type EventVersionData = {
         title: string;
-        description: string | null;
         starts_at: string;
-        ends_at: string | null;
         venue_id: string | null;
+        dj_id?: string | null;
         expected_attendance: number | null;
-        budget_amount: number | null;
-        budget_currency: string | null;
+        minimum_ticket_price: number | null;
+        minimum_table_price: number | null;
         notes: string | null;
       };
 
@@ -132,13 +92,12 @@ export async function approveEvent(
       // Update event with modification data
       await eventDAL.update(eventId, {
         title: versionData.title,
-        description: versionData.description || null,
         starts_at: versionData.starts_at,
-        ends_at: versionData.ends_at || null,
         venue_id: versionData.venue_id || null,
+        dj_id: versionData.dj_id ?? null,
         expected_attendance: versionData.expected_attendance || null,
-        budget_amount: versionData.budget_amount || null,
-        budget_currency: versionData.budget_currency || "USD",
+        minimum_ticket_price: versionData.minimum_ticket_price ?? null,
+        minimum_table_price: versionData.minimum_table_price ?? null,
         notes: versionData.notes || null,
       });
 
@@ -148,7 +107,6 @@ export async function approveEvent(
         version_id: pendingVersion.id,
         comment,
         final_approval: true,
-        global_director_bypass: isGlobalDirector && !isLast,
       });
     } else if (approvalType === "cancellation") {
       // For cancellations: set event status to cancelled
@@ -161,7 +119,6 @@ export async function approveEvent(
         event_title: event.title,
         comment,
         final_approval: true,
-        global_director_bypass: isGlobalDirector && !isLast,
       });
     } else if (approvalType === "report") {
       // For reports: set event status to completed_archived
@@ -180,7 +137,19 @@ export async function approveEvent(
         event_title: event.title,
         comment,
         final_approval: true,
-        global_director_bypass: isGlobalDirector && !isLast,
+      });
+    } else if (approvalType === "marketing_report") {
+      // For marketing reports: update the pending marketing report to approved
+      const pendingMarketingReport = await marketingReportsDAL.findPendingByEventId(eventId);
+      if (pendingMarketingReport) {
+        await marketingReportsDAL.updateStatus(pendingMarketingReport.id, "approved");
+      }
+
+      await auditService.log("approve_report", userId, eventId, {
+        event_title: event.title,
+        comment,
+        final_approval: true,
+        marketing_report: true,
       });
     } else {
       // For regular events: set event status to approved_scheduled
@@ -200,10 +169,61 @@ export async function approveEvent(
           }>();
         const prefs = creator?.notification_prefs;
         if (creator?.email && prefs?.email_enabled !== false && prefs?.event_approved !== false) {
-          await emailService.sendEventApprovedEmail(creator.email, event.title, eventId);
+          await emailService.sendEventApprovedEmail(creator.email, event.title, event.short_id);
         }
       } catch (err) {
         console.error("Failed to send event approved email:", err);
+      }
+
+      // Send calendar invite (email + .ics) to event planner, DJs, subordinates, and marketing manager
+      try {
+        const eventWithRelations = await eventDAL.findById(eventId, subordinateIds, true);
+        if (
+          eventWithRelations?.starts_at &&
+          (eventWithRelations.creator?.email ||
+            eventWithRelations.dj?.email ||
+            (await getSubordinateUserIds(event.creator_id)).length > 0)
+        ) {
+          const icsContent = buildIcsContent({
+            title: eventWithRelations.title,
+            startsAt: eventWithRelations.starts_at,
+            venueName: eventWithRelations.venue?.name ?? null,
+            venueAddress: eventWithRelations.venue?.address ?? null,
+            description: eventWithRelations.notes ?? null,
+            uid: eventWithRelations.id,
+          });
+          const creatorSubordinateIds = await getSubordinateUserIds(event.creator_id);
+          const { data: subordinateUsers } = await supabase
+            .from("users")
+            .select("email")
+            .in("id", creatorSubordinateIds)
+            .eq("is_active", true);
+          const { data: marketingManagers } = await supabase
+            .from("users")
+            .select("email")
+            .eq("role", "marketing_manager")
+            .eq("is_active", true);
+          const emails = new Set<string>();
+          if (eventWithRelations.creator?.email) emails.add(eventWithRelations.creator.email);
+          if (eventWithRelations.dj?.email) emails.add(eventWithRelations.dj.email);
+          (subordinateUsers ?? []).forEach((u) => u.email && emails.add(u.email));
+          (marketingManagers ?? []).forEach((u) => u.email && emails.add(u.email));
+          for (const toEmail of emails) {
+            if (!toEmail?.trim()) continue;
+            try {
+              await emailService.sendEventCalendarInviteEmail(
+                toEmail,
+                eventWithRelations.title,
+                eventWithRelations.short_id,
+                icsContent
+              );
+            } catch (err) {
+              console.error(`Failed to send calendar invite to ${toEmail}:`, err);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to send event calendar invites:", err);
       }
 
       // Log audit trail
@@ -211,7 +231,6 @@ export async function approveEvent(
         event_title: event.title,
         comment,
         final_approval: true,
-        global_director_bypass: isGlobalDirector && !isLast,
       });
     }
   } else {
@@ -245,8 +264,7 @@ export async function approveEvent(
 
   return {
     event: updatedEvent,
-    isLast: isLast || isGlobalDirector,
-    isGlobalDirectorBypass: isGlobalDirector && !isLast,
+    isLast,
   };
 }
 
@@ -271,23 +289,6 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
     throw new NotFoundError("Event", eventId);
   }
 
-  // Get approver's user record to check their role
-  const supabase = await createClient();
-  const { data: approverUser, error: approverError } = await supabase
-    .from("users")
-    .select("id, role")
-    .eq("id", userId)
-    .single();
-
-  if (approverError || !approverUser) {
-    throw new NotFoundError("User", userId);
-  }
-
-  // Type assertion for Supabase query result
-  type ApproverUser = { id: string; role: string };
-  const approver = approverUser as ApproverUser;
-  const isGlobalDirector = approver.role === "global_director";
-
   // Get current pending approval for this user
   const approvals = await approvalDAL.findByEventId(eventId, false);
   const currentApproval = approvals.find(
@@ -300,11 +301,12 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
 
   const approvalType = currentApproval.approval_type || "event";
 
-  // Check if this is the current approver's turn
-  // Global Directors can reject at any time, bypassing the queue
-  if (currentApproval.status === "waiting" && !isGlobalDirector) {
+  // Enforce pyramid: only the current approver (status = "pending") can reject. No bypass for any role.
+  if (currentApproval.status === "waiting") {
     throw new ForbiddenError("It is not your turn to approve this event");
   }
+
+  const supabase = await createClient();
 
   // Update approval status
   await approvalDAL.updateStatus(currentApproval.id, "rejected", comment);
@@ -343,6 +345,17 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
     await auditService.log("reject_report", userId, eventId, {
       event_title: event.title,
       comment,
+    });
+  } else if (approvalType === "marketing_report") {
+    const pendingMarketingReport = await marketingReportsDAL.findPendingByEventId(eventId);
+    if (pendingMarketingReport) {
+      await marketingReportsDAL.updateStatus(pendingMarketingReport.id, "rejected");
+    }
+
+    await auditService.log("reject_report", userId, eventId, {
+      event_title: event.title,
+      comment,
+      marketing_report: true,
     });
   } else {
     // For regular events: set event status to rejected
@@ -387,14 +400,14 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
 /**
  * Get pending approvals for a user
  *
- * For Global Directors: Returns all approvals (pending + waiting) so they can approve
- * at any stage, even if intermediate approvers haven't approved yet.
+ * For Global Directors: Returns all approvals (pending + waiting) for visibility.
+ * They can only approve/reject when it is their turn (status = "pending"); pyramid is not bypassed.
  *
  * For other roles: Returns only pending approvals (their current turn).
  */
 export async function getPendingApprovals(
   userId: string,
-  approvalType: "event" | "modification" | "cancellation" | "report" = "event"
+  approvalType: "event" | "modification" | "cancellation" | "report" | "marketing_report" = "event"
 ): Promise<EventApprovalWithApprover[]> {
   // Check if user is Global Director
   const supabase = await createClient();

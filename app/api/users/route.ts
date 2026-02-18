@@ -1,12 +1,12 @@
 /**
  * Users API Route
  *
- * GET /api/users - Get paginated users with search and filters (Global Director only)
+ * GET /api/users - Get paginated users (Global Director: all users; others: pyramid only)
  * POST /api/users - Create a new user directly (Global Director only)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth/server";
+import { requireAuth, requireRole } from "@/lib/auth/server";
 import { UnauthorizedError, ForbiddenError } from "@/lib/utils/errors";
 import * as userService from "@/lib/services/users/user.service";
 import { createUserSchema } from "@/lib/validation/users.schema";
@@ -17,7 +17,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/users
- * Get paginated users with search and filters (Global Director only)
+ * Get paginated users: Global Director sees all; other roles see only their pyramid.
  *
  * Query params:
  * - page: number (default: 1)
@@ -28,21 +28,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require Global Director role
-    let authUser;
-    try {
-      authUser = await requireRole([UserRole.GLOBAL_DIRECTOR]);
-    } catch (error) {
-      if (error instanceof UnauthorizedError) {
-        return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
-      }
-      if (error instanceof ForbiddenError) {
-        return NextResponse.json(
-          { success: false, error: "Only Global Directors can access this resource" },
-          { status: 403 }
-        );
-      }
-      throw error;
+    const authUser = await requireAuth();
+    if (!authUser) {
+      return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -53,8 +41,8 @@ export async function GET(request: NextRequest) {
     const roleFilter = searchParams.get("roleFilter") || null;
     const statusFilter = (searchParams.get("statusFilter") as "pending" | "active" | "inactive" | null) || null;
 
-    // Get paginated users
-    const result = await userService.getAllUsersPaginated(authUser.id, {
+    // Global Director: all users; others: pyramid only
+    const result = await userService.getUsersPaginatedForRequester(authUser.id, {
       page,
       limit,
       searchQuery,

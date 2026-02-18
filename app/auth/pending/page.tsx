@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Clock } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth/client";
+import Image from "next/image";
 
 export default function PendingPage() {
   const router = useRouter();
@@ -36,6 +37,16 @@ export default function PendingPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
+          <div className="mx-auto mb-2">
+            <Image
+              src="/images/shiraz-house-logo.webp"
+              alt="Shiraz House"
+              width={120}
+              height={48}
+              priority
+              className="h-12 w-auto object-contain"
+            />
+          </div>
           <div className="flex items-center justify-center mb-4">
             <Clock className="h-12 w-12 text-muted-foreground" />
           </div>

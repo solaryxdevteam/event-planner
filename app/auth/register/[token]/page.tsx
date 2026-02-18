@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getLocationById, getStatesByCountry } from "@/lib/actions/locations";
+import { getLocationById } from "@/lib/actions/locations";
 import { signInWithPassword } from "@/lib/auth/client";
 import { encryptPassword } from "@/lib/utils/password-encryption.client";
 import { useValidateInvitation } from "@/lib/hooks/use-invitations";
@@ -16,12 +16,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LocationCombobox } from "@/components/ui/location-combobox";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { InputPasswordStrength } from "@/components/ui/input-password-strength";
 import { PasswordInput } from "@/components/ui/password-input";
 import { toast } from "sonner";
 import { Loader2, AlertCircle } from "lucide-react";
+import Image from "next/image";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -35,15 +35,11 @@ export default function RegisterPage() {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [states, setStates] = useState<Array<{ id: string; name: string }>>([]);
-  const [loadingStates, setLoadingStates] = useState(false);
   const [formData, setFormData] = useState({
     first_name: "",
     last_name: "",
     email: "",
     phone: "",
-    company: "",
-    state_id: null as string | null,
     city: "",
     password: "",
     confirmPassword: "",
@@ -63,30 +59,7 @@ export default function RegisterPage() {
         country_name: countryName,
       });
     });
-
-    setLoadingStates(true);
-    getStatesByCountry(invitationData.country_id)
-      .then((response) => {
-        if (response.success && response.data) {
-          setStates(response.data.map((s) => ({ id: s.id, name: s.name })));
-        }
-      })
-      .finally(() => setLoadingStates(false));
   }, [invitationData?.country_id, invitationData?.email]);
-
-  // const loadStates = async (countryId: string) => {
-  //   setLoadingStates(true);
-  //   try {
-  //     const response = await getStatesByCountry(countryId);
-  //     if (response.success && response.data) {
-  //       setStates(response.data.map((s) => ({ id: s.id, name: s.name })));
-  //     }
-  //   } catch (error) {
-  //     console.error("Failed to load states:", error);
-  //   } finally {
-  //     setLoadingStates(false);
-  //   }
-  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,8 +108,6 @@ export default function RegisterPage() {
           last_name: formData.last_name || null,
           email: formData.email,
           phone: formData.phone || null,
-          company: formData.company || null,
-          state_id: formData.state_id || null,
           city: formData.city || null,
           password: encryptedPassword,
         }),
@@ -145,18 +116,21 @@ export default function RegisterPage() {
       const result = await response.json();
 
       if (result.success) {
-        toast.success("Registration successful! Your account is pending activation.");
+        toast.success("Registration successful! Check your email for a verification code.");
 
-        // Sign in the user with their credentials
+        // Redirect to verify email page (user must enter OTP to activate account)
+        if (result.needsEmailVerification) {
+          router.push(`/auth/verify-email?email=${encodeURIComponent(formData.email)}`);
+          router.refresh();
+          return;
+        }
+
+        // Fallback: sign in if no verification required
         const signInResult = await signInWithPassword(formData.email, formData.password);
-
         if (signInResult.success) {
-          // Redirect to profile page after successful sign in
           router.push("/dashboard/profile");
           router.refresh();
         } else {
-          // If sign in fails, still redirect but show a message
-          toast.warning("Registration successful, but automatic sign-in failed. Please sign in manually.");
           router.push("/auth/login");
         }
       } else {
@@ -192,6 +166,18 @@ export default function RegisterPage() {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
+          <CardHeader className="pb-2">
+            <div className="mx-auto">
+              <Image
+                src="/images/shiraz-house-logo.webp"
+                alt="Shiraz House"
+                width={120}
+                height={48}
+                priority
+                className="h-12 w-auto object-contain"
+              />
+            </div>
+          </CardHeader>
           <CardContent className="pt-6">
             <div className="flex items-center justify-center">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -207,6 +193,16 @@ export default function RegisterPage() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
+            <div className="mx-auto mb-2">
+              <Image
+                src="/images/shiraz-house-logo.webp"
+                alt="Shiraz House"
+                width={120}
+                height={48}
+                priority
+                className="h-12 w-auto object-contain"
+              />
+            </div>
             <CardTitle>Invalid Invitation</CardTitle>
             <CardDescription>This invitation link is invalid or has expired</CardDescription>
           </CardHeader>
@@ -230,6 +226,16 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-4xl">
         <CardHeader>
+          <div className="mx-auto mb-2">
+            <Image
+              src="/images/shiraz-house-logo.webp"
+              alt="Shiraz House"
+              width={120}
+              height={48}
+              priority
+              className="h-12 w-auto object-contain"
+            />
+          </div>
           <CardTitle>Complete Your Registration</CardTitle>
           <CardDescription>Fill in your details to create your account</CardDescription>
         </CardHeader>
@@ -288,17 +294,6 @@ export default function RegisterPage() {
                 />
               </div>
 
-              {/* State */}
-              <LocationCombobox
-                value={formData.state_id || undefined}
-                onValueChange={(value) => setFormData({ ...formData, state_id: value || null })}
-                options={states}
-                placeholder="Select state"
-                disabled={isSubmitting || loadingStates}
-                loading={loadingStates}
-                label="State"
-              />
-
               {/* City */}
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
@@ -321,19 +316,6 @@ export default function RegisterPage() {
                   onChange={(value) => setFormData({ ...formData, phone: value || "" })}
                   placeholder="+1 (234) 567-8900"
                   defaultCountry="US"
-                />
-              </div>
-
-              {/* Company */}
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  type="text"
-                  placeholder="Your Company"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                  disabled={isSubmitting}
                 />
               </div>
 

@@ -8,7 +8,13 @@
 // ENUMS
 // =============================================
 
-export type Role = "event_planner" | "city_curator" | "regional_curator" | "lead_curator" | "global_director";
+export type Role =
+  | "event_planner"
+  | "city_curator"
+  | "regional_curator"
+  | "lead_curator"
+  | "global_director"
+  | "marketing_manager";
 
 export type EventStatus =
   | "draft"
@@ -21,10 +27,11 @@ export type EventStatus =
 
 export type ApprovalStatus = "waiting" | "pending" | "approved" | "rejected";
 
-export type ApprovalType = "event" | "modification" | "cancellation" | "report";
+export type ApprovalType = "event" | "modification" | "cancellation" | "report" | "marketing_report";
 
 export type ActionType =
   | "create_draft"
+  | "create_event_as_approved"
   | "submit_for_approval"
   | "approve"
   | "reject"
@@ -45,7 +52,9 @@ export type ActionType =
   | "create_venue"
   | "update_venue"
   | "delete_venue"
-  | "ban_venue";
+  | "ban_venue"
+  | "approve_venue"
+  | "reject_venue";
 
 export type UserStatus = "pending" | "active" | "inactive";
 
@@ -61,10 +70,8 @@ export interface User {
   role: Role;
   parent_id: string | null;
   country_id: string;
-  state_id: string | null;
   city: string | null;
   phone: string | null;
-  company: string | null;
   status: UserStatus;
   is_active: boolean;
   avatar_url: string | null;
@@ -84,60 +91,128 @@ export interface User {
   updated_at: string;
 }
 
+/** Media item: photo or video with optional cover flag */
+export interface VenueMediaItem {
+  url: string;
+  type: "photo" | "video";
+  isCover?: boolean;
+}
+
 export interface Venue {
   id: string;
-  short_id: string | null; // Unique short identifier for URL
+  short_id: string | null;
   name: string;
-  address: string; // Full address (kept for backward compatibility)
-  street: string | null; // Street address
+  address: string;
+  street: string | null;
   city: string;
-  state: string | null; // State/Province (kept for backward compatibility)
-  country: string; // Country (kept for backward compatibility)
-  country_id: string | null; // Country ID from locations table
-  state_id: string | null; // State ID from locations table
+  country: string;
+  country_id: string | null;
   location_lat: number | null;
   location_lng: number | null;
-  // Step 2 fields
-  capacity_standing: number | null;
-  capacity_seated: number | null;
-  available_rooms_halls: string | null;
-  technical_specs: {
-    sound?: boolean;
-    lights?: boolean;
-    screens?: boolean;
-    [key: string]: unknown;
-  } | null;
-  availability_start_date: string | null; // ISO date string
-  availability_end_date: string | null; // ISO date string
-  base_pricing: number | null; // DECIMAL as number
-  // Step 3 fields
+  total_capacity: number | null;
+  number_of_tables: number | null;
+  ticket_capacity: number | null;
+  sounds: string | null;
+  lights: string | null;
+  screens: string | null;
+  /** URLs only (legacy) or { url, name? }[] for display of original file names */
+  floor_plans: (string | { url: string; name?: string })[] | null;
   contact_person_name: string | null;
   contact_email: string | null;
-  contact_phone: string | null;
-  restrictions: string | null;
-  images: string[] | null; // Array of image URLs
+  contact_email_verified: boolean;
+  media: VenueMediaItem[] | null;
   creator_id: string;
   is_active: boolean;
+  approval_status: "pending" | "approved" | "rejected";
+  deleted_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface VenueContactVerification {
+  id: string;
+  venue_id: string;
+  token: string;
+  token_expires_at: string;
+  otp_hash: string;
+  otp_expires_at: string;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface VenueApproval {
+  id: string;
+  venue_id: string;
+  approver_id: string;
+  status: ApprovalStatus;
+  sequence_order: number;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Rider file item: url + type (photo, video, or file) */
+export interface DJRiderFile {
+  url: string;
+  type: "photo" | "video" | "file";
+}
+
+export interface DJ {
+  id: string;
+  short_id: string;
+  name: string;
+  picture_url: string | null;
+  music_style: string | null;
+  price: number | null;
+  email: string;
+  email_verified: boolean;
+  technical_rider: DJRiderFile[];
+  hospitality_rider: DJRiderFile[];
+  is_active: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Marketing asset file: url + optional display name */
+export interface EventMarketingFile {
+  url: string;
+  name?: string;
 }
 
 export interface Event {
   id: string;
   short_id: string;
   title: string;
-  description: string | null;
-  starts_at: string | null; // ISO datetime string
-  ends_at: string | null; // ISO datetime string
+  starts_at: string | null; // ISO datetime string (no ends_at; transition 5h after start)
   venue_id: string | null;
+  dj_id: string | null;
   creator_id: string;
   status: EventStatus;
   expected_attendance: number | null;
-  budget_amount: number | null;
-  budget_currency: string | null;
+  minimum_ticket_price: number | null;
+  minimum_table_price: number | null;
+  notes: string | null;
+  marketing_flyers?: EventMarketingFile[];
+  marketing_videos?: EventMarketingFile[];
+  marketing_budget?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MarketingReport {
+  id: string;
+  event_id: string;
+  submitted_by: string;
+  status: ApprovalStatus;
   notes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Marketing report with submitter display name (from API list) */
+export interface MarketingReportWithSubmitter extends MarketingReport {
+  submitted_by_name?: string | null;
 }
 
 export interface EventVersion {
@@ -172,6 +247,12 @@ export interface Report {
   external_links: Array<{ url: string; title: string }>;
   status: ApprovalStatus;
   net_profit: number | null;
+  total_ticket_sales: number | null;
+  total_bar_sales: number | null;
+  total_table_sales: number | null;
+  reels_urls: string[];
+  detailed_report: string | null;
+  incidents: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -202,6 +283,7 @@ export interface ApprovalConfig {
     regional_curator: boolean;
     lead_curator: boolean;
     global_director: boolean;
+    marketing_manager?: boolean;
   };
   created_at: string;
   updated_at: string;
@@ -229,6 +311,34 @@ export interface Invitation {
   created_at: string;
 }
 
+export type VerificationOtpContextType = "event_approval" | "venue_approval" | "venue_create" | "event_create";
+
+export type VerificationOtpAction = "approve" | "reject" | "create";
+
+export interface VerificationOtp {
+  id: string;
+  user_id: string;
+  code_hash: string;
+  context_type: VerificationOtpContextType;
+  context_id: string;
+  action: VerificationOtpAction;
+  expires_at: string;
+  used_at: string | null;
+  one_time_token: string | null;
+  token_expires_at: string | null;
+  created_at: string;
+}
+
+export interface UserEmailVerificationOtp {
+  id: string;
+  user_id: string;
+  email: string;
+  otp_hash: string;
+  expires_at: string;
+  verified_at: string | null;
+  created_at: string;
+}
+
 // =============================================
 // DATABASE SCHEMA TYPE
 // =============================================
@@ -247,12 +357,23 @@ export interface Database {
       };
       venues: {
         Row: Venue;
-        Insert: Omit<Venue, "id" | "created_at" | "updated_at"> & {
+        Insert: Omit<Venue, "id" | "created_at" | "updated_at" | "deleted_at"> & {
           id?: string;
           created_at?: string;
           updated_at?: string;
+          deleted_at?: string | null;
         };
         Update: Partial<Omit<Venue, "id" | "created_at">>;
+      };
+      djs: {
+        Row: DJ;
+        Insert: Omit<DJ, "id" | "created_at" | "updated_at" | "short_id"> & {
+          id?: string;
+          short_id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<DJ, "id" | "created_at">>;
       };
       events: {
         Row: Event;
@@ -280,6 +401,23 @@ export interface Database {
         };
         Update: Partial<Omit<EventApproval, "id" | "created_at">>;
       };
+      venue_approvals: {
+        Row: VenueApproval;
+        Insert: Omit<VenueApproval, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<VenueApproval, "id" | "created_at">>;
+      };
+      venue_contact_verifications: {
+        Row: VenueContactVerification;
+        Insert: Omit<VenueContactVerification, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<VenueContactVerification, "id" | "created_at">>;
+      };
       reports: {
         Row: Report;
         Insert: Omit<Report, "id" | "created_at" | "updated_at"> & {
@@ -288,6 +426,15 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Omit<Report, "id" | "created_at">>;
+      };
+      marketing_reports: {
+        Row: MarketingReport;
+        Insert: Omit<MarketingReport, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Omit<MarketingReport, "id" | "created_at">>;
       };
       audit_logs: {
         Row: AuditLog;
@@ -321,6 +468,22 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Omit<Invitation, "id" | "created_at">>;
+      };
+      verification_otps: {
+        Row: VerificationOtp;
+        Insert: Omit<VerificationOtp, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<VerificationOtp, "id" | "created_at">>;
+      };
+      user_email_verification_otps: {
+        Row: UserEmailVerificationOtp;
+        Insert: Omit<UserEmailVerificationOtp, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<UserEmailVerificationOtp, "id" | "created_at">>;
       };
       locations: {
         Row: Location;

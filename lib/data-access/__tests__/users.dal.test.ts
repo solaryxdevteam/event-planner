@@ -116,7 +116,6 @@ describe("users.dal", () => {
         role: "event_planner",
         parent_id: "city-curator-id",
         country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-        state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
         city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
         is_active: true,
       });
@@ -136,7 +135,6 @@ describe("users.dal", () => {
           name: "New User",
           role: "event_planner",
           country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-          state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
           city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
           is_active: true,
         })

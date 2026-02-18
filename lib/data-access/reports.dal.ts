@@ -165,7 +165,8 @@ export interface ListApprovedReportsParams {
   venueId?: string | null;
   dateFrom?: string | null;
   dateTo?: string | null;
-  sortByNetProfit?: "asc" | "desc" | null;
+  userId?: string | null;
+  djId?: string | null;
   page: number;
   limit: number;
 }
@@ -186,15 +187,21 @@ export interface ListApprovedReportsResult {
  */
 export async function listApproved(params: ListApprovedReportsParams): Promise<ListApprovedReportsResult> {
   const supabase = await createClient();
-  const { subordinateUserIds, eventId, venueId, dateFrom, dateTo, sortByNetProfit, page, limit } = params;
+  const { subordinateUserIds, eventId, venueId, dateFrom, dateTo, userId, djId, page, limit } = params;
 
-  // Get event IDs the user can see (creator in subordinateUserIds, optional venue filter)
+  // Get event IDs the user can see (creator in subordinateUserIds, optional filters)
   let eventsQuery = supabase.from("events").select("id").in("creator_id", subordinateUserIds);
   if (venueId) {
     eventsQuery = eventsQuery.eq("venue_id", venueId);
   }
   if (eventId) {
     eventsQuery = eventsQuery.eq("id", eventId);
+  }
+  if (userId) {
+    eventsQuery = eventsQuery.eq("creator_id", userId);
+  }
+  if (djId) {
+    eventsQuery = eventsQuery.eq("dj_id", djId);
   }
   const { data: eventRows } = await eventsQuery;
   const allowedEventIds = (eventRows || []).map((r: { id: string }) => r.id);
@@ -234,10 +241,6 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
     query = query.lte("created_at", `${dateTo}T23:59:59.999Z`);
   }
 
-  if (sortByNetProfit) {
-    const sortOrder = sortByNetProfit === "desc" ? false : true;
-    query = query.order("net_profit", { ascending: sortOrder, nullsFirst: false });
-  }
   query = query.order("created_at", { ascending: false });
 
   const from = (page - 1) * limit;
@@ -281,10 +284,10 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
 
 export interface ReportChartDataPoint {
   date: string; // YYYY-MM-DD
-  net_profit: number;
+  table_sales: number;
+  ticket_sales: number;
+  bar_sales: number;
   event_count: number;
-  /** Sum of event budget_amount for reports on this date */
-  total_budget: number;
 }
 
 export interface GetReportChartParams {
@@ -293,26 +296,30 @@ export interface GetReportChartParams {
   venueId?: string | null;
   dateFrom?: string | null;
   dateTo?: string | null;
+  userId?: string | null;
+  djId?: string | null;
 }
 
 /**
- * Get aggregated report data by date for chart (net_profit sum, event count per date)
+ * Get aggregated report data by date for chart (table/ticket/bar sales sums, event count per date)
  */
 export async function getChartData(params: GetReportChartParams): Promise<ReportChartDataPoint[]> {
   const supabase = await createClient();
-  const { subordinateUserIds, eventId, venueId, dateFrom, dateTo } = params;
+  const { subordinateUserIds, eventId, venueId, dateFrom, dateTo, userId, djId } = params;
 
   let query = supabase
     .from("reports")
     .select(
       `
       created_at,
-      net_profit,
+      total_table_sales,
+      total_ticket_sales,
+      total_bar_sales,
       event_id,
       event:events!reports_event_id_fkey (
         creator_id,
         venue_id,
-        budget_amount
+        dj_id
       )
     `
     )
@@ -336,25 +343,42 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
 
   const rows = (data || []) as Array<{
     created_at: string;
-    net_profit: number | null;
+    total_table_sales: number | null;
+    total_ticket_sales: number | null;
+    total_bar_sales: number | null;
     event_id: string;
-    event: { creator_id: string; venue_id: string | null; budget_amount: number | null } | null;
+    event: { creator_id: string; venue_id: string | null; dj_id: string | null } | null;
   }>;
 
-  // Filter by subordinateUserIds (event.creator_id) and optionally venueId in app
+  // Filter by subordinateUserIds (event.creator_id) and optionally venueId, userId, djId in app
   let filtered = rows.filter((r) => r.event && subordinateUserIds.includes(r.event.creator_id));
   if (venueId) {
     filtered = filtered.filter((r) => r.event?.venue_id === venueId);
   }
+  if (userId) {
+    filtered = filtered.filter((r) => r.event?.creator_id === userId);
+  }
+  if (djId) {
+    filtered = filtered.filter((r) => r.event?.dj_id === djId);
+  }
 
   // Aggregate by date (YYYY-MM-DD)
-  const byDate = new Map<string, { net_profit: number; event_count: number; total_budget: number }>();
+  const byDate = new Map<
+    string,
+    { table_sales: number; ticket_sales: number; bar_sales: number; event_count: number }
+  >();
   for (const r of filtered) {
     const date = r.created_at.slice(0, 10);
-    const current = byDate.get(date) ?? { net_profit: 0, event_count: 0, total_budget: 0 };
-    current.net_profit += Number(r.net_profit) || 0;
+    const current = byDate.get(date) ?? {
+      table_sales: 0,
+      ticket_sales: 0,
+      bar_sales: 0,
+      event_count: 0,
+    };
+    current.table_sales += Number(r.total_table_sales) || 0;
+    current.ticket_sales += Number(r.total_ticket_sales) || 0;
+    current.bar_sales += Number(r.total_bar_sales) || 0;
     current.event_count += 1;
-    current.total_budget += Number(r.event?.budget_amount) || 0;
     byDate.set(date, current);
   }
 
@@ -363,9 +387,10 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
     const agg = byDate.get(date)!;
     return {
       date,
-      net_profit: agg.net_profit,
+      table_sales: agg.table_sales,
+      ticket_sales: agg.ticket_sales,
+      bar_sales: agg.bar_sales,
       event_count: agg.event_count,
-      total_budget: agg.total_budget,
     };
   });
 }

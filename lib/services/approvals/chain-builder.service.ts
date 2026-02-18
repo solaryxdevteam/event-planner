@@ -80,6 +80,7 @@ export async function getApprovalConfig(): Promise<ApprovalConfig> {
         regional_curator: true,
         lead_curator: true,
         global_director: true,
+        marketing_manager: false,
       },
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -105,6 +106,7 @@ export async function updateApprovalConfig(newConfig: Record<Role, boolean>): Pr
     UserRole.REGIONAL_CURATOR,
     UserRole.LEAD_CURATOR,
     UserRole.GLOBAL_DIRECTOR,
+    UserRole.MARKETING_MANAGER,
   ];
 
   for (const role of requiredRoles) {
@@ -180,6 +182,32 @@ export async function getApprovalChainWithDetails(creatorUserId: string): Promis
 }
 
 /**
+ * Get all active Global Director user IDs (for marketing report approval chain).
+ */
+export async function getGlobalDirectorIds(): Promise<string[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("users")
+    .select("id")
+    .eq("role", UserRole.GLOBAL_DIRECTOR)
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to fetch Global Directors: ${error.message}`);
+  }
+
+  return (data || []).map((row: { id: string }) => row.id);
+}
+
+/**
+ * Build approval chain for marketing report (Global Director only).
+ */
+export async function buildMarketingReportApprovalChain(): Promise<string[]> {
+  return getGlobalDirectorIds();
+}
+
+/**
  * Validate that a user has approval authority for an event
  *
  * @param userId - User to check
@@ -202,7 +230,7 @@ export async function canApprove(userId: string, eventCreatorId: string): Promis
 export async function getNextApprover(
   eventId: string,
   currentSequence: number,
-  approvalType: "event" | "modification" | "cancellation" | "report" = "event"
+  approvalType: "event" | "modification" | "cancellation" | "report" | "marketing_report" = "event"
 ): Promise<string | null> {
   const supabase = await createClient();
 
@@ -232,7 +260,7 @@ export async function getNextApprover(
 export async function isLastApprover(
   eventId: string,
   currentSequence: number,
-  approvalType: "event" | "modification" | "cancellation" | "report" = "event"
+  approvalType: "event" | "modification" | "cancellation" | "report" | "marketing_report" = "event"
 ): Promise<boolean> {
   const nextApprover = await getNextApprover(eventId, currentSequence, approvalType);
   return nextApprover === null;

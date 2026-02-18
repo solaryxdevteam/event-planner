@@ -11,13 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { LocationCombobox } from "@/components/ui/location-combobox";
 import { PasswordInput } from "@/components/ui/password-input";
 import { InputPasswordStrength } from "@/components/ui/input-password-strength";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateProfile } from "@/lib/actions/profile";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
-import { useStatesByCountry } from "@/lib/hooks/use-locations";
 import { signOut } from "@/lib/auth/client";
 import type { User, UserStatus } from "@/lib/types/database.types";
 import { UserRole } from "@/lib/types/roles";
@@ -43,8 +41,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
     defaultValues: {
       first_name: user.first_name,
       last_name: user.last_name ?? undefined,
-      company: user.company ?? undefined,
-      state_id: user.state_id ?? undefined,
       city: user.city ?? undefined,
       phone: user.phone ?? undefined,
       password: undefined,
@@ -67,8 +63,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
         form.reset({
           first_name: response.data.first_name,
           last_name: response.data.last_name ?? undefined,
-          company: response.data.company ?? undefined,
-          state_id: response.data.state_id ?? undefined,
           city: response.data.city ?? undefined,
           phone: response.data.phone ?? undefined,
           password: undefined,
@@ -103,8 +97,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
     const submitData: UpdateProfileInput = {
       first_name: data.first_name,
       last_name: data.last_name || undefined,
-      company: data.company || undefined,
-      state_id: data.state_id || undefined,
       city: data.city || undefined,
       phone: data.phone && data.phone.trim() !== "" ? data.phone : undefined,
     };
@@ -123,11 +115,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
 
     updateProfileMutation.mutate(submitData);
   };
-
-  const selectedCountryId = user.country_id; // Country is read-only
-
-  // Reload states when country changes (though country shouldn't change)
-  const { data: currentStates = [], isLoading: currentStatesLoading } = useStatesByCountry(selectedCountryId);
 
   if (isPending) {
     return (
@@ -149,14 +136,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
                 <Label>Last Name</Label>
                 <Input value={user.last_name || ""} disabled />
               </div>
-            </div>
-            <div>
-              <Label>Company</Label>
-              <Input value={user.company || ""} disabled />
-            </div>
-            <div>
-              <Label>State</Label>
-              <Input value="N/A" disabled />
             </div>
             <div>
               <Label>City</Label>
@@ -194,34 +173,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
             <p className="text-sm text-destructive">{form.formState.errors.last_name.message}</p>
           )}
         </div>
-      </div>
-
-      {/* Company */}
-      <div className="space-y-2">
-        <Label htmlFor="company">Company</Label>
-        <Input id="company" {...form.register("company")} disabled={updateProfileMutation.isPending} />
-        {form.formState.errors.company && (
-          <p className="text-sm text-destructive">{form.formState.errors.company.message}</p>
-        )}
-      </div>
-
-      {/* State */}
-      <div className="space-y-2">
-        <Label>State</Label>
-        {/* React Compiler warning: form.watch() returns functions that cannot be memoized - expected with React Hook Form */}
-        <LocationCombobox
-          value={form.watch("state_id") ?? undefined}
-          onValueChange={(value) => {
-            form.setValue("state_id", value ?? undefined);
-          }}
-          options={currentStates.map((state) => ({ id: state.id, name: state.name }))}
-          placeholder="Select state..."
-          disabled={updateProfileMutation.isPending}
-          loading={currentStatesLoading}
-        />
-        {form.formState.errors.state_id && (
-          <p className="text-sm text-destructive">{form.formState.errors.state_id.message}</p>
-        )}
       </div>
 
       {/* City - Text Field */}

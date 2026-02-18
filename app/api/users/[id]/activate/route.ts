@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
  * POST /api/users/[id]/activate
  * Activate a pending user (Global Director only)
  *
- * Body: { role?: string; country_id?: string; state_id?: string | null; city?: string | null; parent_id?: string | null } (JSON)
+ * Body: { role?: string; country_id?: string; city?: string | null; parent_id?: string | null } (JSON)
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {

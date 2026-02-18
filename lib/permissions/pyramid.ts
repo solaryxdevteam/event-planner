@@ -131,9 +131,8 @@ export async function canViewVenue(userId: string, venueId: string): Promise<boo
 }
 
 /**
- * Check if userId can edit/delete a venue
- * Only event_planner and global_director can edit venues
- * User must be the venue creator or a superior of the creator
+ * Check if userId can edit a venue.
+ * User must be the venue creator or a superior of the creator in the hierarchy.
  *
  * @param userId - User requesting access
  * @param venueId - Venue ID to check
@@ -142,27 +141,20 @@ export async function canViewVenue(userId: string, venueId: string): Promise<boo
 export async function canEditVenue(userId: string, venueId: string): Promise<boolean> {
   const supabase = await createClient();
 
-  // Get user role and venue creator
-  const [{ data: userData, error: userError }, { data: venueData, error: venueError }] = await Promise.all([
-    supabase.from("users").select("role").eq("id", userId).single<{ role: string }>(),
-    supabase.from("venues").select("creator_id").eq("id", venueId).single<{ creator_id: string }>(),
-  ]);
+  const { data: venueData, error: venueError } = await supabase
+    .from("venues")
+    .select("creator_id")
+    .eq("id", venueId)
+    .single<{ creator_id: string }>();
 
-  if (userError || !userData || venueError || !venueData) {
+  if (venueError || !venueData) {
     return false;
   }
 
-  // Only event_planner and global_director can edit venues
-  if (userData.role !== "event_planner" && userData.role !== "global_director") {
-    return false;
-  }
-
-  // If user is the creator, allow
   if (userId === venueData.creator_id) {
     return true;
   }
 
-  // Check if user is a superior of the creator in the hierarchy
   const subordinateIds = await getSubordinateUserIds(userId);
   return subordinateIds.includes(venueData.creator_id);
 }

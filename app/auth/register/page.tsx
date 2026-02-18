@@ -8,7 +8,8 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import Image from "next/image";
 
 function RegisterContent() {
   const router = useRouter();
@@ -44,6 +45,18 @@ export default function RegisterPage() {
       fallback={
         <div className="flex min-h-screen items-center justify-center p-4">
           <Card className="w-full max-w-md">
+            <CardHeader className="pb-2">
+              <div className="mx-auto">
+                <Image
+                  src="/images/shiraz-house-logo.webp"
+                  alt="Shiraz House"
+                  width={120}
+                  height={48}
+                  priority
+                  className="h-12 w-auto object-contain"
+                />
+              </div>
+            </CardHeader>
             <CardContent className="pt-6">
               <div className="flex items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

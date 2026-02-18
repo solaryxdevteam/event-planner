@@ -15,6 +15,7 @@ export const roleEnum = z.enum([
   "regional_curator",
   "lead_curator",
   "global_director",
+  "marketing_manager",
 ]);
 
 /**
@@ -27,14 +28,12 @@ export const createUserSchema = z.object({
   role: roleEnum,
   parent_id: z.string().uuid("Invalid parent ID").nullable().optional(),
   country_id: z.string().uuid("Invalid country ID").optional(), // Defaults to US in database
-  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   city: z.string().max(200, "City name is too long").nullable().optional(),
   phone: z
     .string()
     .regex(/^\+?[1-9]\d{1,14}$/, "Phone number must be in E.164 format (e.g., +1234567890)")
     .nullable()
     .optional(),
-  company: z.string().max(200, "Company name is too long").nullable().optional(),
 });
 
 /**
@@ -47,14 +46,12 @@ export const updateUserSchema = z.object({
   role: roleEnum.optional(),
   parent_id: z.string().uuid("Invalid parent ID").nullable().optional(),
   country_id: z.string().uuid("Invalid country ID").optional(),
-  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   city: z.string().max(200, "City name is too long").nullable().optional(),
   phone: z
     .string()
     .regex(/^\+?[1-9]\d{1,14}$/, "Phone number must be in E.164 format (e.g., +1234567890)")
     .nullable()
     .optional(),
-  company: z.string().max(200, "Company name is too long").nullable().optional(),
   password: z
     .string()
     .optional()
@@ -102,8 +99,6 @@ export const registerWithInvitationSchema = z.object({
     )
     .transform((val) => (val && val.trim() !== "" ? val : null))
     .nullable(),
-  company: z.string().max(200, "Company name is too long").nullable().optional(),
-  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   city: z.string().max(200, "City name is too long").nullable().optional(),
   password: z.string().min(8, "Password must be at least 8 characters"),
 });
@@ -115,7 +110,7 @@ export const activateUserSchema = z.object({
   userId: z.string().uuid("Invalid user ID"),
   role: roleEnum.optional(),
   parent_id: z.string().uuid("Invalid parent ID").nullable().optional(),
-  // Note: country_id, state_id, and city are not included as they're set during registration
+  // Note: country_id and city are not included as they're set during registration
   // Global Director can edit these later if needed
 });
 
@@ -130,14 +125,12 @@ export const userFormSchema = z.object({
   role: roleEnum.optional(),
   parent_id: z.string().uuid("Invalid parent ID").nullable().optional(),
   country_id: z.string().uuid("Invalid country ID").optional(),
-  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   city: z.string().max(200, "City name is too long").nullable().optional(),
   phone: z
     .string()
     .regex(/^\+?[1-9]\d{1,14}$/, "Phone number must be in E.164 format (e.g., +1234567890)")
     .nullable()
     .optional(),
-  company: z.string().max(200, "Company name is too long").nullable().optional(),
   password: z
     .string()
     .optional()

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +20,29 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Calendar, Clock, MapPin, Building2, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Building2,
+  Music2,
+  CheckCircle2,
+  Loader2,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 import Image from "next/image";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
@@ -27,18 +50,23 @@ import { AuditTimeline } from "@/components/audit/AuditTimeline";
 import { ReportDialog } from "@/components/reports/ReportDialog";
 import { ReportsList } from "@/components/reports/ReportsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useEventApprovals } from "@/lib/hooks/use-approvals";
+import { useEventApprovals, useApproveEvent, useRejectEvent } from "@/lib/hooks/use-approvals";
 import { useEventAuditLogs } from "@/lib/hooks/use-audit-logs";
 import { useAllReports } from "@/lib/hooks/use-reports";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { useTransitionEventToCompleted, useEventVersions } from "@/lib/hooks/use-events";
 import { UserRole } from "@/lib/types/roles";
 import { VenueMapDisplay } from "./VenueMapDisplay";
+import { EventCreatorCard } from "./EventCreatorCard";
 import { ModificationRequestDialog } from "./ModificationRequestDialog";
 import { CancellationDialog } from "./CancellationDialog";
 import { useCanRequestCancellation } from "@/lib/hooks/use-cancellations";
 import { ApprovalStatus, ApprovalType } from "@/lib/types/database.types";
+import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import { ModificationVersionsList } from "./ModificationVersionsList";
+import { VenueMediaAndFloorPlans } from "./VenueMediaAndFloorPlans";
+import { DJMediaAndRiders } from "./DJMediaAndRiders";
+import { MarketingTab } from "./MarketingTab";
 
 interface EventDetailClientProps {
   event: EventWithRelations;
@@ -70,8 +98,13 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   const [showModificationDialog, setShowModificationDialog] = useState(false);
   const [showCancellationDialog, setShowCancellationDialog] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
+  const [showApproveDialog, setShowApproveDialog] = useState(false);
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
+  const [approvalComment, setApprovalComment] = useState("");
+  const [approvalSubmitting, setApprovalSubmitting] = useState(false);
   const startDate = event.starts_at ? new Date(event.starts_at) : null;
-  const endDate = event.ends_at ? new Date(event.ends_at) : null;
 
   // Get current user profile to check role
   const { data: profile } = useProfile();
@@ -86,6 +119,18 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   const { data: approvals, isLoading: loadingApprovals } = useEventApprovals(
     event.status !== "draft" ? event.id : null
   );
+  const approveMutation = useApproveEvent();
+  const rejectMutation = useRejectEvent();
+
+  // Current user can only approve/reject when it is their turn (status = "pending"). No bypass for Global Director.
+  const pendingApproval = approvals?.find(
+    (a: EventApprovalWithApprover) => a.approver_id === profile?.id && a.status === "pending"
+  ) as EventApprovalWithApprover | undefined;
+  const pendingApprovalType = pendingApproval?.approval_type;
+  const hasPendingApprovalForCurrentUser = !!pendingApproval;
+
+  // While user is approving/rejecting (comment → OTP → request), disable actions and show skeleton on approval chain
+  const isApprovalActionInProgress = approvalSubmitting || approveMutation.isPending || rejectMutation.isPending;
 
   // Note: hasPendingModification is now checked using versions (see below after versions are fetched)
 
@@ -129,10 +174,41 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
     try {
       await transitionMutation.mutateAsync(event.id);
       setShowTransitionDialog(false);
-      // Refresh the page to show updated status
       router.refresh();
     } catch {
       // Error is handled by the mutation
+    }
+  };
+
+  const handleApproveContinueToOtp = () => {
+    if (!approvalComment.trim()) return;
+    setOtpAction("approve");
+    setShowApproveDialog(false);
+    setShowOtpDialog(true);
+  };
+
+  const handleRejectContinueToOtp = () => {
+    if (!approvalComment.trim()) return;
+    setOtpAction("reject");
+    setShowRejectDialog(false);
+    setShowOtpDialog(true);
+  };
+
+  const handleOtpVerified = async (verificationToken: string) => {
+    setApprovalSubmitting(true);
+    try {
+      if (otpAction === "approve") {
+        await approveMutation.mutateAsync({ eventId: event.id, comment: approvalComment, verificationToken });
+      } else {
+        await rejectMutation.mutateAsync({ eventId: event.id, comment: approvalComment, verificationToken });
+      }
+      setApprovalComment("");
+      setShowOtpDialog(false);
+      router.refresh();
+    } catch (e) {
+      console.error("Approval action failed:", e);
+    } finally {
+      setApprovalSubmitting(false);
     }
   };
 
@@ -150,8 +226,12 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
         : null
     : null;
 
-  // Get first venue image
-  const venueImage = event.venue?.images && event.venue.images.length > 0 ? event.venue.images[0] : null;
+  // Venue cover image from media (cover or first photo)
+  const venueMedia = event.venue?.media && Array.isArray(event.venue.media) ? event.venue.media : [];
+  const venueCover =
+    venueMedia.find((m: { isCover?: boolean; type?: string }) => m.isCover && m.type === "photo") ||
+    venueMedia.find((m: { type?: string }) => m.type === "photo");
+  const venueImage = venueCover && typeof venueCover.url === "string" ? venueCover.url : null;
 
   return (
     <div className="space-y-4 sm:space-y-6 px-1 sm:px-0">
@@ -175,16 +255,12 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {format(startDate, "MMM d, yyyy")}
-                {endDate && startDate.toDateString() !== endDate.toDateString() && (
-                  <> - {format(endDate, "MMM d, yyyy")}</>
-                )}
               </span>
             )}
             {startDate && (
               <span className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
                 {format(startDate, "h:mm a")}
-                {endDate && ` - ${format(endDate, "h:mm a")}`}
               </span>
             )}
             {event.venue && (
@@ -193,11 +269,17 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                 {event.venue.name}
               </span>
             )}
+            {event.dj && (
+              <span className="flex items-center gap-1">
+                <Music2 className="h-4 w-4" />
+                {event.dj.name}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Tabs for Information, Modification Versions, and Reports */}
+      {/* Tabs for Information, Modification Versions, Reports, and Marketing */}
       <Tabs defaultValue="information" className="space-y-6">
         <TabsList>
           <TabsTrigger value="information">Information</TabsTrigger>
@@ -205,6 +287,9 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
             <TabsTrigger value="reports">Reports</TabsTrigger>
           )}
+          {(event.status === "approved_scheduled" ||
+            event.status === "completed_awaiting_report" ||
+            event.status === "completed_archived") && <TabsTrigger value="marketing">Marketing</TabsTrigger>}
         </TabsList>
 
         {/* Information Tab */}
@@ -219,7 +304,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                     <CardTitle>Approval Progress</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    {loadingApprovals ? (
+                    {loadingApprovals || isApprovalActionInProgress ? (
                       <Skeleton className="h-32 w-full" />
                     ) : approvals && approvals.length > 0 ? (
                       <ApprovalChainTimeline
@@ -235,148 +320,80 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                 </Card>
               )}
 
-              {/* Description */}
+              {/* Notes */}
               <Card>
-                <CardHeader>
-                  <CardTitle>Description</CardTitle>
-                </CardHeader>
                 <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {event.description || "No description provided for this event."}
-                  </p>
-                  {(event.expected_attendance || event.budget_amount) && (
-                    <div className="pt-4 border-t">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                        {event.expected_attendance && (
-                          <div>
-                            <p className="text-muted-foreground mb-1">Expected Attendees</p>
-                            <p className="font-medium">{event.expected_attendance.toLocaleString()}</p>
-                          </div>
-                        )}
-                        {event.budget_amount && (
-                          <div>
-                            <p className="text-muted-foreground mb-1">Budget</p>
-                            <p className="font-medium">
-                              {new Intl.NumberFormat("en-US", {
-                                style: "currency",
-                                currency: event.budget_currency || "USD",
-                              }).format(Number(event.budget_amount))}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                  {/* Event creator (fetched profile: avatar, name, email, phone) */}
+                  {event.creator_id && (
+                    <div className="pb-4 border-b">
+                      <EventCreatorCard creatorId={event.creator_id} />
                     </div>
                   )}
+
+                  {(event.expected_attendance ||
+                    event.minimum_ticket_price != null ||
+                    event.minimum_table_price != null) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      {event.expected_attendance && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Expected Attendees</p>
+                          <p className="font-medium">{event.expected_attendance.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {event.minimum_ticket_price != null && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Min. ticket price</p>
+                          <p className="font-medium">
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            }).format(Number(event.minimum_ticket_price))}
+                          </p>
+                        </div>
+                      )}
+                      {event.minimum_table_price != null && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Min. table price</p>
+                          <p className="font-medium">
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                            }).format(Number(event.minimum_table_price))}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  <div>
+                    <p className="text-muted-foreground mb-1">Notes</p>
+                    <p className="text-sm whitespace-pre-wrap">{event.notes || "No notes for this event."}</p>
+                  </div>
                 </CardContent>
               </Card>
 
               {/* Audit Log History (only for non-draft events, authorized users only) */}
               {event.status !== "draft" && (
                 <div id="logs">
-                  <AuditTimeline logs={auditLogs || []} isLoading={loadingAuditLogs} />
+                  <AuditTimeline logs={auditLogs || []} isLoading={loadingAuditLogs} collapsible />
                 </div>
-              )}
-
-              {/* Notes */}
-              {event.notes && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Internal Notes</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{event.notes}</p>
-                  </CardContent>
-                </Card>
               )}
             </div>
 
             {/* RIGHT COLUMN (SIDEBAR) */}
             <div className="space-y-6">
-              {/* Admin Actions - Global Director Only */}
-              {isGlobalDirector && event.status === "approved_scheduled" && (
-                <Card className="border-amber-200 dark:border-amber-800">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-semibold">Admin Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => setShowTransitionDialog(true)}
-                      disabled={transitionMutation.isPending}
-                    >
-                      {transitionMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Transitioning...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          Mark as Completed
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Manually transition this event to "Awaiting Report" status.
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Quick Actions - Only for Event Planner who created the event */}
-              {event.status === "approved_scheduled" && isEventPlanner && isEventCreator && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Quick Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start"
-                      onClick={() => setShowModificationDialog(true)}
-                      disabled={hasPendingModification}
-                    >
-                      {hasPendingModification ? "Modification Pending" : "Request Modification"}
-                    </Button>
-                    {hasPendingModification && (
-                      <p className="text-xs text-muted-foreground">
-                        A modification request is already pending approval.
-                      </p>
-                    )}
-                    <Button
-                      variant="destructive"
-                      className="w-full justify-start"
-                      onClick={() => setShowCancellationDialog(true)}
-                      disabled={!canRequestCancellation || hasPendingCancellation}
-                    >
-                      {hasPendingCancellation ? "Cancellation Pending" : "Request Cancellation"}
-                    </Button>
-                    {hasPendingCancellation && (
-                      <p className="text-xs text-muted-foreground">
-                        A cancellation request is already pending approval.
-                      </p>
-                    )}
-                    {!canRequestCancellation && !hasPendingCancellation && (
-                      <p className="text-xs text-muted-foreground">
-                        You don't have permission to request cancellation for this event.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Venue / Location Card */}
+              {/* Venue / Location Card - full info, media, floor plans */}
               {event.venue && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      Location
+                      Venue / Location
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Venue Image */}
                     {venueImage && (
                       <div className="relative w-full h-48 rounded-md overflow-hidden bg-muted">
                         <Image
@@ -391,15 +408,65 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
 
                     <div className="space-y-2 text-sm">
                       <p className="font-medium text-foreground">{event.venue.name}</p>
-                      {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>}
+                      {/* {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>} */}
+                      {event.venue.street && <p className="text-muted-foreground">{event.venue.street}</p>}
                       {(event.venue.city || event.venue.country) && (
                         <p className="text-muted-foreground">
                           {[event.venue.city, event.venue.country].filter(Boolean).join(", ")}
                         </p>
                       )}
+                      {(event.venue.total_capacity != null ||
+                        event.venue.number_of_tables != null ||
+                        event.venue.ticket_capacity != null) && (
+                        <div className="pt-2 border-t space-y-1">
+                          {event.venue.total_capacity != null && (
+                            <p className="text-muted-foreground">
+                              Capacity: {event.venue.total_capacity.toLocaleString()}
+                            </p>
+                          )}
+                          {event.venue.number_of_tables != null && (
+                            <p className="text-muted-foreground">
+                              Tables: {event.venue.number_of_tables.toLocaleString()}
+                            </p>
+                          )}
+                          {event.venue.ticket_capacity != null && (
+                            <p className="text-muted-foreground">
+                              Ticket capacity: {event.venue.ticket_capacity.toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                      {(event.venue.sounds?.trim() || event.venue.lights?.trim() || event.venue.screens?.trim()) && (
+                        <div className="pt-2 border-t space-y-1">
+                          {event.venue.sounds?.trim() && (
+                            <p className="text-muted-foreground">Sounds: {event.venue.sounds.trim()}</p>
+                          )}
+                          {event.venue.lights?.trim() && (
+                            <p className="text-muted-foreground">Lights: {event.venue.lights.trim()}</p>
+                          )}
+                          {event.venue.screens?.trim() && (
+                            <p className="text-muted-foreground">Screens: {event.venue.screens.trim()}</p>
+                          )}
+                        </div>
+                      )}
+                      {(event.venue.contact_person_name || event.venue.contact_email) && (
+                        <div className="pt-2 border-t space-y-1">
+                          {event.venue.contact_person_name && (
+                            <p className="text-muted-foreground">Contact: {event.venue.contact_person_name}</p>
+                          )}
+                          {event.venue.contact_email && (
+                            <p className="text-muted-foreground">
+                              <a href={`mailto:${event.venue.contact_email}`} className="text-primary hover:underline">
+                                {event.venue.contact_email}
+                              </a>
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Map with coordinates */}
+                    <VenueMediaAndFloorPlans media={event.venue.media} floorPlans={event.venue.floor_plans} />
+
                     {event.venue.location_lat && event.venue.location_lng ? (
                       <VenueMapDisplay
                         lat={event.venue.location_lat}
@@ -418,10 +485,46 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                     <Button asChild variant="outline" size="sm" className="w-full" disabled={!event.venue.short_id}>
                       {event.venue.short_id ? (
                         <Link href={`/dashboard/venues/${event.venue.short_id}/edit`}>View Venue Details</Link>
-                      ) : (
-                        <span>View Venue Details</span>
-                      )}
+                      ) : null}
                     </Button>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* DJ Card */}
+              {event.dj && (
+                <Card className="gap-3">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Music2 className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        DJ (<span className="font-medium text-foreground">{event.dj.name}</span>)
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm">
+                    <DJMediaAndRiders
+                      pictureUrl={event.dj.picture_url ?? null}
+                      technicalRider={event.dj.technical_rider}
+                      hospitalityRider={event.dj.hospitality_rider}
+                    />
+
+                    {event.dj.music_style && (
+                      <p className="text-muted-foreground">Music style: {event.dj.music_style}</p>
+                    )}
+                    {event.dj.price != null && (
+                      <p className="text-muted-foreground">
+                        price:{" "}
+                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                          Number(event.dj.price)
+                        )}
+                      </p>
+                    )}
+                    {event.dj.email && (
+                      <a href={`mailto:${event.dj.email}`} className="text-primary hover:underline block">
+                        {event.dj.email}
+                      </a>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -455,7 +558,85 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
             />
           </TabsContent>
         )}
+
+        {/* Marketing Tab */}
+        {(event.status === "approved_scheduled" ||
+          event.status === "completed_awaiting_report" ||
+          event.status === "completed_archived") && (
+          <TabsContent value="marketing" className="space-y-6">
+            <MarketingTab eventId={event.id} event={event} />
+          </TabsContent>
+        )}
       </Tabs>
+
+      {/* Page Actions - all action buttons at the end of the page */}
+      {(hasPendingApprovalForCurrentUser ||
+        (isGlobalDirector && event.status === "approved_scheduled") ||
+        (event.status === "approved_scheduled" && isEventPlanner && isEventCreator)) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Actions</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-3">
+            {/* Approve / Reject - when current user has pending approval */}
+            {hasPendingApprovalForCurrentUser && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRejectDialog(true)}
+                  disabled={isApprovalActionInProgress}
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Reject
+                </Button>
+                <Button onClick={() => setShowApproveDialog(true)} disabled={isApprovalActionInProgress}>
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Approve
+                </Button>
+              </>
+            )}
+            {/* Global Director: Mark as Completed */}
+            {isGlobalDirector && event.status === "approved_scheduled" && (
+              <Button
+                variant="outline"
+                onClick={() => setShowTransitionDialog(true)}
+                disabled={transitionMutation.isPending || isApprovalActionInProgress}
+              >
+                {transitionMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Transitioning...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Mark as Completed
+                  </>
+                )}
+              </Button>
+            )}
+            {/* Event creator: Request Modification / Cancellation */}
+            {event.status === "approved_scheduled" && isEventPlanner && isEventCreator && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowModificationDialog(true)}
+                  disabled={hasPendingModification || isApprovalActionInProgress}
+                >
+                  {hasPendingModification ? "Modification Pending" : "Request Modification"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowCancellationDialog(true)}
+                  disabled={!canRequestCancellation || hasPendingCancellation || isApprovalActionInProgress}
+                >
+                  {hasPendingCancellation ? "Cancellation Pending" : "Request Cancellation"}
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Report Dialog */}
       {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
@@ -512,6 +693,127 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           eventTitle={event.title}
         />
       )}
+
+      {/* Approve Dialog (for pending approval on event detail) */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingApprovalType === "report"
+                ? "Approve Report"
+                : pendingApprovalType === "marketing_report"
+                  ? "Approve Marketing Report"
+                  : pendingApprovalType === "modification"
+                    ? "Approve Modification"
+                    : pendingApprovalType === "cancellation"
+                      ? "Approve Cancellation"
+                      : "Approve Event"}
+            </DialogTitle>
+            <DialogDescription>
+              {isGlobalDirector ? (
+                <>
+                  As a <strong>Global Director</strong>, your approval may finalize this, bypassing any remaining
+                  approvers. Please provide a comment. This will be recorded in the audit log.
+                </>
+              ) : (
+                "Please provide a comment for your approval decision. This will be recorded in the audit log."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="detail-approve-comment">Comment *</Label>
+              <Textarea
+                id="detail-approve-comment"
+                placeholder="Enter your approval comment..."
+                value={approvalComment}
+                onChange={(e) => setApprovalComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowApproveDialog(false);
+                setApprovalComment("");
+              }}
+              disabled={approvalSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleApproveContinueToOtp} disabled={!approvalComment.trim() || approvalSubmitting}>
+              Continue to verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Dialog (for pending approval on event detail) */}
+      <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pendingApprovalType === "report"
+                ? "Reject Report"
+                : pendingApprovalType === "marketing_report"
+                  ? "Reject Marketing Report"
+                  : pendingApprovalType === "modification"
+                    ? "Reject Modification"
+                    : pendingApprovalType === "cancellation"
+                      ? "Reject Cancellation"
+                      : "Reject Event"}
+            </DialogTitle>
+            <DialogDescription>
+              Please provide a reason for rejection. This will be recorded in the audit log and the creator will be
+              notified.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="detail-reject-comment">Reason for Rejection *</Label>
+              <Textarea
+                id="detail-reject-comment"
+                placeholder="Enter your rejection reason..."
+                value={approvalComment}
+                onChange={(e) => setApprovalComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRejectDialog(false);
+                setApprovalComment("");
+              }}
+              disabled={approvalSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectContinueToOtp}
+              disabled={!approvalComment.trim() || approvalSubmitting}
+            >
+              Continue to verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <OtpVerificationDialog
+        open={showOtpDialog}
+        onOpenChange={setShowOtpDialog}
+        onVerified={handleOtpVerified}
+        contextType="event_approval"
+        contextId={event.id}
+        action={otpAction}
+        title="Verify with OTP"
+        description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+      />
     </div>
   );
 }

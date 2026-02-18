@@ -2,12 +2,13 @@
  * GET /api/approvals - Get pending approvals for current user
  *
  * Query params:
- *  - type: ApprovalType (event, modification, cancellation, report)
+ *  - type: ApprovalType (event, modification, cancellation, report) or "venue" for venue approvals
  */
 
 import { NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth/server";
 import * as approvalService from "@/lib/services/approvals/approval.service";
+import * as venueApprovalService from "@/lib/services/approvals/venue-approval.service";
 import type { ApprovalType } from "@/lib/types/database.types";
 import { logErrorToFile } from "@/lib/utils/file-logger";
 
@@ -18,9 +19,15 @@ export async function GET(request: Request) {
   try {
     const user = await requireActiveUser();
     const { searchParams } = new URL(request.url);
-    const approvalType = searchParams.get("type") as ApprovalType | null;
+    const type = searchParams.get("type");
 
-    const approvals = await approvalService.getPendingApprovals(user.id, approvalType || "event");
+    if (type === "venue") {
+      const approvals = await venueApprovalService.getPendingVenueApprovals(user.id);
+      return NextResponse.json(approvals);
+    }
+
+    const approvalType = (type as ApprovalType) || "event";
+    const approvals = await approvalService.getPendingApprovals(user.id, approvalType);
 
     return NextResponse.json(approvals);
   } catch (error) {

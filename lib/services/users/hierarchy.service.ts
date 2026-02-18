@@ -141,6 +141,92 @@ export async function getHierarchyTree(): Promise<HierarchyNode[]> {
 }
 
 /**
+ * Get hierarchy tree filtered to a user's pyramid (self + subordinates)
+ * Used for non-Global Director roles so they only see their subtree
+ *
+ * @param userId - The user ID to get the pyramid tree for
+ * @returns Tree structure with only visible users
+ */
+export async function getHierarchyTreeForUser(userId: string): Promise<HierarchyNode[]> {
+  const visibleUserIds = await getSubordinateUserIds(userId);
+  const visibleSet = new Set(visibleUserIds);
+
+  if (visibleSet.size === 0) {
+    return [];
+  }
+
+  const supabase = await createClient();
+
+  const { data: users, error } = (await supabase
+    .from("users")
+    .select("id, first_name, last_name, email, role, parent_id, is_active")
+    .in("id", visibleUserIds)
+    .eq("is_active", true)
+    .order("first_name")) as {
+    data:
+      | {
+          id: string;
+          first_name: string;
+          last_name: string | null;
+          email: string;
+          role: Role;
+          parent_id: string | null;
+          is_active: boolean;
+        }[]
+      | null;
+    error: Error | null;
+  };
+
+  if (error) {
+    throw new Error(`Failed to fetch users: ${error.message}`);
+  }
+
+  if (!users || users.length === 0) {
+    return [];
+  }
+
+  const typedUsers = users as {
+    id: string;
+    first_name: string;
+    last_name: string | null;
+    email: string;
+    role: Role;
+    parent_id: string | null;
+    is_active: boolean;
+  }[];
+
+  const buildTreeFromParent = (parentId: string | null): HierarchyNode[] => {
+    return typedUsers
+      .filter((u) => u.parent_id === parentId)
+      .map((user) => {
+        const fullName = user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name;
+        return {
+          id: user.id,
+          name: fullName,
+          email: user.email,
+          role: user.role,
+          children: buildTreeFromParent(user.id),
+        };
+      });
+  };
+
+  // Roots: visible users whose parent is not in the visible set (or is null)
+  const roots = typedUsers.filter((u) => !u.parent_id || !visibleSet.has(u.parent_id));
+  const tree: HierarchyNode[] = [];
+  for (const root of roots) {
+    const fullName = root.last_name ? `${root.first_name} ${root.last_name}` : root.first_name;
+    tree.push({
+      id: root.id,
+      name: fullName,
+      email: root.email,
+      role: root.role,
+      children: buildTreeFromParent(root.id),
+    });
+  }
+  return tree;
+}
+
+/**
  * Validate that setting parent_id won't create circular reference
  *
  * @param userId - The user being modified
@@ -268,6 +354,7 @@ export function getRoleLevel(role: Role): number {
   const levels: Record<Role, number> = {
     [UserRole.EVENT_PLANNER]: 1,
     [UserRole.CITY_CURATOR]: 2,
+    [UserRole.MARKETING_MANAGER]: 2,
     [UserRole.REGIONAL_CURATOR]: 3,
     [UserRole.LEAD_CURATOR]: 4,
     [UserRole.GLOBAL_DIRECTOR]: 5,

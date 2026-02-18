@@ -15,14 +15,17 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET /api/users/potential-parents
- * Get users that can be selected as parent for a given role
+ * Get users that can be selected as parent for a given role (paginated, searchable)
  *
  * Query params:
  * - role: string (required) - Role of the user being created/edited
+ * - query: string (optional) - Search by name or email
+ * - page: number (default 1)
+ * - limit: number (default 20, max 50)
+ * - excludeUserId: string (optional) - Exclude this user ID (e.g. when editing)
  */
 export async function GET(request: NextRequest) {
   try {
-    // Require Global Director role
     let authUser;
     try {
       authUser = await requireRole([UserRole.GLOBAL_DIRECTOR]);
@@ -41,43 +44,33 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const role = searchParams.get("role");
+    const query = searchParams.get("query") || undefined;
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+    const excludeUserId = searchParams.get("excludeUserId") || undefined;
 
     if (!role) {
       return NextResponse.json({ success: false, error: "Role parameter is required" }, { status: 400 });
     }
 
-    // Get all users
-    const allUsers = await userService.getAllUsers(authUser.id);
-
-    // Filter potential parents based on role hierarchy
-    const roleHierarchy: Record<string, string[]> = {
-      [UserRole.EVENT_PLANNER]: [
-        UserRole.CITY_CURATOR,
-        UserRole.REGIONAL_CURATOR,
-        UserRole.LEAD_CURATOR,
-        UserRole.GLOBAL_DIRECTOR,
-      ],
-      [UserRole.CITY_CURATOR]: [UserRole.REGIONAL_CURATOR, UserRole.LEAD_CURATOR, UserRole.GLOBAL_DIRECTOR],
-      [UserRole.REGIONAL_CURATOR]: [UserRole.LEAD_CURATOR, UserRole.GLOBAL_DIRECTOR],
-      [UserRole.LEAD_CURATOR]: [UserRole.GLOBAL_DIRECTOR],
-      [UserRole.GLOBAL_DIRECTOR]: [],
-    };
-
-    const validParentRoles = roleHierarchy[role] || [];
-
-    const potentialParents = allUsers
-      .filter((u) => validParentRoles.includes(u.role))
-      .map((u) => ({
-        id: u.id,
-        first_name: u.first_name,
-        last_name: u.last_name,
-        email: u.email,
-        role: u.role,
-      }));
+    const result = await userService.getPotentialParentsPaginated(authUser.id, role, {
+      searchQuery: query,
+      page,
+      limit,
+      excludeUserId,
+    });
 
     return NextResponse.json({
       success: true,
-      data: potentialParents,
+      data: {
+        data: result.data,
+        pagination: {
+          total: result.total,
+          page,
+          limit,
+          totalPages: Math.ceil(result.total / limit),
+        },
+      },
     });
   } catch (error) {
     console.error("Failed to fetch potential parents:", error);

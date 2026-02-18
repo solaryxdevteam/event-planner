@@ -11,6 +11,7 @@ import { NotFoundError, ForbiddenError } from "@/lib/utils/errors";
 import { getSubordinateUserIds } from "@/lib/services/users/hierarchy.service";
 import * as eventDAL from "@/lib/data-access/events.dal";
 import * as auditService from "@/lib/services/audit/audit.service";
+import * as verificationOtpService from "@/lib/services/verification-otp/verification-otp.service";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { CreateEventInput, UpdateEventInput } from "@/lib/validation/events.schema";
 import { createClient } from "@/lib/supabase/server";
@@ -73,15 +74,14 @@ export async function createDraft(userId: string, data: CreateEventInput): Promi
   const event = await eventDAL.insert({
     short_id: shortId,
     title: data.title,
-    description: data.description || null,
     starts_at: data.starts_at || null,
-    ends_at: data.ends_at || null,
     venue_id: data.venue_id || null,
+    dj_id: data.dj_id || null,
     creator_id: userId,
     status: "draft",
     expected_attendance: data.expected_attendance || null,
-    budget_amount: data.budget_amount || null,
-    budget_currency: data.budget_currency || "USD",
+    minimum_ticket_price: data.minimum_ticket_price ?? null,
+    minimum_table_price: data.minimum_table_price ?? null,
     notes: data.notes || null,
   });
 
@@ -97,6 +97,59 @@ export async function createDraft(userId: string, data: CreateEventInput): Promi
     throw new NotFoundError("Event", event.id);
   }
 
+  return eventWithRelations;
+}
+
+/**
+ * Create an event as approved (no approval chain).
+ * Used when a Global Director creates an event after OTP verification.
+ */
+export async function createEventAsApprovedForGD(
+  userId: string,
+  data: CreateEventInput,
+  verificationToken: string
+): Promise<EventWithRelations> {
+  await verificationOtpService.consumeVerificationToken(userId, "event_create", userId, "create", verificationToken);
+
+  const subordinateIds = await getSubordinateUserIds(userId);
+
+  // Remove any existing drafts so we don't leave orphans (same as createDraft)
+  const existingDrafts = await eventDAL.findByCreator(userId, subordinateIds, "draft", false);
+  for (const draft of existingDrafts) {
+    if (draft.creator_id === userId && draft.status === "draft") {
+      await auditService.log("delete_draft", userId, draft.id, {
+        event_title: draft.title,
+        reason: "Replaced by GD creating event as approved",
+      });
+      await eventDAL.deleteEvent(draft.id);
+    }
+  }
+
+  const shortId = await generateEventShortId();
+
+  const event = await eventDAL.insert({
+    short_id: shortId,
+    title: data.title,
+    starts_at: data.starts_at || null,
+    venue_id: data.venue_id || null,
+    dj_id: data.dj_id || null,
+    creator_id: userId,
+    status: "approved_scheduled",
+    expected_attendance: data.expected_attendance || null,
+    minimum_ticket_price: data.minimum_ticket_price ?? null,
+    minimum_table_price: data.minimum_table_price ?? null,
+    notes: data.notes || null,
+  });
+
+  await auditService.log("create_event_as_approved", userId, event.id, {
+    event_title: event.title,
+    reason: "Global Director created event (OTP verified)",
+  });
+
+  const eventWithRelations = await eventDAL.findById(event.id, subordinateIds, true);
+  if (!eventWithRelations) {
+    throw new NotFoundError("Event", event.id);
+  }
   return eventWithRelations;
 }
 
@@ -130,13 +183,12 @@ export async function updateDraft(
   // Update the event
   const updatedEvent = await eventDAL.update(eventId, {
     title: data.title,
-    description: data.description,
     starts_at: data.starts_at,
-    ends_at: data.ends_at,
     venue_id: data.venue_id,
+    dj_id: data.dj_id,
     expected_attendance: data.expected_attendance,
-    budget_amount: data.budget_amount,
-    budget_currency: data.budget_currency,
+    minimum_ticket_price: data.minimum_ticket_price,
+    minimum_table_price: data.minimum_table_price,
     notes: data.notes,
   });
 

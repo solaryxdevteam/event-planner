@@ -6,11 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/server";
+import { requireAuth, requireActiveUser } from "@/lib/auth/server";
 import { UnauthorizedError, ForbiddenError } from "@/lib/utils/errors";
 import * as venueService from "@/lib/services/venues/venue.service";
 import { createVenueSchema } from "@/lib/validation/venues.schema";
-import type { VenueFilterOptions } from "@/lib/data-access/venues.dal";
+import type { VenueFilterOptions, VenueStatusFilter } from "@/lib/data-access/venues.dal";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,15 +50,25 @@ export async function GET(request: NextRequest) {
     // Parse filters
     const filters: VenueFilterOptions = {
       search: searchParams.get("search") || undefined,
-      state: searchParams.get("state") === "all" || !searchParams.get("state") ? null : searchParams.get("state"),
-      status: (searchParams.get("status") || "all") as "all" | "active" | "banned",
-      specs: searchParams.get("specs") ? searchParams.get("specs")!.split(",").filter(Boolean) : undefined,
-      dateFrom: searchParams.get("dateFrom") || undefined,
-      dateTo: searchParams.get("dateTo") || undefined,
-      standingMin: searchParams.get("standingMin") ? parseInt(searchParams.get("standingMin")!, 10) : undefined,
-      standingMax: searchParams.get("standingMax") ? parseInt(searchParams.get("standingMax")!, 10) : undefined,
-      seatedMin: searchParams.get("seatedMin") ? parseInt(searchParams.get("seatedMin")!, 10) : undefined,
-      seatedMax: searchParams.get("seatedMax") ? parseInt(searchParams.get("seatedMax")!, 10) : undefined,
+      status: (searchParams.get("status") || "all") as VenueStatusFilter,
+      totalCapacityMin: searchParams.get("totalCapacityMin")
+        ? parseInt(searchParams.get("totalCapacityMin")!, 10)
+        : undefined,
+      totalCapacityMax: searchParams.get("totalCapacityMax")
+        ? parseInt(searchParams.get("totalCapacityMax")!, 10)
+        : undefined,
+      numberOfTablesMin: searchParams.get("numberOfTablesMin")
+        ? parseInt(searchParams.get("numberOfTablesMin")!, 10)
+        : undefined,
+      numberOfTablesMax: searchParams.get("numberOfTablesMax")
+        ? parseInt(searchParams.get("numberOfTablesMax")!, 10)
+        : undefined,
+      ticketCapacityMin: searchParams.get("ticketCapacityMin")
+        ? parseInt(searchParams.get("ticketCapacityMin")!, 10)
+        : undefined,
+      ticketCapacityMax: searchParams.get("ticketCapacityMax")
+        ? parseInt(searchParams.get("ticketCapacityMax")!, 10)
+        : undefined,
       page: parseInt(searchParams.get("page") || "1", 10),
       pageSize: parseInt(searchParams.get("pageSize") || "9", 10),
       onlyOwn: searchParams.get("onlyOwn") === "true",
@@ -100,23 +110,33 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication
+    // Require active user (pending/inactive cannot create venues)
     try {
-      await requireAuth();
+      await requireActiveUser();
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+      }
+      if (error instanceof ForbiddenError) {
+        return NextResponse.json(
+          { success: false, error: "Your account must be active to create venues." },
+          { status: 403 }
+        );
       }
       throw error;
     }
 
     const body = await request.json();
 
-    // Validate input
-    const validatedInput = createVenueSchema.parse(body);
+    // Strip verificationToken (optional; required for Global Director create)
+    const { verificationToken, ...rest } = body;
+    const validatedInput = createVenueSchema.parse(rest);
 
-    // Create venue
-    const result = await venueService.createVenue(validatedInput);
+    // Create venue (verificationToken required when caller is Global Director)
+    const result = await venueService.createVenue(
+      validatedInput,
+      typeof verificationToken === "string" ? verificationToken : undefined
+    );
 
     return NextResponse.json(
       {

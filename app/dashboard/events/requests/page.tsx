@@ -88,13 +88,11 @@ export default function EventRequestsPage() {
       // Create a new draft based on the rejected event
       await createEventMutation.mutateAsync({
         title: `${selectedEvent.title} (Copy)`,
-        description: selectedEvent.description || "",
         starts_at: selectedEvent.starts_at || null,
-        ends_at: selectedEvent.ends_at || null,
         venue_id: selectedEvent.venue_id || null,
         expected_attendance: selectedEvent.expected_attendance || null,
-        budget_amount: selectedEvent.budget_amount || null,
-        budget_currency: selectedEvent.budget_currency || "USD",
+        minimum_ticket_price: selectedEvent.minimum_ticket_price ?? null,
+        minimum_table_price: selectedEvent.minimum_table_price ?? null,
         notes: selectedEvent.notes || null,
       });
 

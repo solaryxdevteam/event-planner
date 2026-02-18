@@ -17,17 +17,17 @@ import {
   type UpdateUserInput,
   type UserFormInput,
 } from "@/lib/validation/users.schema";
-import { updateUser, checkGlobalDirectorPassword, getPotentialParents } from "@/lib/actions/users";
+import { updateUser, checkGlobalDirectorPassword } from "@/lib/actions/users";
 import { createUser } from "@/lib/services/client/users.client.service";
 import { ApiError } from "@/lib/services/client/api-client";
-import { useCountries, useStatesByCountry, useDefaultCountry } from "@/lib/hooks/use-locations";
+import { useCountries, useDefaultCountry } from "@/lib/hooks/use-locations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LocationCombobox } from "@/components/ui/location-combobox";
-import { UserCombobox } from "@/components/ui/user-combobox";
+import { UserSearchCombobox } from "@/components/ui/user-search-combobox";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { InputPasswordStrength } from "@/components/ui/input-password-strength";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -51,10 +51,6 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [password, setPassword] = useState("");
-  const [potentialParents, setPotentialParents] = useState<
-    Array<{ id: string; first_name: string; last_name: string | null; email: string; role: string }>
-  >([]);
-  const [isLoadingParents, setIsLoadingParents] = useState(false);
 
   // Form type - use UserFormInput which works for both create and edit
   type FormData = UserFormInput;
@@ -69,10 +65,8 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
       role: UserRole.EVENT_PLANNER,
       parent_id: null,
       country_id: undefined,
-      state_id: null,
       city: null,
       phone: null,
-      company: null,
       password: "",
     },
   });
@@ -87,17 +81,10 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
         role: user.role,
         parent_id: user.parent_id,
         country_id: user.country_id || undefined,
-        state_id: user.state_id,
         city: user.city || null,
         phone: user.phone,
-        company: user.company,
         password: "", // Password field is empty for security
       });
-
-      // Load potential parents for the user's role
-      if (user.role !== UserRole.GLOBAL_DIRECTOR) {
-        loadPotentialParents(user.role);
-      }
     } else if (open && mode === "create") {
       // Reset form for create mode
       form.reset({
@@ -107,44 +94,23 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
         role: UserRole.EVENT_PLANNER,
         parent_id: null,
         country_id: undefined,
-        state_id: null,
         city: null,
         phone: null,
-        company: null,
         password: "",
       });
       setShowPasswordConfirm(false);
       setPassword("");
-
-      // Load potential parents for default role (event_planner)
-      loadPotentialParents(UserRole.EVENT_PLANNER);
     }
   }, [open, mode, user, form]);
 
-  const loadPotentialParents = async (role: string) => {
-    setIsLoadingParents(true);
-    try {
-      const response = await getPotentialParents(role);
-      if (response.success && response.data) {
-        setPotentialParents(response.data);
-      }
-    } finally {
-      setIsLoadingParents(false);
-    }
-  };
-
   const selectedCountryId = form.watch("country_id");
-  // Watch state_id for form state management (used indirectly)
-  form.watch("state_id");
 
   // Use React Query hooks for location data (cached)
   const { data: countriesData = [], isLoading: loadingCountries } = useCountries();
   const { data: defaultCountry } = useDefaultCountry();
-  const { data: statesData = [], isLoading: loadingStates } = useStatesByCountry(selectedCountryId ?? null);
 
   // Transform data for the combobox
   const countries = countriesData.map((c) => ({ id: c.id, name: c.name }));
-  const states = statesData.map((s) => ({ id: s.id, name: s.name }));
   const defaultCountryId = defaultCountry?.id || null;
 
   // Set default country when it loads and dialog opens
@@ -155,50 +121,21 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultCountryId, selectedCountryId]);
 
-  // Reset state and city when country changes
-  useEffect(() => {
-    if (selectedCountryId) {
-      form.setValue("state_id", null);
-      form.setValue("city", null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountryId]);
   const selectedRole = form.watch("role");
-  // Fetch potential parents when role changes
-  const handleRoleChange = async (role: string) => {
+  // When role changes to Global Director, clear parent; otherwise keep or clear based on hierarchy
+  const handleRoleChange = (role: string) => {
     form.setValue("role", role as UserRole);
 
-    // Check if Global Director to show password confirmation (only in create mode)
     if (role === UserRole.GLOBAL_DIRECTOR) {
       if (mode === "create") {
         setShowPasswordConfirm(true);
       }
       form.setValue("parent_id", null);
-      setPotentialParents([]);
-      setIsLoadingParents(false);
     } else {
       setShowPasswordConfirm(false);
-
-      // Fetch potential parents for selected role
-      setIsLoadingParents(true);
-      try {
-        const response = await getPotentialParents(role);
-        if (response.success && response.data) {
-          setPotentialParents(response.data);
-
-          // Auto-select first parent if available and in create mode
-          if (mode === "create" && response.data.length > 0) {
-            form.setValue("parent_id", response.data[0].id);
-          } else if (mode === "edit" && user && user.parent_id) {
-            // Keep existing parent_id if it's still valid, otherwise clear it
-            const isValidParent = response.data.some((p) => p.id === user.parent_id);
-            if (!isValidParent) {
-              form.setValue("parent_id", null);
-            }
-          }
-        }
-      } finally {
-        setIsLoadingParents(false);
+      // In edit mode, if current parent is invalid for new role, clear it (UserSearchCombobox will allow re-select)
+      if (mode === "edit" && user?.parent_id) {
+        // Keep parent_id; validation will happen on submit. Optionally clear if you want to force re-select.
       }
     }
   };
@@ -257,10 +194,8 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
         if (data.parent_id !== undefined && data.parent_id !== user.parent_id) updateData.parent_id = data.parent_id;
         if (data.country_id !== undefined && data.country_id !== user.country_id)
           updateData.country_id = data.country_id;
-        if (data.state_id !== undefined && data.state_id !== user.state_id) updateData.state_id = data.state_id;
         if (data.city !== undefined && data.city !== null) updateData.city = data.city;
         if (data.phone !== undefined && data.phone !== user.phone) updateData.phone = data.phone;
-        if (data.company !== undefined && data.company !== user.company) updateData.company = data.company;
 
         // Only include password if it's provided (not empty)
         const newPassword = form.getValues("password");
@@ -324,14 +259,6 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-2">
             <div className="grid grid-cols-2 gap-4 overflow-y-auto">
               {/* Left Column */}
-              {/* Email */}
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input id="email" type="email" {...form.register("email")} placeholder="user@example.com" />
-                {form.formState.errors.email && (
-                  <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-                )}
-              </div>
 
               {/* First Name */}
               <div className="space-y-2">
@@ -351,12 +278,12 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
                 )}
               </div>
 
-              {/* Company */}
-              <div className="space-y-2">
-                <Label htmlFor="company">Company</Label>
-                <Input id="company" type="text" placeholder="Company Name" {...form.register("company")} />
-                {form.formState.errors.company && (
-                  <p className="text-sm text-destructive">{form.formState.errors.company.message}</p>
+              {/* Email */}
+              <div className="space-y-2 col-span-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input id="email" type="email" {...form.register("email")} placeholder="user@example.com" />
+                {form.formState.errors.email && (
+                  <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
                 )}
               </div>
 
@@ -383,12 +310,12 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
               {/* Reports To (if not Global Director) */}
               {selectedRole && selectedRole !== UserRole.GLOBAL_DIRECTOR && (
                 <div className="col-span-2">
-                  <UserCombobox
-                    value={form.watch("parent_id")}
+                  <UserSearchCombobox
+                    value={form.watch("parent_id") ?? null}
                     onValueChange={(value) => form.setValue("parent_id", value)}
-                    options={potentialParents}
-                    placeholder="Select reports to..."
-                    loading={isLoadingParents}
+                    role={selectedRole}
+                    excludeUserId={mode === "edit" && user ? user.id : undefined}
+                    placeholder="Search by name or email..."
                     label="Reports To *"
                     error={form.formState.errors.parent_id?.message}
                   />
@@ -406,18 +333,6 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
                 error={form.formState.errors.country_id?.message}
               />
 
-              {/* State */}
-              <LocationCombobox
-                value={form.watch("state_id") || undefined}
-                onValueChange={(value) => form.setValue("state_id", value || null)}
-                options={states}
-                placeholder="Select state"
-                disabled={!selectedCountryId}
-                loading={loadingStates}
-                label="State"
-                error={form.formState.errors.state_id?.message}
-              />
-
               {/* City - Text Input */}
               <div className="space-y-2 col-span-2 sm:col-span-1">
                 <Label htmlFor="city">City</Label>
@@ -428,7 +343,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
               </div>
 
               {/* Phone - Full width on mobile */}
-              <div className="space-y-2 col-span-2 sm:col-span-1">
+              <div className="space-y-2 col-span-2">
                 <Label htmlFor="phone">Phone</Label>
                 <PhoneInput
                   id="phone"

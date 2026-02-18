@@ -13,8 +13,6 @@ export const updateProfileSchema = z
   .object({
     first_name: z.string().min(1, "First name is required").max(100, "First name is too long"),
     last_name: z.string().max(100, "Last name is too long").nullable().optional(),
-    company: z.string().max(200, "Company name is too long").nullable().optional(),
-    state_id: z.string().uuid("Invalid state ID").nullable().optional(),
     city: z.string().max(200, "City name is too long").nullable().optional(),
     phone: z
       .string()
@@ -28,7 +26,16 @@ export const updateProfileSchema = z
     password_confirmation: z.string().optional().or(z.literal("")),
     // Global Director only fields (optional, but if provided must be valid)
     email: z.string().email("Invalid email address").optional(),
-    role: z.enum(["event_planner", "city_curator", "regional_curator", "lead_curator", "global_director"]).optional(),
+    role: z
+      .enum([
+        "event_planner",
+        "city_curator",
+        "regional_curator",
+        "lead_curator",
+        "global_director",
+        "marketing_manager",
+      ])
+      .optional(),
     status: z.enum(["pending", "active", "inactive"]).optional(),
   })
   .refine(

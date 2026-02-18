@@ -88,7 +88,7 @@ export async function getEventsForCalendar(startDate: Date, endDate: Date) {
 
   const { data, error } = (await supabase
     .from("events")
-    .select("id, title, starts_at, ends_at, status, short_id")
+    .select("id, title, starts_at, status, short_id")
     .in("creator_id", subordinateIds)
     .eq("status", "approved_scheduled")
     .gte("starts_at", startDate.toISOString())
@@ -99,7 +99,6 @@ export async function getEventsForCalendar(startDate: Date, endDate: Date) {
           id: string;
           title: string;
           starts_at: string;
-          ends_at: string | null;
           status: string;
           short_id: string | null;
         }[]
@@ -116,7 +115,7 @@ export async function getEventsForCalendar(startDate: Date, endDate: Date) {
     id: event.id,
     title: event.title,
     date: event.starts_at,
-    endDate: event.ends_at,
+    endDate: null,
     status: event.status,
     shortId: event.short_id ?? "",
   }));

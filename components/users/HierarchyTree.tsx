@@ -19,6 +19,7 @@ const roleLabels: Record<string, string> = {
   regional_curator: "Regional Curator",
   lead_curator: "Lead Curator",
   global_director: "Global Director",
+  marketing_manager: "Marketing Manager",
 };
 
 interface TreeNodeProps {

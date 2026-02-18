@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +16,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { ROLE_LABELS } from "@/lib/types/roles";
+import type { UserRole } from "@/lib/types/roles";
 
 /**
  * Generate user initials from name
@@ -35,6 +38,7 @@ export function NavUser({
     last_name?: string | null;
     email: string;
     avatar?: string;
+    role?: string;
   };
 }) {
   const { isMobile } = useSidebar();
@@ -86,9 +90,14 @@ export function NavUser({
                   <AvatarImage src={user.avatar} alt={fullName} />
                   <AvatarFallback className="rounded-lg">{getInitials(fullName)}</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 min-w-0 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{fullName}</span>
                   <span className="truncate text-xs">{user.email}</span>
+                  {user.role && (
+                    <Badge variant="secondary" className="mt-1 w-fit text-[10px] font-medium">
+                      {ROLE_LABELS[user.role as UserRole] ?? user.role}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </DropdownMenuLabel>

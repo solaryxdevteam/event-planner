@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Database } from "@/lib/types/database.types";
 import { UserTable } from "./UserTable";
 import { UserFormDialog } from "./UserFormDialog";
@@ -23,9 +23,11 @@ type User = Database["public"]["Tables"]["users"]["Row"];
 
 interface UserManagementClientProps {
   initialUsers?: User[]; // Optional initial users for backward compatibility
+  /** When false, only pyramid users are shown (from API) and all action buttons are hidden */
+  isGlobalDirector?: boolean;
 }
 
-export function UserManagementClient({ initialUsers }: UserManagementClientProps) {
+export function UserManagementClient({ initialUsers, isGlobalDirector = true }: UserManagementClientProps) {
   // initialUsers is kept for backward compatibility but not currently used
   void initialUsers;
   const queryClient = useQueryClient();
@@ -39,14 +41,24 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"pending" | "active" | "inactive" | null>(null);
 
-  // Build filters for React Query
+  // Debounce search so we don't hit the API on every keystroke
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Build filters for React Query (use debounced search)
   const filters: UserFilters = {
     page: currentPage,
     limit: pageSize,
-    searchQuery: searchQuery || undefined,
+    searchQuery: debouncedSearchQuery || undefined,
     roleFilter: roleFilter,
     statusFilter: statusFilter,
   };
@@ -132,19 +144,21 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">User Management</h1>
           <p className="text-sm sm:text-base text-muted-foreground mt-1 sm:mt-0">
-            Manage users and their roles in the system
+            {isGlobalDirector ? "Manage users and their roles in the system" : "View users in your hierarchy"}
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <Button variant="outline" onClick={() => setIsInvitationDialogOpen(true)} className="w-full sm:w-auto">
-            <Mail className="mr-2 h-4 w-4" />
-            Create Invitation
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Add User
-          </Button>
-        </div>
+        {isGlobalDirector && (
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => setIsInvitationDialogOpen(true)} className="w-full sm:w-auto">
+              <Mail className="mr-2 h-4 w-4" />
+              Create Invitation
+            </Button>
+            <Button onClick={() => setIsDialogOpen(true)} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Add User
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -157,7 +171,8 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
         <TabsContent value="list" className="space-y-4">
           <UserTable
             users={users}
-            onEditUser={handleEditUser}
+            onEditUser={isGlobalDirector ? handleEditUser : undefined}
+            canManage={isGlobalDirector}
             isLoading={isLoading}
             currentPage={currentPage}
             pageSize={pageSize}
@@ -173,7 +188,10 @@ export function UserManagementClient({ initialUsers }: UserManagementClientProps
         </TabsContent>
 
         <TabsContent value="hierarchy" className="space-y-4">
-          <HierarchyTreeFlow isActive={activeTab === "hierarchy"} onEditUser={handleEditUserFromHierarchy} />
+          <HierarchyTreeFlow
+            isActive={activeTab === "hierarchy"}
+            onEditUser={isGlobalDirector ? handleEditUserFromHierarchy : undefined}
+          />
         </TabsContent>
       </Tabs>
 

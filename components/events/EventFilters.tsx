@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { LocationCombobox } from "@/components/ui/location-combobox";
+import { VenueCombobox } from "@/components/ui/venue-combobox";
 import { XIcon, SearchIcon } from "lucide-react";
 import { format } from "date-fns";
 
@@ -183,22 +184,14 @@ export function EventFilters({
         {availableCreators.length > 0 && (
           <div className="space-y-2">
             <Label>Creator</Label>
-            <Select
-              value={filters.creatorId || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, creatorId: value === "all" ? null : value })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Creators</SelectItem>
-                {availableCreators.map((creator) => (
-                  <SelectItem key={creator.id} value={creator.id}>
-                    {creator.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <VenueCombobox
+              value={filters.creatorId}
+              onValueChange={(value) => onFiltersChange({ ...filters, creatorId: value })}
+              options={availableCreators}
+              placeholder="Select creator..."
+              allLabel="All Creators"
+              label=""
+            />
           </div>
         )}
 
@@ -206,22 +199,14 @@ export function EventFilters({
         {availableVenues.length > 0 && (
           <div className="space-y-2">
             <Label>Venue</Label>
-            <Select
-              value={filters.venueId || "all"}
-              onValueChange={(value) => onFiltersChange({ ...filters, venueId: value === "all" ? null : value })}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Venues</SelectItem>
-                {availableVenues.map((venue) => (
-                  <SelectItem key={venue.id} value={venue.id}>
-                    {venue.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <VenueCombobox
+              value={filters.venueId}
+              onValueChange={(value) => onFiltersChange({ ...filters, venueId: value })}
+              options={availableVenues}
+              placeholder="Select venue..."
+              allLabel="All Venues"
+              label=""
+            />
           </div>
         )}
 

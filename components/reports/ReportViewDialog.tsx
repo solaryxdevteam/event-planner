@@ -20,17 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Download,
-  ExternalLink,
-  Calendar,
-  Users,
-  FileText,
-  Banknote,
-  CheckCircle,
-  XCircle,
-  Loader2,
-} from "lucide-react";
+import { Download, ExternalLink, Calendar, Users, FileText, Banknote, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
 import type { Report } from "@/lib/types/database.types";
@@ -38,6 +28,8 @@ import { useApproveEvent, useRejectEvent, useEventApprovals } from "@/lib/hooks/
 import { useProfile } from "@/lib/hooks/use-profile";
 import { UserRole } from "@/lib/types/roles";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
+import { MediaPreviewDialog } from "@/components/ui/media-preview-dialog";
 
 interface ReportViewDialogProps {
   open: boolean;
@@ -75,7 +67,14 @@ export function ReportViewDialog({
   const router = useRouter();
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
   const [comment, setComment] = useState("");
+  const [previewMedia, setPreviewMedia] = useState<{
+    url: string;
+    type: "image" | "video" | "file";
+    name: string;
+  } | null>(null);
 
   const { data: profile } = useProfile();
   const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
@@ -100,29 +99,35 @@ export function ReportViewDialog({
       a.approval_type === "report" && a.status === "rejected" && a.approver?.role === UserRole.GLOBAL_DIRECTOR
   );
 
-  const handleApprove = async () => {
+  const handleApproveContinueToOtp = () => {
     if (!comment.trim()) return;
-    try {
-      await approveMutation.mutateAsync({ eventId, comment });
-      setShowApproveDialog(false);
-      setComment("");
-      onOpenChange(false);
-      router.refresh();
-    } catch (error) {
-      console.error("Error approving report:", error);
-    }
+    setOtpAction("approve");
+    setShowApproveDialog(false);
+    setShowOtpDialog(true);
   };
 
-  const handleReject = async () => {
+  const handleRejectContinueToOtp = () => {
     if (!comment.trim()) return;
+    setOtpAction("reject");
+    setShowRejectDialog(false);
+    setShowOtpDialog(true);
+  };
+
+  const handleOtpVerified = async (verificationToken: string) => {
+    setShowOtpDialog(false);
     try {
-      await rejectMutation.mutateAsync({ eventId, comment });
-      setShowRejectDialog(false);
+      if (otpAction === "approve") {
+        await approveMutation.mutateAsync({ eventId, comment, verificationToken });
+        setShowApproveDialog(false);
+      } else {
+        await rejectMutation.mutateAsync({ eventId, comment, verificationToken });
+        setShowRejectDialog(false);
+      }
       setComment("");
       onOpenChange(false);
       router.refresh();
     } catch (error) {
-      console.error("Error rejecting report:", error);
+      console.error("Error with report approval action:", error);
     }
   };
 
@@ -173,21 +178,53 @@ export function ReportViewDialog({
                 <p className="text-2xl font-bold">{report.attendance_count.toLocaleString()}</p>
               </div>
 
-              {/* Net Profit */}
-              {report.net_profit != null && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Banknote className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="font-semibold">Net Profit</h3>
-                  </div>
-                  <p className="text-2xl font-bold">
-                    {Number(report.net_profit).toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
+              {/* Table sales */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-semibold">Table sales</h3>
                 </div>
-              )}
+                <p className="text-2xl font-bold">
+                  {report.total_table_sales != null
+                    ? Number(report.total_table_sales).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "—"}
+                </p>
+              </div>
+
+              {/* Ticket sales */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-semibold">Ticket sales</h3>
+                </div>
+                <p className="text-2xl font-bold">
+                  {report.total_ticket_sales != null
+                    ? Number(report.total_ticket_sales).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "—"}
+                </p>
+              </div>
+
+              {/* Bar sales */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Banknote className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="font-semibold">Bar sales</h3>
+                </div>
+                <p className="text-2xl font-bold">
+                  {report.total_bar_sales != null
+                    ? Number(report.total_bar_sales).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "—"}
+                </p>
+              </div>
             </div>
 
             {/* Summary */}
@@ -229,20 +266,34 @@ export function ReportViewDialog({
                 <h3 className="font-semibold">Media Files</h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {report.media_urls.map((url, index) => {
-                    const isImage = url.match(/\.(jpg|jpeg|png|gif)$/i);
                     const fileName = url.split("/").pop() || `media-${index + 1}`;
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                    const isVideo = /\.(mp4|webm|mov|ogg)$/i.test(fileName);
+                    const mediaType: "image" | "video" | "file" = isImage ? "image" : isVideo ? "video" : "file";
 
                     return (
                       <div key={index} className="space-y-2">
-                        <div className="relative aspect-video bg-muted rounded overflow-hidden border">
+                        <button
+                          type="button"
+                          className="relative aspect-video w-full bg-muted rounded overflow-hidden border focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
+                          onClick={() => setPreviewMedia({ url, type: mediaType, name: fileName })}
+                        >
                           {isImage ? (
                             <Image src={url} alt={`Media ${index + 1}`} fill className="object-cover" unoptimized />
+                          ) : isVideo ? (
+                            <video
+                              src={url}
+                              className="w-full h-full object-cover"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
-                              <span className="text-xs text-muted-foreground">Video</span>
+                              <span className="text-xs text-muted-foreground">File</span>
                             </div>
                           )}
-                        </div>
+                        </button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -363,15 +414,8 @@ export function ReportViewDialog({
             >
               Cancel
             </Button>
-            <Button onClick={handleApprove} disabled={!comment.trim() || isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Approving...
-                </>
-              ) : (
-                "Approve"
-              )}
+            <Button onClick={handleApproveContinueToOtp} disabled={!comment.trim() || isSubmitting}>
+              Continue to verification
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -410,19 +454,35 @@ export function ReportViewDialog({
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={!comment.trim() || isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Rejecting...
-                </>
-              ) : (
-                "Reject"
-              )}
+            <Button
+              variant="destructive"
+              onClick={handleRejectContinueToOtp}
+              disabled={!comment.trim() || isSubmitting}
+            >
+              Continue to verification
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OtpVerificationDialog
+        open={showOtpDialog}
+        onOpenChange={setShowOtpDialog}
+        onVerified={handleOtpVerified}
+        contextType="event_approval"
+        contextId={eventId}
+        action={otpAction}
+        title="Verify with OTP"
+        description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+      />
+
+      <MediaPreviewDialog
+        open={previewMedia != null}
+        onOpenChange={(open) => !open && setPreviewMedia(null)}
+        type={previewMedia?.type ?? "image"}
+        url={previewMedia?.url ?? ""}
+        downloadName={previewMedia?.name}
+      />
     </>
   );
 }

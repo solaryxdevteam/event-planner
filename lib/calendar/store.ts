@@ -1,0 +1,191 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import {
+  type CalendarEvent,
+  type CalendarViewConfigs,
+  CalendarViewType,
+  type DayViewConfig,
+  type DaysViewConfig,
+  type EventPosition,
+  type MonthViewConfig,
+  type QuickAddDialogData,
+  TimeFormatType,
+  type ViewModeType,
+  type WeekViewConfig,
+  type YearViewConfig,
+} from "./types";
+
+const DEFAULT_VIEW_CONFIGS: CalendarViewConfigs = {
+  day: {
+    showCurrentTimeIndicator: true,
+    showHoverTimeIndicator: true,
+    enableTimeSlotClick: false,
+  },
+  days: {
+    highlightToday: true,
+    showCurrentTimeIndicator: true,
+    showHoverTimeIndicator: true,
+    enableTimeSlotClick: false,
+    enableTimeBlockClick: false,
+    expandMultiDayEvents: true,
+  },
+  week: {
+    highlightToday: true,
+    showCurrentTimeIndicator: true,
+    showHoverTimeIndicator: true,
+    enableTimeSlotClick: false,
+    enableTimeBlockClick: false,
+    expandMultiDayEvents: true,
+  },
+  month: {
+    eventLimit: 3,
+    showMoreEventsIndicator: true,
+    hideOutsideDays: true,
+  },
+  year: {
+    showMonthLabels: true,
+    quarterView: false,
+    highlightCurrentMonth: true,
+    showMoreEventsIndicator: true,
+    enableEventPreview: true,
+    previewEventsPerMonth: 1,
+  },
+};
+
+interface EventCalendarState {
+  selectedEvent: CalendarEvent | null;
+  currentView: CalendarViewType;
+  viewMode: ViewModeType;
+  timeFormat: TimeFormatType;
+  locale: string;
+  firstDayOfWeek: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  daysCount: number;
+  loading: boolean;
+  error: Error | null;
+  viewSettings: CalendarViewConfigs;
+  isDialogOpen: boolean;
+  eventDialogPosition: EventPosition | null;
+  isSubmitting: boolean;
+  dayEventsDialog: {
+    open: boolean;
+    date: Date | null;
+    events: CalendarEvent[];
+  };
+  quickAddData: QuickAddDialogData;
+  isQuickAddDialogOpen: boolean;
+  addEventConfirmDialog: { open: boolean; date: Date | null };
+  openAddEventConfirmDialog: (date?: Date) => void;
+  closeAddEventConfirmDialog: () => void;
+  setLoading: (loading: boolean) => void;
+  setView: (type: CalendarViewType) => void;
+  setMode: (type: ViewModeType) => void;
+  setTimeFormat: (format: TimeFormatType) => void;
+  setLocale: (locale: string) => void;
+  setFirstDayOfWeek: (day: 0 | 1 | 2 | 3 | 4 | 5 | 6) => void;
+  setDaysCount: (count: number) => void;
+  updateDayViewConfig: (config: Partial<DayViewConfig>) => void;
+  updateDaysViewConfig: (config: Partial<DaysViewConfig>) => void;
+  updateWeekViewConfig: (config: Partial<WeekViewConfig>) => void;
+  updateMonthViewConfig: (config: Partial<MonthViewConfig>) => void;
+  updateYearViewConfig: (config: Partial<YearViewConfig>) => void;
+  selectCurrentViewConfig: () => DayViewConfig | WeekViewConfig | MonthViewConfig | YearViewConfig;
+  openEventDialog: (event: CalendarEvent, position?: EventPosition) => void;
+  closeEventDialog: () => void;
+  openDayEventsDialog: (date: Date, events: CalendarEvent[]) => void;
+  closeDayEventsDialog: () => void;
+  openQuickAddDialog: (data: QuickAddDialogData) => void;
+  closeQuickAddDialog: () => void;
+}
+
+export const useEventCalendarStore = create<EventCalendarState>()(
+  persist(
+    (set, get) => ({
+      selectedEvent: null,
+      currentView: CalendarViewType.MONTH,
+      viewMode: "calendar" as ViewModeType,
+      timeFormat: TimeFormatType.HOUR_24,
+      locale: "en-US",
+      firstDayOfWeek: 0,
+      daysCount: 7,
+      loading: false,
+      error: null,
+      viewSettings: DEFAULT_VIEW_CONFIGS,
+      isDialogOpen: false,
+      eventDialogPosition: null,
+      isSubmitting: false,
+      dayEventsDialog: { open: false, date: null, events: [] },
+      quickAddData: { date: null, time: undefined, hour: undefined, minute: undefined },
+      isQuickAddDialogOpen: false,
+      addEventConfirmDialog: { open: false, date: null },
+      openAddEventConfirmDialog: (date) => set({ addEventConfirmDialog: { open: true, date: date ?? null } }),
+      closeAddEventConfirmDialog: () => set({ addEventConfirmDialog: { open: false, date: null } }),
+      setLoading: (loading) => set({ loading }),
+      updateDayViewConfig: (config) =>
+        set((state) => ({ viewSettings: { ...state.viewSettings, day: { ...state.viewSettings.day, ...config } } })),
+      updateDaysViewConfig: (config) =>
+        set((state) => ({
+          viewSettings: { ...state.viewSettings, days: { ...state.viewSettings.days, ...config } },
+        })),
+      updateWeekViewConfig: (config) =>
+        set((state) => ({
+          viewSettings: { ...state.viewSettings, week: { ...state.viewSettings.week, ...config } },
+        })),
+      updateMonthViewConfig: (config) =>
+        set((state) => ({
+          viewSettings: { ...state.viewSettings, month: { ...state.viewSettings.month, ...config } },
+        })),
+      updateYearViewConfig: (config) =>
+        set((state) => ({
+          viewSettings: { ...state.viewSettings, year: { ...state.viewSettings.year, ...config } },
+        })),
+      selectCurrentViewConfig: () => {
+        const { currentView, viewSettings } = get();
+        return viewSettings[currentView];
+      },
+      openEventDialog: (event, position) => {
+        set({ selectedEvent: event, isDialogOpen: true, eventDialogPosition: position });
+      },
+      closeEventDialog: () => {
+        set({ isDialogOpen: false, selectedEvent: null, eventDialogPosition: null });
+      },
+      openDayEventsDialog: (date, events) => {
+        set({ dayEventsDialog: { open: true, date, events } });
+      },
+      closeDayEventsDialog: () => {
+        set({ dayEventsDialog: { open: false, date: null, events: [] } });
+      },
+      openQuickAddDialog: (data: QuickAddDialogData) => {
+        set({
+          quickAddData: {
+            date: data.date || new Date(),
+            startTime: data.startTime,
+            endTime: data.endTime,
+            position: data.position,
+          },
+          isQuickAddDialogOpen: true,
+        });
+      },
+      closeQuickAddDialog: () => {
+        set({ quickAddData: { date: null }, isQuickAddDialogOpen: false });
+      },
+      setView: (view) => set({ currentView: view }),
+      setMode: (mode) => set({ viewMode: mode }),
+      setTimeFormat: (format) => set({ timeFormat: format }),
+      setLocale: (localeCode: string) => set({ locale: localeCode }),
+      setFirstDayOfWeek: (day) => set({ firstDayOfWeek: day }),
+      setDaysCount: (count) => set({ daysCount: count }),
+    }),
+    {
+      name: "event-planner-calendar",
+      partialize: (state) => ({
+        currentView: state.currentView,
+        viewMode: state.viewMode,
+        timeFormat: state.timeFormat,
+        locale: state.locale,
+        firstDayOfWeek: state.firstDayOfWeek,
+        daysCount: state.daysCount,
+        viewSettings: state.viewSettings,
+      }),
+    }
+  )
+);

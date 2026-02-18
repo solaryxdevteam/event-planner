@@ -5,28 +5,38 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { useApprovals, useApproveEvent, useRejectEvent } from "@/lib/hooks/use-approvals";
+import {
+  useApprovals,
+  useApproveEvent,
+  useRejectEvent,
+  useVenueApprovals,
+  useApproveVenue,
+  useRejectVenue,
+} from "@/lib/hooks/use-approvals";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { PendingApprovalCard } from "@/components/approvals/PendingApprovalCard";
+import { PendingVenueApprovalCard } from "@/components/approvals/PendingVenueApprovalCard";
 import { Badge } from "@/components/ui/badge";
-import { Grid3x3, List, CheckCircle2, FileEdit, XCircle, FileText } from "lucide-react";
+import { Grid3x3, List, CheckCircle2, FileEdit, XCircle, FileText, Building2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
+import type { VenueApprovalWithApprover } from "@/lib/data-access/venue-approvals.dal";
 
 export default function ApprovalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("type") || "event";
+  const urlType = searchParams.get("type") || "event";
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+
+  // Get current user profile for role checking (e.g. PendingApprovalCard)
+  const { data: profile } = useProfile();
+  const defaultTab = urlType;
 
   const handleTabChange = (value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("type", value);
     router.push(`/dashboard/approvals?${params.toString()}`);
   };
-
-  // Get current user profile for role checking
-  const { data: profile } = useProfile();
 
   // Fetch approvals by type
   const { data: eventApprovals = [], isLoading: loadingEvents } = useApprovals({
@@ -41,17 +51,31 @@ export default function ApprovalsPage() {
   const { data: reportApprovals = [], isLoading: loadingReports } = useApprovals({
     approval_type: "report",
   });
+  const { data: marketingReportApprovals = [], isLoading: loadingMarketingReports } = useApprovals({
+    approval_type: "marketing_report",
+  });
+  const { data: venueApprovals = [], isLoading: loadingVenues } = useVenueApprovals();
 
   // Mutations
   const approveEventMutation = useApproveEvent();
   const rejectEventMutation = useRejectEvent();
+  const approveVenueMutation = useApproveVenue();
+  const rejectVenueMutation = useRejectVenue();
 
-  const handleApprove = async (eventId: string, comment: string) => {
-    await approveEventMutation.mutateAsync({ eventId, comment });
+  const handleApprove = async (eventId: string, comment: string, verificationToken: string) => {
+    await approveEventMutation.mutateAsync({ eventId, comment, verificationToken });
   };
 
-  const handleReject = async (eventId: string, comment: string) => {
-    await rejectEventMutation.mutateAsync({ eventId, comment });
+  const handleReject = async (eventId: string, comment: string, verificationToken: string) => {
+    await rejectEventMutation.mutateAsync({ eventId, comment, verificationToken });
+  };
+
+  const handleApproveVenue = async (venueId: string, comment: string, verificationToken: string) => {
+    await approveVenueMutation.mutateAsync({ venueId, comment, verificationToken });
+  };
+
+  const handleRejectVenue = async (venueId: string, comment: string, verificationToken: string) => {
+    await rejectVenueMutation.mutateAsync({ venueId, comment, verificationToken });
   };
 
   const renderApprovalList = (
@@ -163,6 +187,22 @@ export default function ApprovalsPage() {
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="marketing_report">
+              Marketing Reports{" "}
+              {marketingReportApprovals.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {marketingReportApprovals.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="venues">
+              Venues{" "}
+              {venueApprovals.length > 0 && (
+                <Badge variant="secondary" className="ml-2">
+                  {venueApprovals.length}
+                </Badge>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           {/* View Toggle */}
@@ -222,6 +262,49 @@ export default function ApprovalsPage() {
             description:
               "There are no pending report approvals. Post-event reports will appear here when submitted for review.",
           })}
+        </TabsContent>
+
+        <TabsContent value="marketing_report" className="space-y-4">
+          {renderApprovalList(marketingReportApprovals, loadingMarketingReports, {
+            icon: <FileText className="h-8 w-8 text-muted-foreground" />,
+            title: "No marketing report approvals",
+            description:
+              "There are no pending marketing report approvals. Marketing managers' reports will appear here when submitted.",
+          })}
+        </TabsContent>
+
+        <TabsContent value="venues" className="space-y-4">
+          {loadingVenues ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-48 w-full" />
+              ))}
+            </div>
+          ) : venueApprovals.length === 0 ? (
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-16 px-4">
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <Building2 className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No pending venue approvals</h3>
+                <p className="text-sm text-muted-foreground text-center max-w-md">
+                  New venue submissions from Event Planners (and others) will appear here. The approval chain follows
+                  the same hierarchy as events (City Curator → Regional → Lead → Global Director).
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {venueApprovals.map((approval: VenueApprovalWithApprover) => (
+                <PendingVenueApprovalCard
+                  key={approval.id}
+                  approval={approval}
+                  onApprove={handleApproveVenue}
+                  onReject={handleRejectVenue}
+                />
+              ))}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>

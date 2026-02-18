@@ -165,6 +165,7 @@ export async function requireMinimumRole(minimumRole: Role): Promise<AuthUser> {
   const roleHierarchy: Record<Role, number> = {
     event_planner: 1,
     city_curator: 2,
+    marketing_manager: 2,
     regional_curator: 3,
     lead_curator: 4,
     global_director: 5,
@@ -232,6 +233,7 @@ export async function hasMinimumRole(minimumRole: Role): Promise<boolean> {
   const roleHierarchy: Record<Role, number> = {
     [UserRole.EVENT_PLANNER]: 1,
     [UserRole.CITY_CURATOR]: 2,
+    [UserRole.MARKETING_MANAGER]: 2,
     [UserRole.REGIONAL_CURATOR]: 3,
     [UserRole.LEAD_CURATOR]: 4,
     [UserRole.GLOBAL_DIRECTOR]: 5,

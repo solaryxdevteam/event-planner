@@ -40,7 +40,6 @@ export async function updateUserProfile(data: {
   first_name?: string;
   last_name?: string | null;
   country_id?: string;
-  state_id?: string | null;
   city?: string | null;
   avatar_url?: string;
 }): Promise<ActionResponse<User>> {
@@ -52,7 +51,6 @@ export async function updateUserProfile(data: {
       first_name: data.first_name,
       last_name: data.last_name,
       country_id: data.country_id,
-      state_id: data.state_id,
       city: data.city,
       avatar_url: data.avatar_url,
       updated_at: new Date().toISOString(),
@@ -128,7 +126,6 @@ export async function completeUserProfile(data: {
   first_name: string;
   last_name?: string | null;
   country_id?: string;
-  state_id?: string | null;
   city?: string | null;
 }): Promise<ActionResponse<User>> {
   return handleAsync(async () => {
@@ -174,12 +171,10 @@ export async function completeUserProfile(data: {
       first_name: data.first_name,
       last_name: data.last_name || null,
       country_id: countryId,
-      state_id: data.state_id || null,
       city: data.city || null,
       role: UserRole.EVENT_PLANNER, // Default role
       parent_id: null,
       phone: null,
-      company: null,
       status: "pending" as const,
       is_active: false,
       avatar_url: null,
@@ -203,7 +198,7 @@ export async function completeUserProfile(data: {
  */
 export async function createEvent(data: {
   title: string;
-  description: string;
+  notes?: string | null;
 }): Promise<ActionResponse<{ id: string }>> {
   return handleAsync(async () => {
     // Ensure user is authenticated and active
@@ -213,16 +208,15 @@ export async function createEvent(data: {
     const insertData: EventInsert = {
       short_id: `EVT-${Math.floor(Math.random() * 90000 + 10000)}`,
       title: data.title,
-      description: data.description,
       starts_at: null,
-      ends_at: null,
       venue_id: null,
+      dj_id: null,
       creator_id: user.id,
       status: "draft",
       expected_attendance: null,
-      budget_amount: null,
-      budget_currency: "USD",
-      notes: null,
+      minimum_ticket_price: null,
+      minimum_table_price: null,
+      notes: data.notes ?? null,
     };
     const { data: event, error } = await supabase
       .from("events")
@@ -239,7 +233,7 @@ export async function createEvent(data: {
 /**
  * Register a user with an invitation token
  *
- * @param formData - Registration form data (token, first_name, last_name, email, phone, company, password)
+ * @param formData - Registration form data (token, first_name, last_name, email, phone, city, password)
  */
 export async function registerWithInvitation(
   formData:
@@ -250,22 +244,17 @@ export async function registerWithInvitation(
         last_name?: string | null;
         email: string;
         phone?: string | null;
-        company?: string | null;
-        state_id?: string | null;
         city?: string | null;
         password: string;
       }
 ): Promise<ActionResponse<User>> {
   return handleAsync(async () => {
-    // Parse form data
     let data: {
       token: string;
       first_name: string;
       last_name?: string | null;
       email: string;
       phone?: string | null;
-      company?: string | null;
-      state_id?: string | null;
       city?: string | null;
       password: string;
     };
@@ -277,8 +266,6 @@ export async function registerWithInvitation(
         last_name: formData.get("last_name") as string | null,
         email: formData.get("email") as string,
         phone: formData.get("phone") as string | null,
-        company: formData.get("company") as string | null,
-        state_id: formData.get("state_id") as string | null,
         city: formData.get("city") as string | null,
         password: formData.get("password") as string,
       };
@@ -317,7 +304,7 @@ export async function validateInvitationToken(token: string): Promise<ActionResp
  * Activate a user (Global Director only)
  *
  * @param formData - Activation form data (userId, role, parent_id)
- * Note: Location fields (country_id, state_id, city) are set during registration
+ * Note: Location fields (country_id, city) are set during registration
  * and can be edited later via the user edit form
  */
 export async function activateUser(

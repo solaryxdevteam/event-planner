@@ -11,6 +11,7 @@ export enum UserRole {
   REGIONAL_CURATOR = "regional_curator",
   LEAD_CURATOR = "lead_curator",
   GLOBAL_DIRECTOR = "global_director",
+  MARKETING_MANAGER = "marketing_manager",
 }
 
 /**
@@ -22,6 +23,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   [UserRole.REGIONAL_CURATOR]: "Regional Curator",
   [UserRole.LEAD_CURATOR]: "Lead Curator",
   [UserRole.GLOBAL_DIRECTOR]: "Global Director",
+  [UserRole.MARKETING_MANAGER]: "Marketing Manager",
 };
 
 /**

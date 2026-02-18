@@ -23,19 +23,16 @@ import * as emailService from "../email/email.service";
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type EventStatus = Database["public"]["Enums"]["event_status"];
 
+/** Event is considered "past" 5 hours after starts_at (no ends_at field). */
+const HOURS_AFTER_START_TO_TRANSITION = 5;
+
 /**
- * Transition events that have passed their date from approved_scheduled
+ * Transition events that are 5+ hours past start from approved_scheduled
  * to completed_awaiting_report
  *
- * This function should be called daily by a cron job.
+ * Cron should run frequently (e.g. hourly) so events transition ~5 hours after start.
  *
  * @returns Number of events transitioned
- *
- * @example
- * // Set up in Vercel cron or Supabase Edge Function
- * // Runs daily at midnight
- * const transitioned = await transitionCompletedEvents();
- * console.log(`Transitioned ${transitioned} events`);
  */
 export async function transitionCompletedEvents(): Promise<{
   success: boolean;
@@ -47,12 +44,13 @@ export async function transitionCompletedEvents(): Promise<{
   let transitioned = 0;
 
   try {
-    // Find all approved events where starts_at has passed
+    // Cutoff: events that started at least 5 hours ago
+    const cutoff = new Date(Date.now() - HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000).toISOString();
     const { data: events, error: fetchError } = await supabase
       .from("events")
       .select("*")
       .eq("status", "approved_scheduled")
-      .lt("starts_at", new Date().toISOString()); // starts_at < now
+      .lt("starts_at", cutoff); // starts_at < (now - 5 hours)
 
     if (fetchError) {
       throw new Error(`Failed to fetch events: ${fetchError.message}`);
@@ -116,7 +114,7 @@ async function transitionSingleEvent(event: Event): Promise<void> {
     event_id: event.id,
     user_id: null, // System action
     action_type: "update_event",
-    comment: "Event automatically transitioned to awaiting report after event date passed",
+    comment: "Event automatically transitioned to awaiting report (5 hours after start)",
     metadata: {
       automated: true,
       old_status: "approved_scheduled",
@@ -234,12 +232,13 @@ export async function manuallyTransitionEvent(
  */
 export async function getEventsNeedingTransition(): Promise<number> {
   const supabase = await createClient();
+  const cutoff = new Date(Date.now() - HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000).toISOString();
 
   const { count, error } = await supabase
     .from("events")
     .select("*", { count: "exact", head: true })
     .eq("status", "approved_scheduled")
-    .lt("starts_at", new Date().toISOString());
+    .lt("starts_at", cutoff);
 
   if (error) {
     console.error("Error counting events:", error);
@@ -327,12 +326,9 @@ export async function getEventsNeedingTransition(): Promise<number> {
  */
 export async function _testGetEventsReadyForTransition(): Promise<Event[]> {
   const supabase = await createClient();
+  const cutoff = new Date(Date.now() - HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000).toISOString();
 
-  const { data } = await supabase
-    .from("events")
-    .select("*")
-    .eq("status", "approved_scheduled")
-    .lt("starts_at", new Date().toISOString());
+  const { data } = await supabase.from("events").select("*").eq("status", "approved_scheduled").lt("starts_at", cutoff);
 
   return data || [];
 }

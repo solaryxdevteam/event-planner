@@ -83,14 +83,12 @@ export function ModificationVersionsList({
   const approveMutation = useApproveEvent();
   const rejectMutation = useRejectEvent();
 
-  // Check if the current user has a pending approval for a modification version
+  // Only show approve/reject when it is the user's turn (status = "pending"). No bypass for Global Director.
   const hasPendingApproval = () => {
     if (!profile?.id || !approvals) return false;
     return approvals.some(
       (a: { approval_type?: string; approver_id?: string; status?: string }) =>
-        a.approval_type === "modification" &&
-        a.approver_id === profile.id &&
-        (a.status === "pending" || (a.status === "waiting" && isGlobalDirector))
+        a.approval_type === "modification" && a.approver_id === profile.id && a.status === "pending"
     );
   };
 

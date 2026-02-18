@@ -3,6 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useProfile } from "@/lib/hooks/use-profile";
@@ -11,15 +12,10 @@ import { VenueForm } from "@/components/venues/VenueForm";
 import { UserRole } from "@/lib/types/roles";
 
 export default function NewVenuePage() {
-  // Get current user to pre-fill state and country
+  const router = useRouter();
   const { data: user, isLoading: loadingUser } = useProfile();
-
-  // Get country and state names from location IDs
   const { data: country } = useLocationById(user?.country_id || null);
-  const { data: state } = useLocationById(user?.state_id || null);
-
   const countryName = country?.name || "United States";
-  const stateName = state?.name || "";
 
   if (loadingUser) {
     return (
@@ -66,23 +62,15 @@ export default function NewVenuePage() {
   return (
     <div className="container mx-auto pt-4 pb-8 max-w-5xl">
       <div className="mb-4">
-        <Button variant="ghost" size="sm" asChild className="mb-4">
-          <Link href="/dashboard/venues">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Venues
-          </Link>
+        <Button variant="ghost" size="sm" className="mb-4" onClick={() => router.back()}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back
         </Button>
         <h1 className="text-3xl font-bold tracking-tight">Create New Venue</h1>
         <p className="text-muted-foreground mt-2">Fill in the venue information step by step</p>
       </div>
 
-      <VenueForm
-        mode="create"
-        defaultState={stateName}
-        defaultCountry={countryName}
-        defaultCountryId={user.country_id}
-        defaultStateId={user.state_id || undefined}
-      />
+      <VenueForm mode="create" defaultCountry={countryName} defaultCountryId={user.country_id} />
     </div>
   );
 }

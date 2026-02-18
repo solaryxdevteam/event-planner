@@ -30,10 +30,24 @@ export function ReportsChart({ data, isLoading }: ReportsChartProps) {
       labels: data.map((d) => d.date),
       datasets: [
         {
-          label: "Net profit",
-          data: data.map((d) => d.net_profit),
+          label: "Table sales",
+          data: data.map((d) => d.table_sales),
           backgroundColor: "rgba(59, 130, 246, 0.7)",
           borderColor: "rgb(59, 130, 246)",
+          borderWidth: 1,
+        },
+        {
+          label: "Ticket sales",
+          data: data.map((d) => d.ticket_sales),
+          backgroundColor: "rgba(34, 197, 94, 0.7)",
+          borderColor: "rgb(34, 197, 94)",
+          borderWidth: 1,
+        },
+        {
+          label: "Bar sales",
+          data: data.map((d) => d.bar_sales),
+          backgroundColor: "rgba(234, 179, 8, 0.7)",
+          borderColor: "rgb(234, 179, 8)",
           borderWidth: 1,
         },
       ],
@@ -45,7 +59,7 @@ export function ReportsChart({ data, isLoading }: ReportsChartProps) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },
+        legend: { display: true },
         tooltip: {
           callbacks: {
             afterLabel: (context) => {
@@ -60,10 +74,12 @@ export function ReportsChart({ data, isLoading }: ReportsChartProps) {
       scales: {
         x: {
           title: { display: true, text: "Date" },
+          stacked: true,
         },
         y: {
           beginAtZero: true,
-          title: { display: true, text: "Net profit" },
+          title: { display: true, text: "Sales" },
+          stacked: true,
         },
       },
     }),
@@ -74,7 +90,7 @@ export function ReportsChart({ data, isLoading }: ReportsChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Net profit by date</CardTitle>
+          <CardTitle>Sales by date</CardTitle>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[320px] w-full rounded-lg" />
@@ -87,7 +103,7 @@ export function ReportsChart({ data, isLoading }: ReportsChartProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Net profit by date</CardTitle>
+          <CardTitle>Sales by date</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex h-[320px] items-center justify-center rounded-lg border border-dashed bg-muted/30 text-sm text-muted-foreground">
@@ -101,7 +117,7 @@ export function ReportsChart({ data, isLoading }: ReportsChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Net profit by date</CardTitle>
+        <CardTitle>Sales by date</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[320px] w-full">

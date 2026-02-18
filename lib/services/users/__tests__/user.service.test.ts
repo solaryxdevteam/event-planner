@@ -92,7 +92,6 @@ describe("user.service", () => {
         role: "event_planner",
         parent_id: "city-curator-id",
         country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-        state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
         city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
       });
 
@@ -114,7 +113,6 @@ describe("user.service", () => {
           role: "event_planner",
           parent_id: "city-curator-id",
           country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-          state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
           city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
         })
       ).rejects.toThrow("Only Global Directors can create users");
@@ -139,7 +137,6 @@ describe("user.service", () => {
           role: "event_planner",
           parent_id: "city-curator-id",
           country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-          state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
           city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
         })
       ).rejects.toThrow("A user with this email already exists");
@@ -164,7 +161,6 @@ describe("user.service", () => {
           role: "event_planner",
           parent_id: null,
           country_id: "123e4567-e89b-12d3-a456-426614174001", // Mock US country ID
-          state_id: "123e4567-e89b-12d3-a456-426614174002", // Mock state ID
           city_id: "123e4567-e89b-12d3-a456-426614174003", // Mock city ID
         })
       ).rejects.toThrow("Non-Global Director roles must have a parent");

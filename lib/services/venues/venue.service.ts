@@ -19,20 +19,24 @@ import { requireActiveUser } from "@/lib/auth/server";
 import { UserRole } from "@/lib/types/roles";
 import { isGlobalDirector } from "@/lib/permissions/roles";
 import * as eventDAL from "@/lib/data-access/events.dal";
+import { buildApprovalChain } from "@/lib/services/approvals/chain-builder.service";
+import * as venueApprovalDAL from "@/lib/data-access/venue-approvals.dal";
+import * as verificationOtpService from "@/lib/services/verification-otp/verification-otp.service";
+import * as venueContactVerificationService from "@/lib/services/venues/venue-contact-verification.service";
 
 type Venue = Database["public"]["Tables"]["venues"]["Row"];
 
 /**
  * Get all venues visible to the current user
  * Implements pyramid visibility through backend authorization
- * Global directors can see all venues
+ * Global directors and marketing managers can see all venues (read-only for marketing)
  */
 export async function getVenues(options?: { search?: string }): Promise<VenueWithCreator[]> {
   const user = await requireActiveUser();
 
-  // Global directors can see all venues
   const isGD = await isGlobalDirector(user.id);
-  const subordinateIds = isGD ? null : await getSubordinateUserIds(user.id);
+  const isMarketingManager = user.dbUser.role === UserRole.MARKETING_MANAGER;
+  const subordinateIds = isGD || isMarketingManager ? null : await getSubordinateUserIds(user.id);
 
   if (options?.search && options.search.trim().length > 0) {
     return venueDAL.search(options.search.trim(), subordinateIds, true);
@@ -48,13 +52,10 @@ export async function getVenues(options?: { search?: string }): Promise<VenueWit
 export async function getVenuesWithFilters(filters: venueDAL.VenueFilterOptions): Promise<venueDAL.PaginatedVenues> {
   const user = await requireActiveUser();
 
-  // Global directors can see all venues
   const isGD = await isGlobalDirector(user.id);
-
-  // If onlyOwn is true, only use the current user's ID (not subordinates)
-  // Otherwise, get subordinate user IDs for authorization (pyramid visibility)
-  // For global directors, pass null to skip creator_id filter (see all venues)
-  const subordinateIds = isGD ? null : filters.onlyOwn ? [user.id] : await getSubordinateUserIds(user.id);
+  const isMarketingManager = user.dbUser.role === UserRole.MARKETING_MANAGER;
+  const subordinateIds =
+    isGD || isMarketingManager ? null : filters.onlyOwn ? [user.id] : await getSubordinateUserIds(user.id);
 
   return venueDAL.findAllWithFilters(subordinateIds, filters);
 }
@@ -87,8 +88,9 @@ export async function getVenueByShortId(shortId: string): Promise<VenueWithCreat
 export async function getVenueById(id: string): Promise<VenueWithCreator> {
   const user = await requireActiveUser();
 
-  // Get subordinate user IDs for authorization
-  const subordinateIds = await getSubordinateUserIds(user.id);
+  const isGD = await isGlobalDirector(user.id);
+  const isMarketingManager = user.dbUser.role === UserRole.MARKETING_MANAGER;
+  const subordinateIds = isGD || isMarketingManager ? null : await getSubordinateUserIds(user.id);
 
   const venue = await venueDAL.findById(id, subordinateIds, true);
 
@@ -102,17 +104,30 @@ export async function getVenueById(id: string): Promise<VenueWithCreator> {
 /**
  * Create a new venue
  * - Only event_planner and global_director can create venues
+ * - Global directors must supply a valid OTP verification token (obtained after verifying email OTP)
  * - Checks for duplicates (same name, address, city, country)
  * - Logs audit trail
  */
 export async function createVenue(
-  input: CreateVenueInput
+  input: CreateVenueInput,
+  verificationToken?: string
 ): Promise<{ venue: Venue; isDuplicate: boolean; duplicateVenue?: Venue }> {
   const user = await requireActiveUser();
 
   // Check if user has permission to create venues
   if (user.dbUser.role !== UserRole.EVENT_PLANNER && user.dbUser.role !== UserRole.GLOBAL_DIRECTOR) {
     throw new ForbiddenError("Only Event Planners and Global Directors can create venues");
+  }
+
+  // Global directors must verify via OTP before creating a venue
+  if (user.dbUser.role === UserRole.GLOBAL_DIRECTOR) {
+    await verificationOtpService.consumeVerificationToken(
+      user.id,
+      "venue_create",
+      user.id,
+      "create",
+      verificationToken ?? ""
+    );
   }
 
   // Check for duplicates
@@ -128,37 +143,42 @@ export async function createVenue(
     };
   }
 
-  // Build full address from street, city, state, country
-  const fullAddress = [input.street, input.city, input.state, input.country].filter(Boolean).join(", ");
+  // Build full address from street, city, country
+  const fullAddress = [input.street, input.city, input.country].filter(Boolean).join(", ");
 
-  // Create the venue
+  // Build approval chain from creator (same hierarchy as events)
+  const approverIds = await buildApprovalChain(user.id);
+
+  // Create the venue: pending until approval chain completes (or auto-approve if no approvers)
   const venue = await venueDAL.insert({
     short_id: null, // Will be generated by the DAL
     name: input.name,
-    address: fullAddress, // Keep address for backward compatibility
+    address: fullAddress,
     street: input.street,
     city: input.city,
-    state: input.state ?? null,
     country: input.country || "United States",
     country_id: input.country_id ?? null,
-    state_id: input.state_id ?? null,
     location_lat: input.location_lat ?? null,
     location_lng: input.location_lng ?? null,
-    capacity_standing: input.capacity_standing ?? null,
-    capacity_seated: input.capacity_seated ?? null,
-    available_rooms_halls: input.available_rooms_halls ?? null,
-    technical_specs: input.technical_specs ?? null,
-    availability_start_date: input.availability_start_date ?? null,
-    availability_end_date: input.availability_end_date ?? null,
-    base_pricing: input.base_pricing ?? null,
+    total_capacity: input.total_capacity ?? null,
+    number_of_tables: input.number_of_tables ?? null,
+    ticket_capacity: input.ticket_capacity ?? null,
+    sounds: input.sounds?.trim() || null,
+    lights: input.lights?.trim() || null,
+    screens: input.screens?.trim() || null,
+    floor_plans: input.floor_plans ?? [],
     contact_person_name: input.contact_person_name,
     contact_email: input.contact_email ?? null,
-    contact_phone: input.contact_phone ?? null,
-    restrictions: input.restrictions ?? null,
-    images: input.images ?? [],
+    contact_email_verified: false,
+    media: input.media ?? [],
     creator_id: user.id,
-    is_active: true,
+    is_active: approverIds.length === 0,
+    approval_status: approverIds.length === 0 ? "approved" : "pending",
   });
+
+  if (approverIds.length > 0) {
+    await venueApprovalDAL.createChain(venue.id, approverIds);
+  }
 
   // Log audit trail
   await logAuditAction("create_venue", user.id, venue.id, {
@@ -166,6 +186,16 @@ export async function createVenue(
     venue_address: venue.street || venue.address,
     venue_city: venue.city,
   });
+
+  // Send contact verification email automatically when venue has a contact email
+  if (venue.contact_email?.trim()) {
+    try {
+      await venueContactVerificationService.sendVerificationEmail(venue.id);
+    } catch (err) {
+      console.error("Failed to send venue contact verification email after create:", err);
+      // Don't fail venue creation; contact can request verification from edit page
+    }
+  }
 
   return {
     venue,
@@ -175,20 +205,14 @@ export async function createVenue(
 
 /**
  * Update an existing venue
- * - Only event_planner and global_director can update venues
- * - Checks ownership or hierarchy permissions via backend authorization
+ * - User must be the venue creator or a superior of the creator (hierarchy)
  * - Checks for duplicates if name/address/city changed
  * - Logs audit trail
  */
 export async function updateVenue(id: string, input: UpdateVenueInput): Promise<Venue> {
   const user = await requireActiveUser();
 
-  // Check if user has permission to update venues
-  if (user.dbUser.role !== UserRole.EVENT_PLANNER && user.dbUser.role !== UserRole.GLOBAL_DIRECTOR) {
-    throw new ForbiddenError("Only Event Planners and Global Directors can update venues");
-  }
-
-  // Get subordinate user IDs for authorization
+  // Get subordinate user IDs for authorization (visibility = can edit)
   const subordinateIds = await getSubordinateUserIds(user.id);
 
   // Get the existing venue (with authorization check)
@@ -216,40 +240,35 @@ export async function updateVenue(id: string, input: UpdateVenueInput): Promise<
     }
   }
 
-  // Build full address if street/city/state/country changed
+  // Build full address if street/city/country changed
   let fullAddress = existingVenue.address;
-  if (input.street || input.city || input.state || input.country) {
+  if (input.street || input.city || input.country) {
     const street = input.street ?? existingVenue.street ?? "";
     const city = input.city ?? existingVenue.city;
-    const state = input.state ?? existingVenue.state ?? "";
     const country = input.country ?? existingVenue.country;
-    fullAddress = [street, city, state, country].filter(Boolean).join(", ");
+    fullAddress = [street, city, country].filter(Boolean).join(", ");
   }
 
   // Update the venue
   const updatedVenue = await venueDAL.update(id, {
     name: input.name,
-    address: fullAddress, // Keep address for backward compatibility
+    address: fullAddress,
     street: input.street,
     city: input.city,
-    state: input.state ?? null,
     country: input.country,
     country_id: input.country_id,
-    state_id: input.state_id,
     location_lat: input.location_lat,
     location_lng: input.location_lng,
-    capacity_standing: input.capacity_standing,
-    capacity_seated: input.capacity_seated,
-    available_rooms_halls: input.available_rooms_halls,
-    technical_specs: input.technical_specs,
-    availability_start_date: input.availability_start_date,
-    availability_end_date: input.availability_end_date,
-    base_pricing: input.base_pricing,
+    total_capacity: input.total_capacity,
+    number_of_tables: input.number_of_tables,
+    ticket_capacity: input.ticket_capacity,
+    sounds: input.sounds !== undefined ? input.sounds?.trim() || null : undefined,
+    lights: input.lights !== undefined ? input.lights?.trim() || null : undefined,
+    screens: input.screens !== undefined ? input.screens?.trim() || null : undefined,
+    floor_plans: input.floor_plans,
     contact_person_name: input.contact_person_name,
     contact_email: input.contact_email,
-    contact_phone: input.contact_phone,
-    restrictions: input.restrictions,
-    images: input.images,
+    media: input.media,
   });
 
   // Log audit trail
@@ -325,8 +344,8 @@ export async function banVenue(id: string, reason?: string): Promise<void> {
     );
   }
 
-  // Soft delete (ban)
-  await venueDAL.softDelete(id);
+  // Ban (set is_active = false; venue remains visible in banned filter)
+  await venueDAL.banVenue(id);
 
   // Log audit trail with ban reason
   await logAuditAction("ban_venue", user.id, venue.id, {
@@ -379,36 +398,14 @@ export async function unbanVenue(id: string): Promise<void> {
 }
 
 /**
- * Helper: Check if user has permission to modify a venue
- * User can modify if:
- * 1. They are the creator (and have event_planner or global_director role)
- * 2. They are a superior of the creator in the hierarchy (and have event_planner or global_director role)
+ * User can modify venue if they are the creator or a superior of the creator in the hierarchy.
  */
 async function checkVenuePermission(userId: string, creatorId: string): Promise<void> {
-  const supabase = await createClient();
-
-  // Get user role
-  const { data: userData, error: userError } = await supabase.from("users").select("role").eq("id", userId).single();
-
-  if (userError || !userData) {
-    throw new ForbiddenError("You do not have permission to modify this venue");
-  }
-
-  const typedUser = userData as { role: UserRole };
-
-  // Check if user has required role (event_planner or global_director)
-  if (typedUser.role !== UserRole.EVENT_PLANNER && typedUser.role !== UserRole.GLOBAL_DIRECTOR) {
-    throw new ForbiddenError("Only Event Planners and Global Directors can modify venues");
-  }
-
-  // If user is the creator, allow
   if (userId === creatorId) {
     return;
   }
 
-  // Check if user is a superior in the hierarchy
   const subordinateIds = await getSubordinateUserIds(userId);
-
   if (!subordinateIds.includes(creatorId)) {
     throw new ForbiddenError("You do not have permission to modify this venue");
   }

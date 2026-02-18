@@ -217,15 +217,30 @@ export async function filterLogs(
 }
 
 /**
- * Create a new audit log entry
+ * Create a new audit log entry.
+ * Requires action_type so we never hit the DB NOT NULL constraint.
  */
 export async function insert(logEntry: AuditLogInsert): Promise<AuditLog> {
+  if (logEntry.action_type == null || logEntry.action_type === undefined) {
+    throw new Error(
+      "Audit log insert requires action_type. If you see this with approve_report, ensure the legacy audit trigger is dropped (run db/drop_legacy_audit_trigger.sql)."
+    );
+  }
+
   const supabase = await createClient();
+
+  const row = {
+    action_type: logEntry.action_type,
+    user_id: logEntry.user_id ?? null,
+    event_id: logEntry.event_id ?? null,
+    comment: logEntry.comment ?? null,
+    metadata: logEntry.metadata ?? {},
+  };
 
   const { data, error } = await supabase
     .from("audit_logs")
     // @ts-expect-error - Supabase type inference issue with Database types
-    .insert(logEntry)
+    .insert(row)
     .select()
     .single();
 

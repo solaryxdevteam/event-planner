@@ -62,6 +62,7 @@ export function ProtectedContent({ children, allowedRoles, minimumRole, fallback
           const roleHierarchy: Record<Role, number> = {
             [UserRole.EVENT_PLANNER]: 1,
             [UserRole.CITY_CURATOR]: 2,
+            [UserRole.MARKETING_MANAGER]: 2,
             [UserRole.REGIONAL_CURATOR]: 3,
             [UserRole.LEAD_CURATOR]: 4,
             [UserRole.GLOBAL_DIRECTOR]: 5,

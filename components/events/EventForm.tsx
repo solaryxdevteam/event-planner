@@ -24,6 +24,7 @@ import {
   ArrowRight,
   Loader2,
   MapPinIcon,
+  Music2,
   UsersIcon,
   CheckCircle2,
   DollarSign,
@@ -32,13 +33,20 @@ import {
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 import { VenueSelectionDialog } from "@/components/events/VenueSelectionDialog";
+import { DJSelectionDialog } from "@/components/events/DJSelectionDialog";
+import type { DJ } from "@/lib/types/database.types";
+
+/** Minimal DJ shape for event form display (from event relation or full DJ) */
+type DJDisplay = Pick<DJ, "id" | "name" | "picture_url" | "music_style" | "price" | "email">;
 import { DraftDialog } from "@/components/events/DraftDialog";
 import { StepIndicator } from "@/components/events/StepIndicator";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { PriceInput } from "@/components/ui/price-input";
 import { useVenue } from "@/lib/hooks/use-venues";
+import { useDj } from "@/lib/hooks/use-djs";
+import { useProfile } from "@/lib/hooks/use-profile";
 import { cn } from "@/lib/utils";
-import { getCurrencyForCountry } from "@/lib/utils/country-currency";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 
 type EventFormData = CreateEventInput;
 
@@ -113,20 +121,27 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [startsAtDate, setStartsAtDate] = useState<Date | undefined>();
-  const [endsAtDate, setEndsAtDate] = useState<Date | undefined>();
   const [existingDraft, setExistingDraft] = useState<EventWithRelations | null>(null);
   const [showDraftDialog, setShowDraftDialog] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(eventId || null);
   const [draftShortId, setDraftShortId] = useState<string | null>(shortId || null);
   const [isLoadingDraft, setIsLoadingDraft] = useState(true);
   const [showVenueDialog, setShowVenueDialog] = useState(false);
+  const [showDjDialog, setShowDjDialog] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<VenueWithCreator | null>(null);
+  const [selectedDj, setSelectedDj] = useState<DJDisplay | null>(null);
   const [hasUserStarted, setHasUserStarted] = useState(false);
   const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [pendingEventData, setPendingEventData] = useState<CreateEventInput | null>(null);
   const dialogShownRef = useRef(false);
   const currentStepRef = useRef(currentStep);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isSubmittingRef = useRef(false);
+  /** Prevents form submit from firing when user just clicked Next or a step indicator (not the Submit button) */
+  const isNavigatingStepRef = useRef(false);
 
+  const { data: profile } = useProfile();
   const createEventMutation = useCreateEventDraft();
   const updateEventMutation = useUpdateEventDraft();
   const submitEventMutation = useSubmitEventForApproval();
@@ -140,13 +155,12 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     mode: "onChange",
     defaultValues: {
       title: "",
-      description: "",
       starts_at: null,
-      ends_at: null,
       venue_id: null,
+      dj_id: null,
       expected_attendance: null,
-      budget_amount: null,
-      budget_currency: "USD",
+      minimum_ticket_price: null,
+      minimum_table_price: null,
       notes: null,
     },
   });
@@ -155,12 +169,23 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
   const venueId = form.watch("venue_id");
   const { data: fullVenue } = useVenue(venueId || null);
 
+  // Fetch full DJ if dj_id exists
+  const djId = form.watch("dj_id");
+  const { data: fullDj } = useDj(djId || null);
+
   // Update selected venue when full venue is loaded
   useEffect(() => {
     if (fullVenue) {
       setSelectedVenue(fullVenue);
     }
   }, [fullVenue]);
+
+  // Update selected DJ when full DJ is loaded
+  useEffect(() => {
+    if (fullDj) {
+      setSelectedDj(fullDj);
+    }
+  }, [fullDj]);
 
   // Update ref when currentStep changes
   useEffect(() => {
@@ -192,21 +217,28 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     (draft: EventWithRelations) => {
       form.reset({
         title: draft.title,
-        description: draft.description || "",
         starts_at: draft.starts_at || null,
-        ends_at: draft.ends_at || null,
         venue_id: draft.venue_id || null,
+        dj_id: draft.dj_id ?? null,
         expected_attendance: draft.expected_attendance || null,
-        budget_amount: draft.budget_amount || null,
-        budget_currency: draft.budget_currency || "USD",
+        minimum_ticket_price: draft.minimum_ticket_price ?? null,
+        minimum_table_price: draft.minimum_table_price ?? null,
         notes: draft.notes || null,
       });
-
+      setSelectedDj(
+        draft.dj
+          ? {
+              id: draft.dj.id,
+              name: draft.dj.name,
+              picture_url: draft.dj.picture_url ?? null,
+              music_style: draft.dj.music_style ?? null,
+              price: draft.dj.price ?? null,
+              email: draft.dj.email ?? "",
+            }
+          : null
+      );
       if (draft.starts_at) {
         setStartsAtDate(new Date(draft.starts_at));
-      }
-      if (draft.ends_at) {
-        setEndsAtDate(new Date(draft.ends_at));
       }
     },
     [form]
@@ -221,15 +253,9 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     }
   }, [existingDraft, loadDraft]);
 
-  // Handle New event (delete old draft)
-  const handleNewEvent = useCallback(async () => {
-    if (draftId) {
-      try {
-        await deleteEventMutation.mutateAsync(draftId);
-      } catch (error) {
-        console.error("Error deleting draft:", error);
-      }
-    }
+  // Handle New event (delete old draft in background so UI doesn't block)
+  const handleNewEvent = useCallback(() => {
+    const idToDelete = draftId;
     setExistingDraft(null);
     setDraftId(null);
     setDraftShortId(null);
@@ -237,8 +263,11 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     setHasUserStarted(true);
     form.reset();
     setStartsAtDate(undefined);
-    setEndsAtDate(undefined);
     setSelectedVenue(null);
+    setSelectedDj(null);
+    if (idToDelete) {
+      deleteEventMutation.mutate(idToDelete);
+    }
   }, [draftId, deleteEventMutation, form]);
 
   const totalSteps = 2;
@@ -246,9 +275,9 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
   const getStepFields = useCallback((step: number): (keyof EventFormData)[] => {
     switch (step) {
       case 1:
-        return ["title", "venue_id", "expected_attendance"];
+        return ["title", "venue_id", "dj_id", "expected_attendance"];
       case 2:
-        return ["starts_at", "ends_at", "description", "budget_amount", "budget_currency"];
+        return ["starts_at", "notes", "minimum_ticket_price", "minimum_table_price"];
       default:
         return [];
     }
@@ -271,9 +300,10 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     });
   }, []);
 
-  // Auto-save draft function
+  // Auto-save draft function (skipped while form is submitting)
   const autoSaveDraft = useCallback(async () => {
     if (!hasUserStarted) return;
+    if (isSubmittingRef.current) return;
 
     const formData = form.getValues();
 
@@ -286,7 +316,6 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       const submitData = {
         ...formData,
         starts_at: startsAtDate ? startsAtDate.toISOString() : null,
-        ends_at: endsAtDate ? endsAtDate.toISOString() : null,
       };
 
       if (!draftId) {
@@ -303,12 +332,25 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         setLastAutoSave(new Date());
       }
     } catch (error) {
-      // Silently fail auto-save
+      // If draft was deleted (e.g. GD created event), clear id so we don't keep PUTting
+      const msg =
+        error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : "";
+      const isNotFound =
+        msg.includes("not found") ||
+        (error &&
+          typeof error === "object" &&
+          "response" in error &&
+          typeof (error as { response?: { status?: number } }).response?.status === "number" &&
+          (error as { response: { status: number } }).response.status === 404);
+      if (isNotFound && draftId) {
+        setDraftId(null);
+        setDraftShortId(null);
+      }
       console.error("Auto-save failed:", error);
     }
-  }, [hasUserStarted, draftId, startsAtDate, endsAtDate, form, createEventMutation, updateEventMutation]);
+  }, [hasUserStarted, draftId, startsAtDate, form, createEventMutation, updateEventMutation]);
 
-  // Auto-save every 10 seconds
+  // Auto-save every 20 seconds (only via timer, not when changing steps)
   useEffect(() => {
     if (!hasUserStarted) return;
 
@@ -320,7 +362,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     // Set up auto-save timer
     autoSaveTimerRef.current = setInterval(() => {
       autoSaveDraft();
-    }, 10000); // 10 seconds
+    }, 20000); // 20 seconds
 
     // Cleanup on unmount
     return () => {
@@ -330,22 +372,24 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     };
   }, [hasUserStarted, autoSaveDraft]);
 
-  // Handle next with auto-save
+  // Handle next (do not create/update draft here — only the 20s timer does that)
   const handleNext = useCallback(async () => {
+    isNavigatingStepRef.current = true;
     const fields = getStepFields(currentStep);
     const isValid = await form.trigger(fields);
 
     if (isValid) {
-      // Auto-save before moving to next step
-      await autoSaveDraft();
-
       setCurrentStep((prev) => {
         const nextStep = Math.min(prev + 1, totalSteps);
         currentStepRef.current = nextStep;
         return nextStep;
       });
     }
-  }, [currentStep, form, getStepFields, totalSteps, autoSaveDraft]);
+    // Clear after a tick so any stray submit from re-render is ignored
+    queueMicrotask(() => {
+      isNavigatingStepRef.current = false;
+    });
+  }, [currentStep, form, getStepFields, totalSteps]);
 
   // Form submit handler - only submits on final step
   const submitFormData = useCallback(
@@ -355,12 +399,19 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         return;
       }
 
+      isSubmittingRef.current = true;
       try {
-        const submitData = {
+        const submitData: CreateEventInput = {
           ...data,
           starts_at: startsAtDate ? startsAtDate.toISOString() : null,
-          ends_at: endsAtDate ? endsAtDate.toISOString() : null,
         };
+
+        // Global Director: verify OTP then create event as approved (no approval chain)
+        if (profile?.role === "global_director") {
+          setPendingEventData(submitData);
+          setShowOtpDialog(true);
+          return;
+        }
 
         // Save draft first (create or update)
         let eventId = draftId;
@@ -418,18 +469,50 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       } catch (error) {
         // Error is handled by the mutation
         console.error("Submit error:", error);
+      } finally {
+        isSubmittingRef.current = false;
       }
     },
     [
       totalSteps,
       startsAtDate,
-      endsAtDate,
       draftId,
+      profile?.role,
       createEventMutation,
       updateEventMutation,
       submitEventMutation,
       router,
     ]
+  );
+
+  const handleEventCreateOtpVerified = useCallback(
+    async (verificationToken: string) => {
+      if (!pendingEventData) return;
+      setShowOtpDialog(false);
+      // Clear draft id and stop auto-save so we never PUT the old (deleted) draft
+      setDraftId(null);
+      setDraftShortId(null);
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      try {
+        const event = await createEventMutation.mutateAsync({
+          ...pendingEventData,
+          verificationToken,
+        });
+        setPendingEventData(null);
+        if (event.short_id) {
+          router.push(`/dashboard/events/${event.short_id}`);
+        } else {
+          router.push("/dashboard/events/requests");
+        }
+      } catch (error) {
+        console.error("Failed to create event after OTP:", error);
+        setPendingEventData(null);
+      }
+    },
+    [pendingEventData, createEventMutation, router]
   );
 
   // Wrap handleSubmit to prevent execution if not on final step
@@ -450,31 +533,30 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     (venue: VenueWithCreator | null) => {
       setSelectedVenue(venue);
       form.setValue("venue_id", venue?.id || null, { shouldValidate: true });
-
-      // Auto-set currency based on venue country code
-      if (venue?.country_location?.code) {
-        const currency = getCurrencyForCountry(venue.country_location);
-        form.setValue("budget_currency", currency, {
-          shouldValidate: false,
-          shouldDirty: false,
-          shouldTouch: false,
-        });
-      } else {
-        form.setValue("budget_currency", "USD", {
-          shouldValidate: false,
-          shouldDirty: false,
-          shouldTouch: false,
-        });
-      }
     },
     [form]
   );
 
-  // Calculate max attendance based on selected venue
-  const maxAttendance = useMemo(
-    () => (selectedVenue ? (selectedVenue.capacity_seated || 0) + (selectedVenue.capacity_standing || 0) : undefined),
-    [selectedVenue]
+  const handleDjSelect = useCallback(
+    (dj: DJ | null) => {
+      setSelectedDj(
+        dj
+          ? {
+              id: dj.id,
+              name: dj.name,
+              picture_url: dj.picture_url,
+              music_style: dj.music_style,
+              price: dj.price,
+              email: dj.email,
+            }
+          : null
+      );
+      form.setValue("dj_id", dj?.id || null, { shouldValidate: true });
+    },
+    [form]
   );
+
+  const maxAttendance = useMemo(() => selectedVenue?.total_capacity ?? undefined, [selectedVenue]);
 
   const expectedAttendance = form.watch("expected_attendance");
   const attendanceError = useMemo(() => {
@@ -529,13 +611,75 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
               />
             </div>
 
+            {/* DJ Selection */}
+            <div className="space-y-2">
+              <Label>
+                DJ <span className="text-destructive">*</span>
+              </Label>
+              {selectedDj ? (
+                <div className="space-y-3">
+                  <div className="border rounded-lg p-4 bg-card flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{selectedDj.name}</p>
+                      {selectedDj.music_style && (
+                        <p className="text-sm text-muted-foreground">{selectedDj.music_style}</p>
+                      )}
+                      {selectedDj.price != null && (
+                        <p className="text-sm font-medium mt-1">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          }).format(Number(selectedDj.price))}
+                        </p>
+                      )}
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowDjDialog(true)}>
+                      Change DJ
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-auto py-12 border-2 border-dashed",
+                      form.formState.errors.dj_id ? "border-destructive" : "hover:border-primary"
+                    )}
+                    onClick={() => setShowDjDialog(true)}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted">
+                          <Music2 className="h-8 w-8 text-muted-foreground" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">Select a DJ</p>
+                          <p className="text-sm text-muted-foreground">Assign a DJ to your event</p>
+                        </div>
+                      </div>
+                    </div>
+                  </Button>
+                  {form.formState.errors.dj_id && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <span>{form.formState.errors.dj_id.message}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Expected Attendance */}
             <div className="space-y-2">
               <Label htmlFor="expected_attendance" className="flex items-center gap-2">
                 <UsersIcon className="h-4 w-4" />
                 Expected Attendance
                 {maxAttendance && (
-                  <span className="text-xs text-muted-foreground font-normal">
+                  <span className="pl-1 text-xs text-muted-foreground font-normal">
                     (Max: {maxAttendance.toLocaleString()})
                   </span>
                 )}
@@ -582,89 +726,82 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       case 2:
         return (
           <div className="space-y-4 sm:space-y-6">
-            {/* Date & Time */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-              <DateTimePickerNew
-                label="Starts At *"
-                value={startsAtDate}
-                onChange={(date) => {
-                  setStartsAtDate(date);
-                  form.setValue("starts_at", date ? date.toISOString() : null, { shouldValidate: true });
-                }}
-                error={form.formState.errors.starts_at?.message}
-                placeholder="Select start date and time"
-              />
+            {/* Start date & time (event transitions to past 5h after start via cron) */}
+            <DateTimePickerNew
+              label="Starts At *"
+              value={startsAtDate}
+              onChange={(date) => {
+                setStartsAtDate(date);
+                form.setValue("starts_at", date ? date.toISOString() : null, { shouldValidate: true });
+              }}
+              error={form.formState.errors.starts_at?.message}
+              placeholder="Select start date and time"
+            />
 
-              <DateTimePickerNew
-                label="Ends At *"
-                value={endsAtDate}
-                onChange={(date) => {
-                  setEndsAtDate(date);
-                  form.setValue("ends_at", date ? date.toISOString() : null, { shouldValidate: true });
-                }}
-                error={form.formState.errors.ends_at?.message}
-                placeholder="Select end date and time"
-                min={startsAtDate}
-              />
-            </div>
-
-            {/* Budget */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Budget
-              </Label>
-              <div className="grid grid-cols-[1fr_auto] gap-2 sm:gap-3">
-                <div className="space-y-1">
-                  <PriceInput
-                    id="budget_amount"
-                    placeholder="0.00"
-                    value={form.watch("budget_amount")}
-                    onChange={(value) => {
-                      form.setValue("budget_amount", value || null, { shouldValidate: true });
-                    }}
-                    className={cn(form.formState.errors.budget_amount && "border-destructive")}
-                  />
-                  {form.formState.errors.budget_amount && (
-                    <p className="text-xs text-destructive flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {form.formState.errors.budget_amount.message}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center">
-                  <div className="h-10 px-4 bg-muted border border-input rounded-md flex items-center justify-center min-w-[80px]">
-                    <span className="text-sm font-medium">{form.watch("budget_currency") || "USD"}</span>
-                  </div>
-                </div>
+            {/* Minimum ticket price & table price */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minimum_ticket_price" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Min. ticket price
+                </Label>
+                <PriceInput
+                  id="minimum_ticket_price"
+                  placeholder="0.00"
+                  value={form.watch("minimum_ticket_price")}
+                  onChange={(value) => {
+                    form.setValue("minimum_ticket_price", value ?? null, { shouldValidate: true });
+                  }}
+                  className={cn(form.formState.errors.minimum_ticket_price && "border-destructive")}
+                />
+                {form.formState.errors.minimum_ticket_price && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {form.formState.errors.minimum_ticket_price.message}
+                  </p>
+                )}
               </div>
-              {form.watch("budget_currency") && selectedVenue?.country_location && (
-                <p className="text-xs text-muted-foreground">
-                  Currency automatically set based on venue location ({selectedVenue.country_location.name})
-                </p>
-              )}
+              <div className="space-y-2">
+                <Label htmlFor="minimum_table_price" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Min. table price
+                </Label>
+                <PriceInput
+                  id="minimum_table_price"
+                  placeholder="0.00"
+                  value={form.watch("minimum_table_price")}
+                  onChange={(value) => {
+                    form.setValue("minimum_table_price", value ?? null, { shouldValidate: true });
+                  }}
+                  className={cn(form.formState.errors.minimum_table_price && "border-destructive")}
+                />
+                {form.formState.errors.minimum_table_price && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {form.formState.errors.minimum_table_price.message}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* Description */}
+            {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
-                id="description"
-                placeholder="Enter event description (optional)"
+                id="notes"
+                placeholder="Enter event notes (optional)"
                 rows={8}
-                {...form.register("description")}
-                className={cn(form.formState.errors.description && "border-destructive")}
+                {...form.register("notes")}
+                className={cn(form.formState.errors.notes && "border-destructive")}
                 maxLength={5000}
               />
-              {form.formState.errors.description && (
+              {form.formState.errors.notes && (
                 <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
-                  {form.formState.errors.description.message}
+                  {form.formState.errors.notes.message}
                 </p>
               )}
-              <p className="text-xs text-muted-foreground">
-                {form.watch("description")?.length || 0} / 5,000 characters
-              </p>
+              <p className="text-xs text-muted-foreground">{form.watch("notes")?.length || 0} / 5,000 characters</p>
             </div>
           </div>
         );
@@ -726,13 +863,21 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         currentStep={currentStep}
         totalSteps={totalSteps}
         onStepClick={(step) => {
+          isNavigatingStepRef.current = true;
           const fields = getStepFields(step);
-          form.trigger(fields).then((isValid) => {
-            if (isValid || currentStep > step) {
-              currentStepRef.current = step;
-              setCurrentStep(step);
-            }
-          });
+          form
+            .trigger(fields)
+            .then((isValid) => {
+              if (isValid || currentStep > step) {
+                currentStepRef.current = step;
+                setCurrentStep(step);
+              }
+            })
+            .finally(() => {
+              queueMicrotask(() => {
+                isNavigatingStepRef.current = false;
+              });
+            });
         }}
         stepErrors={stepErrors}
       />
@@ -742,13 +887,12 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
           <form
             onSubmit={(e) => {
-              // Prevent form submission unless on final step
-              if (currentStep < totalSteps) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-              }
-              // Only submit on final step
+              e.preventDefault();
+              e.stopPropagation();
+              // Ignore submit if it was triggered by step navigation (Next / step indicator), not the Submit button
+              if (isNavigatingStepRef.current) return;
+              // Only submit when on final step
+              if (currentStep < totalSteps) return;
               handleSubmit(e);
             }}
             onKeyDown={(e) => {
@@ -776,7 +920,16 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
               </Button>
 
               {currentStep < totalSteps ? (
-                <Button type="button" onClick={handleNext} disabled={isPending} className="w-full sm:w-auto">
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNext();
+                  }}
+                  disabled={isPending}
+                  className="w-full sm:w-auto"
+                >
                   Next
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -823,6 +976,34 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         selectedVenueId={form.watch("venue_id") || null}
         onSelectVenue={handleVenueSelect}
       />
+
+      {/* DJ Selection Dialog */}
+      <DJSelectionDialog
+        open={showDjDialog}
+        onOpenChange={setShowDjDialog}
+        selectedDjId={form.watch("dj_id") || null}
+        onSelectDj={handleDjSelect}
+      />
+
+      {/* OTP verification for Global Director event create */}
+      {profile?.id && (
+        <OtpVerificationDialog
+          open={showOtpDialog}
+          onOpenChange={(open) => {
+            setShowOtpDialog(open);
+            if (!open) {
+              setPendingEventData(null);
+              isSubmittingRef.current = false;
+            }
+          }}
+          onVerified={handleEventCreateOtpVerified}
+          contextType="event_create"
+          contextId={profile.id}
+          action="create"
+          title="Verify before creating event"
+          description="We sent a verification code to your email. Enter it below to create the event (no approval needed)."
+        />
+      )}
     </div>
   );
 }

@@ -19,15 +19,17 @@ import {
 } from "@/components/ui/dialog";
 import { useEventApprovals } from "@/lib/hooks/use-approvals";
 import { useReport } from "@/lib/hooks/use-reports";
+import { useProfile } from "@/lib/hooks/use-profile";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 import { cn } from "@/lib/utils";
 
 interface PendingApprovalCardProps {
   approval: EventApprovalWithApprover;
-  onApprove: (eventId: string, comment: string) => Promise<void>;
-  onReject: (eventId: string, comment: string) => Promise<void>;
+  onApprove: (eventId: string, comment: string, verificationToken: string) => Promise<void>;
+  onReject: (eventId: string, comment: string, verificationToken: string) => Promise<void>;
   userRole?: string;
   isVertical?: boolean;
 }
@@ -42,16 +44,32 @@ export function PendingApprovalCard({
   const router = useRouter();
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const event = approval.event;
 
+  // Determine approval type for this card (used for filtering chain and labels)
+  const approvalType = approval.approval_type as EventApprovalWithApprover["approval_type"] | undefined;
+  const typeToShow = approvalType ?? "event";
+
+  const { data: profile } = useProfile();
+
   // Fetch full approval chain for this event
-  const { data: approvals, isLoading: loadingApprovals } = useEventApprovals(approval.event_id);
+  const { data: allApprovals, isLoading: loadingApprovals } = useEventApprovals(approval.event_id);
+
+  // Show only the chain for this card's approval type (e.g. report → report chain only)
+  const approvals = allApprovals?.filter((a: EventApprovalWithApprover) => a.approval_type === typeToShow) ?? [];
+
+  // Only show Approve/Reject when it is the current user's turn (they have the pending approval)
+  const hasPendingApprovalForCurrentUser = Boolean(
+    profile?.id &&
+    approvals.some((a: EventApprovalWithApprover) => a.status === "pending" && a.approver_id === profile.id)
+  );
 
   // Fetch report data if this is a report approval
-  const approvalType = approval.approval_type as EventApprovalWithApprover["approval_type"] | undefined;
   const { data: report, isLoading: loadingReport } = useReport(approvalType === "report" ? approval.event_id : null);
 
   // Determine approval type label for header
@@ -70,33 +88,33 @@ export function PendingApprovalCard({
   // Event date & time
   const eventDateTime = event?.starts_at ? format(new Date(event.starts_at), "MMM d, yyyy • h:mm a") : null;
 
-  const handleApprove = async () => {
-    if (!comment.trim()) {
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await onApprove(approval.event_id, comment);
-      setShowApproveDialog(false);
-      setComment("");
-    } catch (error) {
-      console.error("Error approving:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleApproveClick = () => {
+    if (!comment.trim()) return;
+    setOtpAction("approve");
+    setShowApproveDialog(false);
+    setShowOtpDialog(true);
   };
 
-  const handleReject = async () => {
-    if (!comment.trim()) {
-      return;
-    }
+  const handleRejectClick = () => {
+    if (!comment.trim()) return;
+    setOtpAction("reject");
+    setShowRejectDialog(false);
+    setShowOtpDialog(true);
+  };
+
+  const handleOtpVerified = async (verificationToken: string) => {
     setIsSubmitting(true);
+    setShowOtpDialog(false);
     try {
-      await onReject(approval.event_id, comment);
-      setShowRejectDialog(false);
+      if (otpAction === "approve") {
+        await onApprove(approval.event_id, comment, verificationToken);
+      } else {
+        await onReject(approval.event_id, comment, verificationToken);
+      }
       setComment("");
+      router.refresh();
     } catch (error) {
-      console.error("Error rejecting:", error);
+      console.error("Error with approval action:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -119,8 +137,8 @@ export function PendingApprovalCard({
 
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow flex flex-col h-full">
-        <CardContent className="p-4 sm:p-6 flex flex-col flex-1">
+      <Card className="hover:shadow-md transition-shadow flex flex-col h-full py-2">
+        <CardContent className="p-4 sm:p-4 flex flex-col flex-1">
           <div
             className={cn(
               "flex flex-col flex-1",
@@ -173,23 +191,24 @@ export function PendingApprovalCard({
                       <span>{event.venue.name}</span>
                     </div>
                   )}
-                  {event?.budget_amount != null && (
+                  {(event?.minimum_ticket_price != null || event?.minimum_table_price != null) && (
                     <div className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
                       <DollarSign className="h-3.5 w-3.5" />
                       <span>
-                        {new Intl.NumberFormat("en-US", {
-                          style: "currency",
-                          currency: event.budget_currency || "USD",
-                          maximumFractionDigits: 0,
-                        }).format(Number(event.budget_amount))}
+                        {[
+                          event?.minimum_ticket_price != null &&
+                            `Ticket from ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(event.minimum_ticket_price))}`,
+                          event?.minimum_table_price != null &&
+                            `Table from ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(event.minimum_table_price))}`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {event?.description && (
-                  <p className="text-sm text-muted-foreground line-clamp-1">{event.description}</p>
-                )}
+                {event?.notes && <p className="text-sm text-muted-foreground line-clamp-1">{event.notes}</p>}
 
                 {/* Report Details (if this is a report approval) */}
                 {approvalType === "report" && (
@@ -269,38 +288,40 @@ export function PendingApprovalCard({
                 <p className="text-sm text-muted-foreground">No approval chain found</p>
               )}
 
-              {/* Action buttons after approval chain */}
+              {/* Action buttons after approval chain – Approve/Reject only when it's the current user's turn */}
               <div
                 className={cn(
                   "w-full pt-2 border-t mt-auto flex-shrink-0",
-                  isVertical ? "flex flex-col gap-2" : "flex flex-row gap-2"
+                  isVertical ? "flex flex-col gap-2" : "flex flex-row flex-wrap gap-2"
                 )}
               >
+                {hasPendingApprovalForCurrentUser && (
+                  <>
+                    <Button
+                      variant="outline"
+                      className={cn(isVertical ? "w-full" : "flex-1 min-w-0")}
+                      onClick={() => setShowRejectDialog(true)}
+                      disabled={isSubmitting}
+                    >
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Reject
+                    </Button>
+                    <Button
+                      variant="default"
+                      className={cn(isVertical ? "w-full" : "flex-1 min-w-0")}
+                      onClick={() => setShowApproveDialog(true)}
+                      disabled={isSubmitting}
+                    >
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Approve
+                    </Button>
+                  </>
+                )}
                 <Button
-                  variant="outline"
-                  className={isVertical ? "w-full" : "flex-1"}
-                  onClick={() => setShowRejectDialog(true)}
-                >
-                  <XCircle className="mr-2 h-4 w-4" />
-                  Reject
-                </Button>
-                <Button
-                  variant="default"
-                  className={isVertical ? "w-full" : "flex-1"}
-                  onClick={() => setShowApproveDialog(true)}
-                >
-                  <CheckCircle className="mr-2 h-4 w-4" />
-                  Approve
-                </Button>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    isVertical ? "w-full" : "flex-1",
-                    "border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                  )}
+                  variant={hasPendingApprovalForCurrentUser ? "outline" : "default"}
+                  className={cn(isVertical ? "w-full" : "flex-1 min-w-0")}
                   disabled={!event?.short_id && !event?.id}
                   onClick={() => {
-                    // Prefer short_id, but fall back to id if short_id is not available
                     const eventIdentifier = event?.short_id || event?.id;
                     if (!eventIdentifier) return;
                     router.push(`/dashboard/events/${eventIdentifier}`);
@@ -381,8 +402,8 @@ export function PendingApprovalCard({
             >
               Cancel
             </Button>
-            <Button onClick={handleApprove} disabled={!comment.trim() || isSubmitting}>
-              {isSubmitting ? (approvalType === "report" ? "Approving Report..." : "Approving...") : "Approve"}
+            <Button onClick={handleApproveClick} disabled={!comment.trim() || isSubmitting}>
+              Continue to verification
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -438,12 +459,23 @@ export function PendingApprovalCard({
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={!comment.trim() || isSubmitting}>
-              {isSubmitting ? (approvalType === "report" ? "Rejecting Report..." : "Rejecting...") : "Reject"}
+            <Button variant="destructive" onClick={handleRejectClick} disabled={!comment.trim() || isSubmitting}>
+              Continue to verification
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OtpVerificationDialog
+        open={showOtpDialog}
+        onOpenChange={setShowOtpDialog}
+        onVerified={handleOtpVerified}
+        contextType="event_approval"
+        contextId={approval.event_id}
+        action={otpAction}
+        title="Verify with OTP"
+        description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+      />
     </>
   );
 }

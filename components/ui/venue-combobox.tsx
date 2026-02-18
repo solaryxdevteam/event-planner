@@ -18,6 +18,7 @@ interface VenueComboboxProps {
   onValueChange: (value: string | null) => void;
   options: VenueOption[];
   placeholder?: string;
+  allLabel?: string; // e.g. "All Venues" or "All Creators"; when set, shows a clear option
   disabled?: boolean;
   loading?: boolean;
   label?: string;
@@ -29,6 +30,7 @@ export function VenueCombobox({
   onValueChange,
   options,
   placeholder = "Select venue...",
+  allLabel = "All venues",
   disabled = false,
   loading = false,
   label,
@@ -86,7 +88,7 @@ export function VenueCombobox({
                       }}
                     >
                       <Check className={cn("mr-2 h-4 w-4", value == null ? "opacity-100" : "opacity-0")} />
-                      All venues
+                      {allLabel}
                     </CommandItem>
                     {safeOptions.map((option) => (
                       <CommandItem

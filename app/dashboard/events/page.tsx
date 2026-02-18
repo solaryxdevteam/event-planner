@@ -9,6 +9,8 @@ import { EventList } from "@/components/events/EventList";
 import { EventFilters, type EventFilters as EventFiltersType } from "@/components/events/EventFilters";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useEvents, type EventFilters as EventFiltersHook } from "@/lib/hooks/use-events";
+import { useProfile } from "@/lib/hooks/use-profile";
+import { UserRole } from "@/lib/types/roles";
 import { Plus, Filter } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -16,8 +18,10 @@ import { useIsMobile } from "@/hooks/use-mobile";
 export default function EventsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: profile } = useProfile();
   const defaultTab = searchParams.get("tab") || "current";
   const [currentPage, setCurrentPage] = useState(1);
+  const isMarketingManager = profile?.role === UserRole.MARKETING_MANAGER;
   const [pageSize] = useState(12);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -93,17 +97,8 @@ export default function EventsPage() {
     return Array.from(venueMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [allEvents]);
 
-  // Get unique states from event venues
-  const availableStates = useMemo(() => {
-    const stateSet = new Set<string>();
-    allEvents.forEach((event) => {
-      // Access venue state
-      if (event.venue?.state) {
-        stateSet.add(event.venue.state);
-      }
-    });
-    return Array.from(stateSet).sort();
-  }, [allEvents]);
+  // State filter disabled: venue.state was removed from schema (migration 025)
+  const availableStates = useMemo(() => [], []);
 
   // Prepare filters for API call
   const eventFilters: EventFiltersHook = useMemo(() => {
@@ -227,10 +222,12 @@ export default function EventsPage() {
                 </p>
               </div>
             </div>
-            <Button onClick={() => router.push("/dashboard/events/requests/new")} className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              New Event Request
-            </Button>
+            {!isMarketingManager && (
+              <Button onClick={() => router.push("/dashboard/events/requests/new")} className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                New Event Request
+              </Button>
+            )}
           </div>
 
           {/* Tabs for Quick Status Filter */}

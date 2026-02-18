@@ -46,8 +46,10 @@ export async function middleware(request: NextRequest) {
     "/api/auth/callback", // Supabase auth callback endpoint
     "/auth/error",
     "/auth/register",
+    "/auth/verify-email", // Email OTP verification after registration
     "/auth/pending",
     "/auth/onboarding",
+    "/verify-venue", // Venue contact verification (link from email, no auth required)
   ];
 
   const { pathname } = request.nextUrl;

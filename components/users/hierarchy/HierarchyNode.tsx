@@ -16,6 +16,7 @@ interface HierarchyNodeProps {
   data: HierarchyNode & {
     roleLabel: string;
     roleColor: string;
+    roleNodeBg?: string;
     hasChildren?: boolean;
     hasParent?: boolean;
     onEditUser?: (userId: string) => void;
@@ -25,8 +26,12 @@ interface HierarchyNodeProps {
 export const HierarchyNodeComponent = memo(function HierarchyNodeComponent({ data }: HierarchyNodeProps) {
   const isGlobalDirector = data.role === "global_director";
 
+  const nodeBg = data.roleNodeBg ?? "bg-card";
+
   return (
-    <div className="px-4 py-3 shadow-lg rounded-lg border-2 bg-card text-card-foreground min-w-[200px] relative">
+    <div
+      className={`px-4 py-3 shadow-lg rounded-lg border-2 text-card-foreground w-[260px] min-w-[260px] max-w-[260px] relative ${nodeBg}`}
+    >
       {/* Top handle (target) - to receive connections from parent above */}
       {data.hasParent && <Handle type="target" position={Position.Top} className="!bg-slate-400 !w-3 !h-3" />}
 

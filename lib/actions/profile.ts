@@ -37,7 +37,7 @@ export async function getCurrentUserProfile(): Promise<ActionResponse<User>> {
 export type UpdateProfileResult = User & { passwordChanged?: true };
 
 /**
- * Update user profile (first_name, last_name, company, state_id, city, phone, password)
+ * Update user profile (first_name, last_name, city, phone, password)
  *
  * IMPORTANT: Users with status='pending' cannot update their profile
  * When password is changed, the client should sign the user out so they re-login with the new password.
@@ -81,8 +81,6 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
     const updateData: UserUpdate = {
       first_name: profileUpdates.first_name,
       last_name: profileUpdates.last_name ?? null,
-      company: profileUpdates.company ?? null,
-      state_id: profileUpdates.state_id ?? null,
       city: profileUpdates.city ?? null,
       phone: profileUpdates.phone && profileUpdates.phone.trim() !== "" ? profileUpdates.phone : null,
     };

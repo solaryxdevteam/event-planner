@@ -10,7 +10,19 @@ import * as userClientService from "@/lib/services/client/users.client.service";
 import { toast } from "sonner";
 
 // Re-export types from client service
-export type { UserFilters } from "@/lib/services/client/users.client.service";
+export type { UserFilters, CreatorProfileInfo } from "@/lib/services/client/users.client.service";
+
+/**
+ * React Query hook: Get creator profile for event creator card (avatar, name, email, phone)
+ */
+export function useEventCreatorInfo(creatorId: string | null) {
+  return useQuery({
+    queryKey: ["users", "creator-profile", creatorId],
+    queryFn: () => (creatorId ? userClientService.fetchCreatorProfile(creatorId) : Promise.resolve(null)),
+    enabled: !!creatorId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 /**
  * React Query hook: Get paginated users

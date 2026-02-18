@@ -117,6 +117,12 @@ export function ReportsTable({
         <Skeleton className="h-4 w-20" />
       </TableCell>
       <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
+        <Skeleton className="h-4 w-20" />
+      </TableCell>
+      <TableCell>
         <Skeleton className="h-4 w-36" />
       </TableCell>
       <TableCell>
@@ -134,7 +140,9 @@ export function ReportsTable({
               <TableHead>Event name</TableHead>
               <TableHead>Venue name</TableHead>
               <TableHead>Attendance count</TableHead>
-              <TableHead>Net profit</TableHead>
+              <TableHead>Table sales</TableHead>
+              <TableHead>Ticket sales</TableHead>
+              <TableHead>Bar sales</TableHead>
               <TableHead>Created at</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -144,7 +152,7 @@ export function ReportsTable({
               skeletonRows
             ) : showEmptyState ? (
               <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center">
+                <TableCell colSpan={8} className="py-10 text-center">
                   <div className="mx-auto flex max-w-md flex-col items-center gap-2">
                     <FileText className="h-6 w-6 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">No reports found</p>
@@ -175,8 +183,24 @@ export function ReportsTable({
                   </TableCell>
                   <TableCell>{row.attendance_count.toLocaleString()}</TableCell>
                   <TableCell>
-                    {row.net_profit != null
-                      ? Number(row.net_profit).toLocaleString(undefined, {
+                    {row.total_table_sales != null
+                      ? Number(row.total_table_sales).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {row.total_ticket_sales != null
+                      ? Number(row.total_ticket_sales).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "—"}
+                  </TableCell>
+                  <TableCell>
+                    {row.total_bar_sales != null
+                      ? Number(row.total_bar_sales).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })

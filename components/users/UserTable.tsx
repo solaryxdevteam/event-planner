@@ -24,6 +24,8 @@ type User = Database["public"]["Tables"]["users"]["Row"];
 interface UserTableProps {
   users: User[];
   onEditUser?: (user: User) => void;
+  /** When false, actions column and row actions are hidden (view-only) */
+  canManage?: boolean;
   isLoading?: boolean;
   currentPage?: number;
   pageSize?: number;
@@ -44,6 +46,7 @@ const roleLabels: Record<User["role"], string> = {
   regional_curator: "Regional Curator",
   lead_curator: "Lead Curator",
   global_director: "Global Director",
+  marketing_manager: "Marketing Manager",
 };
 
 // Role badge colors - custom background colors for each role
@@ -57,6 +60,8 @@ const roleBadgeColors: Record<User["role"], string> = {
   lead_curator:
     "bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
   global_director: "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
+  marketing_manager:
+    "bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800",
 };
 
 // Status display names
@@ -79,6 +84,7 @@ const statusBadgeVariants: Record<
 export function UserTable({
   users,
   onEditUser,
+  canManage = true,
   isLoading = false,
   currentPage = 1,
   pageSize = 10,
@@ -183,9 +189,11 @@ export function UserTable({
       <TableCell>
         <Skeleton className="h-6 w-20 rounded-full" />
       </TableCell>
-      <TableCell className="text-right">
-        <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-      </TableCell>
+      {canManage && (
+        <TableCell className="text-right">
+          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+        </TableCell>
+      )}
     </TableRow>
   ));
 
@@ -343,19 +351,13 @@ export function UserTable({
                   <h3 className="font-medium text-base mb-1">{user.fullName}</h3>
                   <p className="text-sm text-muted-foreground truncate">{user.email}</p>
                 </div>
-                <UserActions user={user} onEdit={onEditUser} />
+                {canManage && <UserActions user={user} onEdit={onEditUser} />}
               </div>
               <div className="space-y-2 text-sm">
                 {user.phone && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">Phone:</span>
                     <span>{user.phone}</span>
-                  </div>
-                )}
-                {user.company && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Company:</span>
-                    <span>{user.company}</span>
                   </div>
                 )}
                 <div className="flex items-center gap-2 flex-wrap">
@@ -378,10 +380,9 @@ export function UserTable({
               <TableHead>Full Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Phone</TableHead>
-              <TableHead>Company</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              {canManage && <TableHead className="text-right">Actions</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -389,7 +390,7 @@ export function UserTable({
               skeletonRows
             ) : displayUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={canManage ? 7 : 6} className="text-center text-muted-foreground">
                   {hasActiveFilters ? "No users found matching your filters." : "No users found."}
                 </TableCell>
               </TableRow>
@@ -399,7 +400,6 @@ export function UserTable({
                   <TableCell className="font-medium">{user.fullName}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.phone || "-"}</TableCell>
-                  <TableCell>{user.company || "-"}</TableCell>
                   <TableCell>
                     <Badge className={roleBadgeColors[user.role]} variant="outline">
                       {roleLabels[user.role]}
@@ -408,9 +408,11 @@ export function UserTable({
                   <TableCell>
                     <Badge variant={statusBadgeVariants[user.status]}>{statusLabels[user.status]}</Badge>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <UserActions user={user} onEdit={onEditUser} />
-                  </TableCell>
+                  {canManage && (
+                    <TableCell className="text-right">
+                      <UserActions user={user} onEdit={onEditUser} />
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}

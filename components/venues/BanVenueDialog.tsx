@@ -102,7 +102,7 @@ export function BanVenueDialog({ open, onOpenChange, venue, onSuccess }: BanVenu
             </div>
             <div className="text-sm">
               <p className="text-muted-foreground">Location</p>
-              <p className="font-medium">{[venue.city, venue.state, venue.country].filter(Boolean).join(", ")}</p>
+              <p className="font-medium">{[venue.city, venue.country].filter(Boolean).join(", ")}</p>
             </div>
           </div>
 

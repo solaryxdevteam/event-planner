@@ -3,16 +3,25 @@
 import { format } from "date-fns";
 import { CheckCircle2, XCircle, User, AlertCircle, Circle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ROLE_LABELS, UserRole } from "@/lib/types/roles";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
+import type { VenueApprovalWithApprover } from "@/lib/data-access/venue-approvals.dal";
 import type { ApprovalType } from "@/lib/types/database.types";
 
+/** Shared shape used by the timeline (event and venue approvals). */
+export type TimelineApproval = EventApprovalWithApprover | VenueApprovalWithApprover;
+
 interface ApprovalChainTimelineProps {
-  approvals: EventApprovalWithApprover[];
+  approvals: TimelineApproval[];
   className?: string;
   showComments?: boolean;
   showTimestamps?: boolean;
   compact?: boolean;
+  /** When "venue", renders a single "Venue Approval" group. When "event" or omitted, groups by approval_type. */
+  approvalKind?: "event" | "venue";
+  /** When true, shows an internal skeleton matching the timeline layout. Takes precedence over empty approvals. */
+  isLoading?: boolean;
 }
 
 type ApprovalStatus = "waiting" | "pending" | "approved" | "rejected";
@@ -22,6 +31,7 @@ const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
   modification: "Modification Approval",
   cancellation: "Cancellation Approval",
   report: "Report Approval",
+  marketing_report: "Marketing Report Approval",
 };
 
 /**
@@ -42,13 +52,74 @@ const APPROVAL_TYPE_LABELS: Record<ApprovalType, string> = {
  * />
  * ```
  */
+/**
+ * Skeleton that mirrors the timeline: horizontal row of circle + card placeholders.
+ */
+function ApprovalChainTimelineSkeleton({
+  showTimestamps,
+  itemCount = 3,
+}: {
+  showTimestamps?: boolean;
+  itemCount?: number;
+}) {
+  return (
+    <div className="relative overflow-x-auto pb-3">
+      <div className="relative min-w-full">
+        <div className="relative flex items-start gap-3 sm:gap-4">
+          {Array.from({ length: itemCount }).map((_, index) => (
+            <div key={index} className="relative flex min-w-[140px] max-w-[180px] flex-col items-stretch pl-1">
+              {index < itemCount - 1 && (
+                <div
+                  className="pointer-events-none absolute z-0 h-0.5 bg-muted/50"
+                  style={{
+                    left: "10px",
+                    top: "10px",
+                    width: "calc(100% - 10px + 0.75rem + 10px)",
+                  }}
+                />
+              )}
+              <div className="relative z-10 flex items-center justify-start">
+                <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+              </div>
+              <div className="relative z-10 mt-2 rounded-lg border border-border/50 bg-muted/30 p-2 shadow-sm">
+                <div className="flex items-center justify-between gap-1.5">
+                  <Skeleton className="h-4 w-14 rounded-sm" />
+                  <Skeleton className="h-4 w-12 rounded-sm" />
+                </div>
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <Skeleton className="h-3 w-3 shrink-0 rounded-full" />
+                  <Skeleton className="h-3.5 flex-1 max-w-[100px] rounded" />
+                </div>
+                {showTimestamps && <Skeleton className="mt-1.5 h-3 w-20 rounded" />}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ApprovalChainTimeline({
   approvals,
   className = "",
   showComments = false,
   showTimestamps = false,
   compact = false,
+  approvalKind,
+  isLoading = false,
 }: ApprovalChainTimelineProps) {
+  if (isLoading) {
+    return (
+      <div className={className}>
+        <div className="space-y-2">
+          <Skeleton className="h-3.5 w-24 rounded" />
+          <ApprovalChainTimelineSkeleton showTimestamps={showTimestamps} />
+        </div>
+      </div>
+    );
+  }
+
   if (!approvals || approvals.length === 0) {
     return (
       <div className={className}>
@@ -60,34 +131,41 @@ export function ApprovalChainTimeline({
     );
   }
 
-  // Group approvals by approval_type
-  const groupedApprovals = approvals.reduce(
-    (acc, approval) => {
-      const type = approval.approval_type || "event";
-      if (!acc[type]) {
-        acc[type] = [];
-      }
-      acc[type].push(approval);
-      return acc;
-    },
-    {} as Record<ApprovalType, EventApprovalWithApprover[]>
-  );
+  const isVenueKind = approvalKind === "venue";
 
-  // Sort each group by sequence_order
-  Object.keys(groupedApprovals).forEach((type) => {
-    groupedApprovals[type as ApprovalType].sort((a, b) => a.sequence_order - b.sequence_order);
-  });
-
-  // Define the order of approval types
-  const approvalTypeOrder: ApprovalType[] = ["event", "modification", "cancellation", "report"];
-
-  // Filter out empty groups and get the groups that will be rendered
-  const groupsToRender = approvalTypeOrder
-    .map((type) => ({
-      type,
-      approvals: groupedApprovals[type],
-    }))
-    .filter((group) => group.approvals && group.approvals.length > 0);
+  // For venue kind: single group. Otherwise group by approval_type.
+  const groupsToRender: { type: string; label: string; approvals: TimelineApproval[] }[] = isVenueKind
+    ? [
+        {
+          type: "venue",
+          label: "Venue Approval",
+          approvals: [...approvals].sort((a, b) => a.sequence_order - b.sequence_order),
+        },
+      ]
+    : (() => {
+        const groupedApprovals = approvals.reduce(
+          (acc, approval) => {
+            const type = (approval as EventApprovalWithApprover).approval_type || "event";
+            if (!acc[type]) {
+              acc[type] = [];
+            }
+            acc[type].push(approval);
+            return acc;
+          },
+          {} as Record<ApprovalType, TimelineApproval[]>
+        );
+        Object.keys(groupedApprovals).forEach((type) => {
+          groupedApprovals[type as ApprovalType].sort((a, b) => a.sequence_order - b.sequence_order);
+        });
+        const order: ApprovalType[] = ["event", "modification", "cancellation", "report", "marketing_report"];
+        return order
+          .map((type) => ({
+            type,
+            label: APPROVAL_TYPE_LABELS[type],
+            approvals: groupedApprovals[type] ?? [],
+          }))
+          .filter((group) => group.approvals.length > 0);
+      })();
 
   const hasMultipleGroups = groupsToRender.length > 1;
 
@@ -100,7 +178,7 @@ export function ApprovalChainTimeline({
           return (
             <div key={group.type}>
               <div className="space-y-2">
-                <h3 className="text-xs font-semibold text-foreground">{APPROVAL_TYPE_LABELS[group.type]}</h3>
+                <h3 className="text-xs font-semibold text-foreground">{group.label}</h3>
                 <TimelineGroup
                   approvals={group.approvals}
                   showComments={showComments}
@@ -130,7 +208,7 @@ function TimelineGroup({
   showTimestamps,
   compact,
 }: {
-  approvals: EventApprovalWithApprover[];
+  approvals: TimelineApproval[];
   showComments: boolean;
   showTimestamps: boolean;
   compact: boolean;

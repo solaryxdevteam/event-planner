@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         data: newUser,
+        needsEmailVerification: true,
       },
       { status: 201 }
     );

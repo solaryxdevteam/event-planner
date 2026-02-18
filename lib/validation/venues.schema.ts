@@ -9,9 +9,24 @@ import { z } from "zod";
 
 // Constants for validation
 export const MAX_TEXTAREA_LENGTH = 100000;
+export const MAX_MEDIA_ITEMS = 10;
+export const MAX_FLOOR_PLANS = 20;
+
+const venueMediaItemSchema = z.object({
+  url: z.string().url("Invalid media URL"),
+  type: z.enum(["photo", "video"]),
+  isCover: z.boolean().optional(),
+});
+
+/** Floor plan item: URL and optional original file name for display */
+export const floorPlanItemSchema = z.object({
+  url: z.string().url("Invalid file URL"),
+  name: z.string().max(255, "File name too long").optional(),
+});
 
 /**
  * Step 1: Basic Information Schema
+ * Country is selectable (any country); state field removed
  */
 export const venueStep1Schema = z.object({
   name: z.string().min(1, "Venue name is required").max(200, "Venue name must be less than 200 characters").trim(),
@@ -21,10 +36,8 @@ export const venueStep1Schema = z.object({
     .max(500, "Street address must be less than 500 characters")
     .trim(),
   city: z.string().min(1, "City is required").max(100, "City must be less than 100 characters").trim(),
-  state: z.string().max(100, "State must be less than 100 characters").trim().nullable().optional(),
   country: z.string().min(1, "Country is required").max(100, "Country must be less than 100 characters").trim(),
   country_id: z.string().uuid("Invalid country ID").nullable().optional(),
-  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   location_lat: z
     .number()
     .min(-90, "Latitude must be between -90 and 90")
@@ -41,88 +54,50 @@ export const venueStep1Schema = z.object({
 
 /**
  * Step 2: Capacity & Features Schema
+ * total_capacity, number_of_tables, ticket_capacity, sounds, lights, screens
  */
-export const venueStep2Schema = z
-  .object({
-    capacity_standing: z
-      .number()
-      .int("Standing capacity must be a whole number")
-      .min(0, "Standing capacity must be 0 or greater")
-      .max(99999999, "Standing capacity must be less than 99,999,999")
-      .nullable()
-      .optional(),
-    capacity_seated: z
-      .number()
-      .int("Seated capacity must be a whole number")
-      .min(0, "Seated capacity must be 0 or greater")
-      .max(99999999, "Seated capacity must be less than 99,999,999")
-      .nullable()
-      .optional(),
-    available_rooms_halls: z
-      .string()
-      .max(MAX_TEXTAREA_LENGTH, `Description must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
-      .nullable()
-      .optional(),
-    technical_specs: z
-      .object({
-        sound: z.boolean().optional(),
-        lights: z.boolean().optional(),
-        screens: z.boolean().optional(),
-      })
-      .nullable()
-      .optional(),
-    availability_start_date: z
-      .string()
-      .date("Invalid start date")
-      // .refine((date) => {
-      //   const startDate = new Date(date);
-      //   const today = new Date();
-      //   today.setHours(0, 0, 0, 0);
-      //   return startDate >= today;
-      // }, "Start date must be today or later")
-      .nullable()
-      .optional(),
-    availability_end_date: z.string().date("Invalid end date").nullable().optional(),
-    base_pricing: z
-      .number()
-      .nonnegative("Base pricing must be 0 or greater")
-      .max(999999999.99, "Base pricing seems unreasonably large")
-      .nullable()
-      .optional(),
-  })
-  .refine(
-    (data) => {
-      if (data.availability_start_date && data.availability_end_date) {
-        const start = new Date(data.availability_start_date);
-        const end = new Date(data.availability_end_date);
-        const maxEnd = new Date(start);
-        maxEnd.setFullYear(maxEnd.getFullYear() + 1);
-        return end <= maxEnd;
-      }
-      return true;
-    },
-    {
-      message: "End date must be within 1 year from start date",
-      path: ["availability_end_date"],
-    }
-  )
-  .refine(
-    (data) => {
-      if (data.availability_start_date && data.availability_end_date) {
-        const start = new Date(data.availability_start_date);
-        const end = new Date(data.availability_end_date);
-        return end >= start;
-      }
-      return true;
-    },
-    {
-      message: "End date must be after start date",
-      path: ["availability_end_date"],
-    }
-  );
+export const venueStep2Schema = z.object({
+  total_capacity: z
+    .number()
+    .int("Total capacity must be a whole number")
+    .min(0, "Total capacity must be 0 or greater")
+    .max(99999999, "Total capacity must be less than 99,999,999")
+    .nullable()
+    .optional(),
+  number_of_tables: z
+    .number()
+    .int("Number of tables must be a whole number")
+    .min(0, "Number of tables must be 0 or greater")
+    .max(99999999, "Number of tables must be less than 99,999,999")
+    .nullable()
+    .optional(),
+  ticket_capacity: z
+    .number()
+    .int("Ticket capacity must be a whole number")
+    .min(0, "Ticket capacity must be 0 or greater")
+    .max(99999999, "Ticket capacity must be less than 99,999,999")
+    .nullable()
+    .optional(),
+  sounds: z
+    .string()
+    .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
+    .nullable()
+    .optional(),
+  lights: z
+    .string()
+    .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
+    .nullable()
+    .optional(),
+  screens: z
+    .string()
+    .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
+    .nullable()
+    .optional(),
+});
 
 /**
  * Step 3: Contact & Media Schema
+ * Contact email with verification; floor_plans; media (photos/videos, max 10, cover selectable)
  */
 export const venueStep3Schema = z.object({
   contact_person_name: z
@@ -137,16 +112,16 @@ export const venueStep3Schema = z.object({
     .trim()
     .optional()
     .nullable(),
-  contact_phone: z.string().max(50, "Phone number must be less than 50 characters").trim().optional().nullable(),
-  restrictions: z
-    .string()
-    .max(MAX_TEXTAREA_LENGTH, `Restrictions must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
-    .nullable()
-    .optional(),
-  images: z
-    .array(z.string().url("Invalid image URL"))
-    .max(5, "Maximum 5 images allowed")
-    .min(0, "Images array cannot be negative")
+  floor_plans: z
+    .array(floorPlanItemSchema)
+    .max(MAX_FLOOR_PLANS, `Maximum ${MAX_FLOOR_PLANS} floor plan files allowed`)
+    .default([]),
+  media: z
+    .array(venueMediaItemSchema)
+    .max(MAX_MEDIA_ITEMS, `Maximum ${MAX_MEDIA_ITEMS} photos/videos allowed`)
+    .refine((arr) => arr.length === 0 || arr.some((m) => m.isCover === true), {
+      message: "Please select one image as the cover image",
+    })
     .default([]),
 });
 
@@ -173,7 +148,6 @@ export const updateVenueSchema = z.object({
     .trim()
     .optional(),
   city: z.string().min(1, "City is required").max(100, "City must be less than 100 characters").trim().optional(),
-  state: z.string().max(100, "State must be less than 100 characters").trim().nullable().optional(),
   country: z
     .string()
     .min(1, "Country is required")
@@ -181,7 +155,6 @@ export const updateVenueSchema = z.object({
     .trim()
     .optional(),
   country_id: z.string().uuid("Invalid country ID").nullable().optional(),
-  state_id: z.string().uuid("Invalid state ID").nullable().optional(),
   location_lat: z
     .number()
     .min(-90, "Latitude must be between -90 and 90")
@@ -194,39 +167,40 @@ export const updateVenueSchema = z.object({
     .max(180, "Longitude must be between -180 and 180")
     .nullable()
     .optional(),
-  capacity_standing: z
+  total_capacity: z
     .number()
-    .int("Standing capacity must be a whole number")
-    .min(0, "Standing capacity must be 0 or greater")
-    .max(99999999, "Standing capacity must be less than 99,999,999")
+    .int("Total capacity must be a whole number")
+    .min(0, "Total capacity must be 0 or greater")
+    .max(99999999, "Total capacity must be less than 99,999,999")
     .nullable()
     .optional(),
-  capacity_seated: z
+  number_of_tables: z
     .number()
-    .int("Seated capacity must be a whole number")
-    .min(0, "Seated capacity must be 0 or greater")
-    .max(99999999, "Seated capacity must be less than 99,999,999")
+    .int("Number of tables must be a whole number")
+    .min(0, "Number of tables must be 0 or greater")
+    .max(99999999, "Number of tables must be less than 99,999,999")
     .nullable()
     .optional(),
-  available_rooms_halls: z
+  ticket_capacity: z
+    .number()
+    .int("Ticket capacity must be a whole number")
+    .min(0, "Ticket capacity must be 0 or greater")
+    .max(99999999, "Ticket capacity must be less than 99,999,999")
+    .nullable()
+    .optional(),
+  sounds: z
     .string()
-    .max(MAX_TEXTAREA_LENGTH, `Description must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
+    .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
     .nullable()
     .optional(),
-  technical_specs: z
-    .object({
-      sound: z.boolean().optional(),
-      lights: z.boolean().optional(),
-      screens: z.boolean().optional(),
-    })
+  lights: z
+    .string()
+    .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
     .nullable()
     .optional(),
-  availability_start_date: z.string().date("Invalid start date").nullable().optional(),
-  availability_end_date: z.string().date("Invalid end date").nullable().optional(),
-  base_pricing: z
-    .number()
-    .nonnegative("Base pricing must be 0 or greater")
-    .max(999999999.99, "Base pricing seems unreasonably large")
+  screens: z
+    .string()
+    .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
     .nullable()
     .optional(),
   contact_person_name: z
@@ -242,16 +216,16 @@ export const updateVenueSchema = z.object({
     .trim()
     .optional()
     .nullable(),
-  contact_phone: z.string().max(50, "Phone number must be less than 50 characters").trim().optional().nullable(),
-  restrictions: z
-    .string()
-    .max(MAX_TEXTAREA_LENGTH, `Restrictions must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
-    .nullable()
+  floor_plans: z
+    .array(floorPlanItemSchema)
+    .max(MAX_FLOOR_PLANS, `Maximum ${MAX_FLOOR_PLANS} floor plan files allowed`)
     .optional(),
-  images: z
-    .array(z.string().url("Invalid image URL"))
-    .max(5, "Maximum 5 images allowed")
-    .min(0, "Images array cannot be negative")
+  media: z
+    .array(venueMediaItemSchema)
+    .max(MAX_MEDIA_ITEMS, `Maximum ${MAX_MEDIA_ITEMS} photos/videos allowed`)
+    .refine((arr) => !arr || arr.length === 0 || arr.some((m) => m.isCover === true), {
+      message: "Please select one image as the cover image",
+    })
     .optional(),
 });
 
@@ -263,3 +237,5 @@ export type VenueStep2Input = z.infer<typeof venueStep2Schema>;
 export type VenueStep3Input = z.infer<typeof venueStep3Schema>;
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
 export type UpdateVenueInput = z.infer<typeof updateVenueSchema>;
+export type VenueMediaItemInput = z.infer<typeof venueMediaItemSchema>;
+export type FloorPlanItemInput = z.infer<typeof floorPlanItemSchema>;

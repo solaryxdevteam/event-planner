@@ -1,33 +1,42 @@
 /**
  * Report Form Component
  *
- * Form for submitting post-event reports
- * Only visible when event status is completed_awaiting_report and user is event creator
+ * Form for submitting post-event reports.
+ * Fields: total attendance, ticket/bar/table sales, reels (min 3), photos (min 10),
+ * detailed report, optional incidents.
  */
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, X, Loader2, ExternalLink, Plus, Trash2, FileText, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
 import { useSubmitReport } from "@/lib/hooks/use-reports";
 import { z } from "zod";
 import { toast } from "sonner";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
+import { FileUploader } from "@/components/ui/file-uploader";
+import { MediaPreviewDialog } from "@/components/ui/media-preview-dialog";
+import * as reportsClientService from "@/lib/services/client/reports.client.service";
 
 const reportSchema = z.object({
-  attendance_count: z.number().int().nonnegative("Attendance count must be 0 or greater"),
-  summary: z
+  attendance_count: z
+    .number()
+    .int("Must be a whole number")
+    .nonnegative("Total number of attendance must be 0 or greater"),
+  total_ticket_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  total_bar_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  total_table_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  detailed_report: z
     .string()
-    .min(20, "Summary must be at least 20 characters")
-    .max(1000, "Summary must be less than 1000 characters"),
-  feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
-  net_profit: z.number(),
+    .min(20, "Detailed event report must be at least 20 characters")
+    .max(10000, "Must be less than 10000 characters"),
+  incidents: z.string().max(2000, "Must be less than 2000 characters").optional().nullable(),
 });
 
 type ReportFormData = z.infer<typeof reportSchema>;
@@ -38,88 +47,109 @@ interface ReportFormProps {
   onSuccess?: () => void;
 }
 
+function getMediaType(file: File): "image" | "video" {
+  return file.type.startsWith("video/") ? "video" : "image";
+}
+
+type ReelItem = { url: string; type: "image" | "video" };
+type PhotoItem = { url: string };
+
 export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
-  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-  const [externalLinks, setExternalLinks] = useState<Array<{ url: string; title: string }>>([]);
-  const [newLinkUrl, setNewLinkUrl] = useState("");
-  const [newLinkTitle, setNewLinkTitle] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [reels, setReels] = useState<ReelItem[]>([]);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [uploadingReels, setUploadingReels] = useState(false);
+  const [uploadingPhotos, setUploadingPhotos] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; type: "image" | "video"; name: string } | null>(null);
 
   const submitReport = useSubmitReport();
 
   const form = useForm<ReportFormData>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(reportSchema) as any,
+    resolver: zodResolver(reportSchema),
     defaultValues: {
       attendance_count: 0,
-      summary: "",
-      feedback: "",
-      net_profit: undefined,
+      total_ticket_sales: null,
+      total_bar_sales: null,
+      total_table_sales: null,
+      detailed_report: "",
+      incidents: null,
     },
   });
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    const validFiles = files.filter((file) => {
-      const maxSize = 50 * 1024 * 1024; // 50MB
-      if (file.size > maxSize) {
-        toast.error(`File ${file.name} is too large. Maximum size is 50MB.`);
-        return false;
+  const handleReelsSelected = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setUploadingReels(true);
+      try {
+        const toAdd: ReelItem[] = [];
+        for (const file of files) {
+          const { url } = await reportsClientService.uploadReportMedia(eventId, file, "reel");
+          toAdd.push({ url, type: getMediaType(file) });
+        }
+        setReels((prev) => [...prev, ...toAdd].slice(0, 20));
+      } catch (e) {
+        toast.error("Upload failed", { description: e instanceof Error ? e.message : "Could not upload reels" });
+      } finally {
+        setUploadingReels(false);
       }
-      const validTypes = ["image/jpeg", "image/png", "image/gif", "video/mp4", "video/quicktime"];
-      if (!validTypes.includes(file.type)) {
-        toast.error(`File ${file.name} has an invalid type. Only images and videos are allowed.`);
-        return false;
+    },
+    [eventId]
+  );
+
+  const handlePhotosSelected = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setUploadingPhotos(true);
+      try {
+        const toAdd: PhotoItem[] = [];
+        for (const file of files) {
+          const { url } = await reportsClientService.uploadReportMedia(eventId, file, "photo");
+          toAdd.push({ url });
+        }
+        setPhotos((prev) => [...prev, ...toAdd].slice(0, 30));
+      } catch (e) {
+        toast.error("Upload failed", { description: e instanceof Error ? e.message : "Could not upload photos" });
+      } finally {
+        setUploadingPhotos(false);
       }
-      return true;
-    });
-    setMediaFiles((prev) => [...prev, ...validFiles]);
+    },
+    [eventId]
+  );
+
+  const removeReel = (index: number) => {
+    setReels((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const removeFile = (index: number) => {
-    setMediaFiles((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const addExternalLink = () => {
-    if (!newLinkUrl || !newLinkTitle) {
-      toast.error("Please provide both URL and title for the link");
-      return;
-    }
-
-    try {
-      new URL(newLinkUrl); // Validate URL
-    } catch {
-      toast.error("Please provide a valid URL");
-      return;
-    }
-
-    setExternalLinks((prev) => [...prev, { url: newLinkUrl, title: newLinkTitle }]);
-    setNewLinkUrl("");
-    setNewLinkTitle("");
-  };
-
-  const removeExternalLink = (index: number) => {
-    setExternalLinks((prev) => prev.filter((_, i) => i !== index));
+  const removePhoto = (index: number) => {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
   const onSubmit = async (data: ReportFormData) => {
+    if (reels.length < 3) {
+      toast.error("Reels: minimum 3 files required");
+      return;
+    }
+    if (photos.length < 10) {
+      toast.error("Upload photos: minimum 10 files required");
+      return;
+    }
+
     try {
-      // Always create a new report (archived reports are never updated)
       await submitReport.mutateAsync({
         eventId,
         data: {
           attendance_count: data.attendance_count,
-          summary: data.summary,
-          feedback: data.feedback || null,
-          external_links: externalLinks.length > 0 ? externalLinks : null,
-          net_profit: data.net_profit ?? null,
-          mediaFiles: mediaFiles.length > 0 ? mediaFiles : undefined,
+          total_ticket_sales: data.total_ticket_sales ?? null,
+          total_bar_sales: data.total_bar_sales ?? null,
+          total_table_sales: data.total_table_sales ?? null,
+          detailed_report: data.detailed_report,
+          incidents: data.incidents ?? null,
+          reelsUrls: reels.map((r) => r.url),
+          mediaUrls: photos.map((p) => p.url),
         },
       });
-
       onSuccess?.();
     } catch {
-      // Error is handled by the mutation
+      // Error handled by mutation
     }
   };
 
@@ -128,217 +158,255 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
   return (
     <div className="space-y-6">
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        {/* Attendance Count */}
+        {/* Total number of attendance */}
         <div className="space-y-3">
           <Label htmlFor="attendance_count" className="text-base font-semibold">
-            Actual Attendance <span className="text-destructive">*</span>
-          </Label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Input
-                id="attendance_count"
-                type="number"
-                min="0"
-                {...form.register("attendance_count", { valueAsNumber: true })}
-                className={`text-lg h-12 ${form.formState.errors.attendance_count ? "border-destructive" : ""}`}
-                placeholder="Enter actual attendance count"
-              />
-              {form.formState.errors.attendance_count && (
-                <p className="text-sm text-destructive flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4" />
-                  {form.formState.errors.attendance_count.message}
-                </p>
-              )}
-            </div>
-            {event.expected_attendance && (
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <div className="text-sm text-muted-foreground">Expected:</div>
-                <div className="font-semibold">{event.expected_attendance.toLocaleString()}</div>
-                <div className="text-sm text-muted-foreground ml-auto">Actual:</div>
-                {/* React Compiler warning: form.watch() returns functions that cannot be memoized - expected with React Hook Form */}
-                <div className="font-semibold">{form.watch("attendance_count") || 0}</div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="space-y-3">
-          <Label htmlFor="summary" className="text-base font-semibold">
-            Event Summary <span className="text-destructive">*</span>
-          </Label>
-          <Textarea
-            id="summary"
-            rows={8}
-            placeholder="Provide a detailed summary of the event. Describe what happened, key highlights, and overall outcomes..."
-            {...form.register("summary")}
-            className={`resize-none text-base ${form.formState.errors.summary ? "border-destructive" : ""}`}
-            maxLength={1000}
-          />
-          <div className="flex items-center justify-between">
-            {form.formState.errors.summary ? (
-              <p className="text-sm text-destructive flex items-center gap-1">
-                <AlertCircle className="h-4 w-4" />
-                {form.formState.errors.summary.message}
-              </p>
-            ) : (
-              <div />
-            )}
-            <p className="text-sm text-muted-foreground">
-              {form.watch("summary")?.length || 0} / 1000 characters (minimum 20)
-            </p>
-          </div>
-        </div>
-
-        {/* Net Profit */}
-        <div className="space-y-3">
-          <Label htmlFor="net_profit" className="text-base font-semibold">
-            Net Profit <span className="text-muted-foreground font-normal"></span>
+            Total number of attendance <span className="text-destructive">*</span>
           </Label>
           <Input
-            id="net_profit"
+            id="attendance_count"
             type="number"
-            step="0.01"
-            min="0"
-            {...form.register("net_profit", {
-              valueAsNumber: true,
-              setValueAs: (v) => (v === "" || Number.isNaN(v) ? undefined : v),
-            })}
-            className="text-lg h-12 max-w-xs"
-            placeholder="Enter net profit/fee"
+            min={0}
+            {...form.register("attendance_count", { valueAsNumber: true })}
+            className={`text-lg h-12 max-w-xs ${form.formState.errors.attendance_count ? "border-destructive" : ""}`}
+            placeholder="0"
           />
+          {form.formState.errors.attendance_count && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-4 w-4" />
+              {form.formState.errors.attendance_count.message}
+            </p>
+          )}
+          {event.expected_attendance != null && (
+            <p className="text-sm text-muted-foreground">
+              Expected attendance for this event: {event.expected_attendance.toLocaleString()}
+            </p>
+          )}
         </div>
 
-        {/* Feedback */}
+        {/* Sales: ticket, bar, table */}
         <div className="space-y-3">
-          <Label htmlFor="feedback" className="text-base font-semibold">
-            Feedback <span className="text-muted-foreground font-normal">(Optional)</span>
-          </Label>
-          <Textarea
-            id="feedback"
-            rows={6}
-            placeholder="What went well? What could be improved? Share any additional insights or recommendations..."
-            {...form.register("feedback")}
-            className="resize-none text-base"
-            maxLength={2000}
-          />
-          <p className="text-sm text-muted-foreground text-right">
-            {form.watch("feedback")?.length || 0} / 2000 characters
-          </p>
+          <Label className="text-base font-semibold">Sales</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="total_ticket_sales" className="text-sm font-normal">
+                Total ticket sales
+              </Label>
+              <Input
+                id="total_ticket_sales"
+                type="number"
+                min={0}
+                step={0.01}
+                {...form.register("total_ticket_sales", {
+                  valueAsNumber: true,
+                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : v),
+                })}
+                className={form.formState.errors.total_ticket_sales ? "border-destructive" : ""}
+                placeholder="0.00"
+              />
+              {form.formState.errors.total_ticket_sales && (
+                <p className="text-xs text-destructive">{form.formState.errors.total_ticket_sales.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="total_bar_sales" className="text-sm font-normal">
+                Total bar sales
+              </Label>
+              <Input
+                id="total_bar_sales"
+                type="number"
+                min={0}
+                step={0.01}
+                {...form.register("total_bar_sales", {
+                  valueAsNumber: true,
+                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : v),
+                })}
+                className={form.formState.errors.total_bar_sales ? "border-destructive" : ""}
+                placeholder="0.00"
+              />
+              {form.formState.errors.total_bar_sales && (
+                <p className="text-xs text-destructive">{form.formState.errors.total_bar_sales.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="total_table_sales" className="text-sm font-normal">
+                Total table sales
+              </Label>
+              <Input
+                id="total_table_sales"
+                type="number"
+                min={0}
+                step={0.01}
+                {...form.register("total_table_sales", {
+                  valueAsNumber: true,
+                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : v),
+                })}
+                className={form.formState.errors.total_table_sales ? "border-destructive" : ""}
+                placeholder="0.00"
+              />
+              {form.formState.errors.total_table_sales && (
+                <p className="text-xs text-destructive">{form.formState.errors.total_table_sales.message}</p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Media Upload */}
+        {/* Reels – min 3 files */}
         <div className="space-y-3">
           <Label className="text-base font-semibold">
-            Media Files <span className="text-muted-foreground font-normal">(Optional)</span>
+            Reels <span className="text-destructive">*</span>
           </Label>
-          <div className="border-2 border-dashed rounded-lg p-8 text-center bg-muted/30 hover:bg-muted/50 transition-colors">
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*,video/mp4,video/quicktime"
-              onChange={handleFileSelect}
-              className="hidden"
-            />
-            <Upload className="h-10 w-10 mx-auto mb-4 text-muted-foreground" />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              className="mb-3"
-              size="lg"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Choose Files
-            </Button>
-            <p className="text-sm text-muted-foreground">Accepted: Images (JPG, PNG, GIF) and Videos (MP4, MOV)</p>
-            <p className="text-xs text-muted-foreground mt-1">Maximum 50MB per file</p>
-          </div>
-
-          {/* File List */}
-          {mediaFiles.length > 0 && (
-            <div className="space-y-2 mt-4">
-              {mediaFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg border">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="h-10 w-10 rounded bg-background flex items-center justify-center shrink-0">
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{file.name}</p>
-                      <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
-                    </div>
-                  </div>
+          <p className="text-sm text-muted-foreground">Minimum 3 files required.</p>
+          <FileUploader
+            accept="image/*,video/*"
+            maxFiles={20}
+            maxSizeBytes={50 * 1024 * 1024}
+            currentCount={reels.length}
+            onFilesSelected={handleReelsSelected}
+            acceptLabel="Images or videos"
+            disabled={uploadingReels}
+            uploadProgress={uploadingReels ? 50 : undefined}
+          />
+          {reels.length > 0 && (
+            <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {reels.map((item, index) => (
+                <div
+                  key={`${item.url}-${index}`}
+                  className="relative rounded-lg overflow-hidden bg-muted group aspect-square"
+                >
+                  <button
+                    type="button"
+                    className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                    onClick={() => setPreview({ url: item.url, type: item.type, name: `reel-${index + 1}` })}
+                  >
+                    {item.type === "image" ? (
+                      <img src={item.url} alt={`Reel ${index + 1}`} className="w-full h-full object-cover" />
+                    ) : (
+                      <video
+                        src={item.url}
+                        className="w-full h-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    )}
+                  </button>
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    onClick={() => removeFile(index)}
-                    className="shrink-0"
+                    className="absolute top-1 right-1 h-7 w-7 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeReel(index);
+                    }}
                   >
-                    <X className="h-4 w-4" />
+                    ×
                   </Button>
                 </div>
               ))}
             </div>
           )}
+          {reels.length > 0 && reels.length < 3 && (
+            <p className="text-sm text-amber-600">Add at least {3 - reels.length} more file(s) (minimum 3 total).</p>
+          )}
         </div>
 
-        {/* External Links */}
+        {/* Upload photos – min 10 */}
         <div className="space-y-3">
           <Label className="text-base font-semibold">
-            External Links <span className="text-muted-foreground font-normal">(Optional)</span>
+            Upload photos <span className="text-destructive">*</span>
           </Label>
-          <div className="space-y-3">
-            <div className="flex gap-3">
-              <Input
-                placeholder="https://example.com"
-                value={newLinkUrl}
-                onChange={(e) => setNewLinkUrl(e.target.value)}
-                type="url"
-                className="flex-1"
-              />
-              <Input
-                placeholder="Link Title"
-                value={newLinkTitle}
-                onChange={(e) => setNewLinkTitle(e.target.value)}
-                className="flex-1"
-              />
-              <Button type="button" variant="outline" onClick={addExternalLink} size="lg">
-                <Plus className="mr-2 h-4 w-4" />
-                Add
-              </Button>
+          <p className="text-sm text-muted-foreground">Minimum 10 photos required.</p>
+          <FileUploader
+            accept="image/*"
+            maxFiles={30}
+            maxSizeBytes={50 * 1024 * 1024}
+            currentCount={photos.length}
+            onFilesSelected={handlePhotosSelected}
+            acceptLabel="Images (JPG, PNG, GIF, etc.)"
+            disabled={uploadingPhotos}
+            uploadProgress={uploadingPhotos ? 50 : undefined}
+          />
+          {photos.length > 0 && (
+            <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {photos.map((item, index) => (
+                <div
+                  key={`${item.url}-${index}`}
+                  className="relative rounded-lg overflow-hidden bg-muted group aspect-square"
+                >
+                  <button
+                    type="button"
+                    className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                    onClick={() => setPreview({ url: item.url, type: "image", name: `photo-${index + 1}` })}
+                  >
+                    <img src={item.url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 h-7 w-7 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removePhoto(index);
+                    }}
+                  >
+                    ×
+                  </Button>
+                </div>
+              ))}
             </div>
+          )}
+          {photos.length > 0 && photos.length < 10 && (
+            <p className="text-sm text-amber-600">
+              Add at least {10 - photos.length} more photo(s) (minimum 10 total).
+            </p>
+          )}
+        </div>
 
-            {externalLinks.length > 0 && (
-              <div className="space-y-2 mt-2">
-                {externalLinks.map((link, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-lg border">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <ExternalLink className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{link.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{link.url}</p>
-                      </div>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeExternalLink(index)}
-                      className="shrink-0"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
+        {/* Detailed event report */}
+        <div className="space-y-3">
+          <Label htmlFor="detailed_report" className="text-base font-semibold">
+            Detailed event report <span className="text-destructive">*</span>
+          </Label>
+          <Textarea
+            id="detailed_report"
+            rows={10}
+            placeholder="Provide a detailed report of the event (at least 20 characters)..."
+            {...form.register("detailed_report")}
+            className={`resize-none text-base ${form.formState.errors.detailed_report ? "border-destructive" : ""}`}
+            maxLength={10000}
+          />
+          <div className="flex justify-between text-sm">
+            {form.formState.errors.detailed_report ? (
+              <p className="text-destructive flex items-center gap-1">
+                <AlertCircle className="h-4 w-4" />
+                {form.formState.errors.detailed_report.message}
+              </p>
+            ) : (
+              <span />
             )}
+            <span className="text-muted-foreground">{form.watch("detailed_report")?.length || 0} / 10000 (min 20)</span>
           </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Incidents – optional */}
+        <div className="space-y-3">
+          <Label htmlFor="incidents" className="text-base font-semibold">
+            Incidents <span className="text-muted-foreground font-normal">(Optional)</span>
+          </Label>
+          <Textarea
+            id="incidents"
+            rows={4}
+            placeholder="Any incidents or issues during the event..."
+            {...form.register("incidents")}
+            className="resize-none text-base"
+            maxLength={2000}
+          />
+          <p className="text-sm text-muted-foreground text-right">{form.watch("incidents")?.length || 0} / 2000</p>
+        </div>
+
         <div className="flex justify-end gap-3 pt-6 border-t sticky bottom-0 bg-background pb-4 -mb-4">
           <Button type="button" variant="outline" onClick={() => onSuccess?.()} disabled={isSubmitting} size="lg">
             Cancel
@@ -355,6 +423,16 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
           </Button>
         </div>
       </form>
+
+      {preview && (
+        <MediaPreviewDialog
+          open={!!preview}
+          onOpenChange={(open) => !open && setPreview(null)}
+          type={preview.type}
+          url={preview.url}
+          downloadName={preview.name}
+        />
+      )}
     </div>
   );
 }

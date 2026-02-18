@@ -101,10 +101,8 @@ export async function createUserDirectly(
         role: formData.get("role") as any,
         parent_id: formData.get("parent_id") as string | null,
         country_id: formData.get("country_id") as string | undefined,
-        state_id: formData.get("state_id") as string | null | undefined,
         city: formData.get("city") as string | null | undefined,
         phone: formData.get("phone") as string | null | undefined,
-        company: formData.get("company") as string | null | undefined,
       };
       password = formData.get("password") as string;
     } else {
@@ -115,10 +113,8 @@ export async function createUserDirectly(
         role: formData.role,
         parent_id: formData.parent_id,
         country_id: formData.country_id,
-        state_id: formData.state_id,
         city: formData.city,
         phone: formData.phone,
-        company: formData.company,
       };
       password = formData.password;
     }
@@ -175,7 +171,6 @@ export async function updateUser(userId: string, formData: FormData | UpdateUser
       const role = formData.get("role");
       const parent_id = formData.get("parent_id");
       const country_id = formData.get("country_id");
-      const state_id = formData.get("state_id");
       const city = formData.get("city");
       const is_active = formData.get("is_active");
 
@@ -186,7 +181,6 @@ export async function updateUser(userId: string, formData: FormData | UpdateUser
       if (role) data.role = role as any;
       if (parent_id !== null) data.parent_id = parent_id as string | null;
       if (country_id) data.country_id = country_id as string;
-      if (state_id !== null) data.state_id = state_id as string | null;
       if (city !== null) data.city = city as string | null;
       if (is_active !== null) data.is_active = is_active === "true";
     } else {

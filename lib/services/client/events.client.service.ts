@@ -70,9 +70,12 @@ export async function fetchEventByShortId(shortId: string): Promise<EventWithRel
 }
 
 /**
- * Create a draft event
+ * Create a draft event.
+ * For Global Directors, include verificationToken to create the event as approved (no approval chain).
  */
-export async function createEventDraft(input: CreateEventInput): Promise<EventWithRelations> {
+export async function createEventDraft(
+  input: CreateEventInput & { verificationToken?: string }
+): Promise<EventWithRelations> {
   return apiClient.post<EventWithRelations>("/api/events", input);
 }
 
@@ -139,4 +142,75 @@ export async function fetchEventVersions(id: string): Promise<EventVersion[]> {
   }
 
   return response.json();
+}
+
+/**
+ * Fetch marketing reports for an event (includes submitted_by_name)
+ */
+export async function fetchMarketingReports(
+  eventId: string
+): Promise<import("@/lib/types/database.types").MarketingReportWithSubmitter[]> {
+  return apiClient.get<import("@/lib/types/database.types").MarketingReportWithSubmitter[]>(
+    `/api/events/${eventId}/marketing-reports`
+  );
+}
+
+/**
+ * Submit a marketing report for an event (marketing_manager only)
+ */
+export async function submitMarketingReport(
+  eventId: string,
+  notes: string | null
+): Promise<import("@/lib/types/database.types").MarketingReport> {
+  return apiClient.post<import("@/lib/types/database.types").MarketingReport>(
+    `/api/events/${eventId}/marketing-reports`,
+    { notes }
+  );
+}
+
+/** Event marketing assets payload */
+export interface EventMarketingAssetsPayload {
+  marketing_flyers?: { url: string; name?: string }[];
+  marketing_videos?: { url: string; name?: string }[];
+  marketing_budget?: number | null;
+}
+
+/**
+ * Update event marketing assets (flyers, videos, budget). Marketing manager only.
+ */
+export async function updateEventMarketingAssets(
+  eventId: string,
+  payload: EventMarketingAssetsPayload
+): Promise<EventWithRelations> {
+  return apiClient.patch<EventWithRelations>(`/api/events/${eventId}/marketing-assets`, payload);
+}
+
+/**
+ * Upload a single marketing asset file (flyer or video). Returns { url, name }.
+ */
+export async function uploadEventMarketingAsset(
+  eventId: string,
+  file: File,
+  type: "flyer" | "video"
+): Promise<{ url: string; name: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("type", type);
+
+  const res = await fetch(`/api/events/${eventId}/marketing-assets/upload`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Upload failed");
+  }
+
+  const data = await res.json();
+  return data.data;
 }

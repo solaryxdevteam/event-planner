@@ -6,12 +6,13 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/server";
+import { requireAuth, requireActiveUser } from "@/lib/auth/server";
 import { UnauthorizedError, ForbiddenError } from "@/lib/utils/errors";
 import * as eventService from "@/lib/services/events/event.service";
 import * as draftService from "@/lib/services/events/draft.service";
 import { createEventSchema } from "@/lib/validation/events.schema";
 import type { EventFilterOptions } from "@/lib/data-access/events.dal";
+import { UserRole } from "@/lib/types/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -106,24 +107,33 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Require authentication
+    // Require active user (pending/inactive cannot create events)
     let authUser;
     try {
-      authUser = await requireAuth();
+      authUser = await requireActiveUser();
     } catch (error) {
       if (error instanceof UnauthorizedError) {
         return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
+      }
+      if (error instanceof ForbiddenError) {
+        return NextResponse.json(
+          { success: false, error: "Your account must be active to create events." },
+          { status: 403 }
+        );
       }
       throw error;
     }
 
     const body = await request.json();
 
-    // Validate input
-    const validatedInput = createEventSchema.parse(body);
+    const { verificationToken, ...rest } = body;
+    const validatedInput = createEventSchema.parse(rest);
 
-    // Create draft event
-    const event = await draftService.createDraft(authUser.id, validatedInput);
+    const isGlobalDirector = authUser.dbUser.role === UserRole.GLOBAL_DIRECTOR;
+    const event =
+      isGlobalDirector && typeof verificationToken === "string"
+        ? await draftService.createEventAsApprovedForGD(authUser.id, validatedInput, verificationToken)
+        : await draftService.createDraft(authUser.id, validatedInput);
 
     return NextResponse.json(
       {

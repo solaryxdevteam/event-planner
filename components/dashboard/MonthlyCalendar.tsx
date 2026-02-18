@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverAnchor } from "@/components/ui/popover";
 import { useRouter } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface CalendarEvent {
   id: string;
@@ -199,10 +200,42 @@ export function MonthlyCalendar({
         >
           <CalendarUi
             captionLayout="dropdown"
-            className="rounded-md border-0 p-0 w-full"
+            className="rounded-md border-0 p-1 w-full"
             components={{
               MonthCaption: (props) => <>{props.children}</>,
-              DropdownNav: (props) => <div className="flex w-full items-center gap-2 mb-1">{props.children}</div>,
+              DropdownNav: (props) => (
+                <div className="flex w-full items-center gap-4 mt-2 mb-1 px-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => {
+                      const d = new Date(month);
+                      d.setMonth(d.getMonth() - 1);
+                      setMonth(d);
+                    }}
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {props.children}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => {
+                      const d = new Date(month);
+                      d.setMonth(d.getMonth() + 1);
+                      setMonth(d);
+                    }}
+                    aria-label="Next month"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              ),
               MonthsDropdown: DropdownSelect,
               YearsDropdown: DropdownSelect,
             }}

@@ -44,10 +44,8 @@ export function HierarchyNodeActions({ node, onEditUser }: HierarchyNodeActionsP
     is_active: true,
     parent_id: null,
     country_id: "", // Required field, using empty string as placeholder
-    state_id: null,
     city: null,
     phone: null,
-    company: null,
     avatar_url: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

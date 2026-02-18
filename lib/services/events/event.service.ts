@@ -21,6 +21,53 @@ import type { CreateEventInput } from "@/lib/validation/events.schema";
 import { createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/types/roles";
 
+const MARKETING_ASSETS_STATUSES = ["approved_scheduled", "completed_awaiting_report", "completed_archived"];
+
+export interface UpdateEventMarketingAssetsInput {
+  marketing_flyers?: { url: string; name?: string }[];
+  marketing_videos?: { url: string; name?: string }[];
+  marketing_budget?: number | null;
+}
+
+/**
+ * Update event marketing assets (flyers, videos, budget). Only marketing_manager, only for approved/past events.
+ */
+export async function updateEventMarketingAssets(
+  userId: string,
+  eventId: string,
+  data: UpdateEventMarketingAssetsInput
+): Promise<EventWithRelations> {
+  const supabase = await createClient();
+  const { data: userRow } = await supabase.from("users").select("role").eq("id", userId).single();
+  const role = (userRow as { role?: string } | null)?.role;
+
+  if (role !== "marketing_manager") {
+    throw new ForbiddenError("Only Marketing Managers can update event marketing assets");
+  }
+
+  const event = await eventDAL.findByIdForMarketing(eventId);
+  if (!event) {
+    throw new NotFoundError("Event", eventId);
+  }
+
+  if (!MARKETING_ASSETS_STATUSES.includes(event.status)) {
+    throw new ForbiddenError("Marketing assets can only be updated for approved or past events");
+  }
+
+  const updates: Parameters<typeof eventDAL.update>[1] = {};
+  if (data.marketing_flyers !== undefined) updates.marketing_flyers = data.marketing_flyers;
+  if (data.marketing_videos !== undefined) updates.marketing_videos = data.marketing_videos;
+  if (data.marketing_budget !== undefined) updates.marketing_budget = data.marketing_budget;
+
+  await eventDAL.update(eventId, updates);
+
+  const updated = await eventDAL.findByIdForMarketing(eventId);
+  if (!updated) {
+    throw new NotFoundError("Event", eventId);
+  }
+  return updated;
+}
+
 /**
  * Generate unique short_id for events
  */
@@ -48,47 +95,87 @@ async function generateEventShortId(): Promise<string> {
 }
 
 /**
- * Get a single event by ID with permission check
+ * Get a single event by ID with permission check.
+ * Marketing managers can view any event with status approved_scheduled or completed_*.
  */
 export async function getEventById(userId: string, eventId: string): Promise<EventWithRelations> {
-  // Get subordinate user IDs for authorization
+  const supabase = await createClient();
+  const { data: userRow } = await supabase.from("users").select("role").eq("id", userId).single();
+  const role = (userRow as { role?: string } | null)?.role;
+
+  if (role === "marketing_manager") {
+    const event = await eventDAL.findByIdForMarketing(eventId);
+    if (!event) {
+      throw new NotFoundError("Event", eventId);
+    }
+    return event;
+  }
+
   const subordinateIds = await getSubordinateUserIds(userId);
-
   const event = await eventDAL.findById(eventId, subordinateIds, true);
-
   if (!event) {
     throw new NotFoundError("Event", eventId);
   }
-
   return event;
 }
 
 /**
- * Get a single event by short_id with permission check
+ * Get a single event by short_id with permission check.
+ * Marketing managers can view any event with status approved_scheduled or completed_*.
  */
 export async function getEventByShortId(userId: string, shortId: string): Promise<EventWithRelations> {
-  // Get subordinate user IDs for authorization
+  const supabase = await createClient();
+  const { data: userRow } = await supabase.from("users").select("role").eq("id", userId).single();
+  const role = (userRow as { role?: string } | null)?.role;
+
+  if (role === "marketing_manager") {
+    const event = await eventDAL.findByShortIdForMarketing(shortId);
+    if (!event) {
+      throw new NotFoundError("Event", shortId);
+    }
+    return event;
+  }
+
   const subordinateIds = await getSubordinateUserIds(userId);
-
   const event = await eventDAL.findByShortId(shortId, subordinateIds, true);
-
   if (!event) {
     throw new NotFoundError("Event", shortId);
   }
-
   return event;
 }
 
+/** Statuses that marketing_manager can see (approved + past only) */
+const MARKETING_MANAGER_EVENT_STATUSES = [
+  "approved_scheduled",
+  "completed_awaiting_report",
+  "completed_archived",
+] as const;
+
 /**
- * Get events visible to user with filters (pyramid visibility)
+ * Get events visible to user with filters (pyramid visibility).
+ * Marketing managers see only approved and past events (no draft/in_review/rejected/cancelled).
  */
 export async function getEventsForUser(
   userId: string,
   filters: EventFilterOptions = {}
 ): Promise<EventWithRelations[]> {
-  // Get subordinate user IDs for authorization
-  const subordinateIds = await getSubordinateUserIds(userId);
+  const supabase = await createClient();
+  const { data: userRow } = await supabase.from("users").select("role").eq("id", userId).single();
 
+  const role = (userRow as { role?: string } | null)?.role;
+
+  if (role === "marketing_manager") {
+    const allowed = [...MARKETING_MANAGER_EVENT_STATUSES];
+    const requested = filters.status ? (Array.isArray(filters.status) ? filters.status : [filters.status]) : allowed;
+    const statusFilter = requested.filter((s) => allowed.includes(s as (typeof allowed)[number]));
+    return eventDAL.findAllByStatuses(statusFilter.length ? statusFilter : allowed, {
+      ...filters,
+      status: undefined,
+      includeRelations: true,
+    });
+  }
+
+  const subordinateIds = await getSubordinateUserIds(userId);
   return eventDAL.findPyramidVisible(subordinateIds, {
     ...filters,
     includeRelations: true,
@@ -212,15 +299,14 @@ export async function createFromRejected(userId: string, rejectedEventId: string
   const newDraft = await eventDAL.insert({
     short_id: shortId,
     title: rejectedEvent.title,
-    description: rejectedEvent.description,
     starts_at: rejectedEvent.starts_at,
-    ends_at: rejectedEvent.ends_at,
     venue_id: rejectedEvent.venue_id,
+    dj_id: rejectedEvent.dj_id ?? null,
     creator_id: userId,
     status: "draft",
     expected_attendance: rejectedEvent.expected_attendance,
-    budget_amount: rejectedEvent.budget_amount,
-    budget_currency: rejectedEvent.budget_currency || "USD",
+    minimum_ticket_price: rejectedEvent.minimum_ticket_price ?? null,
+    minimum_table_price: rejectedEvent.minimum_table_price ?? null,
     notes: rejectedEvent.notes,
   });
 
@@ -315,13 +401,12 @@ export async function requestModification(
     event_id: eventId,
     version_data: {
       title: modificationData.title,
-      description: modificationData.description || null,
       starts_at: modificationData.starts_at,
-      ends_at: modificationData.ends_at || null,
       venue_id: modificationData.venue_id || null,
+      dj_id: modificationData.dj_id ?? null,
       expected_attendance: modificationData.expected_attendance || null,
-      budget_amount: modificationData.budget_amount || null,
-      budget_currency: modificationData.budget_currency || "USD",
+      minimum_ticket_price: modificationData.minimum_ticket_price ?? null,
+      minimum_table_price: modificationData.minimum_table_price ?? null,
       notes: modificationData.notes || null,
     },
     status: "in_review" as const,

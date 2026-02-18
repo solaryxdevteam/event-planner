@@ -295,11 +295,11 @@ export async function findAllUnfilteredPaginated(options?: {
   // Build base query for counting total (head: true means we only get count, not data)
   let countQuery = supabase.from("users").select("*", { count: "exact", head: true });
 
-  // Build query for fetching data
+  // Build query for fetching data (newest first)
   let dataQuery = supabase
     .from("users")
     .select("*")
-    .order("first_name", { ascending: true })
+    .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   // Apply filters
@@ -347,6 +347,149 @@ export async function findAllUnfilteredPaginated(options?: {
 
   return {
     data: dataResult.data || [],
+    total: countResult.count || 0,
+  };
+}
+
+/**
+ * Get paginated users filtered by subordinate user IDs (pyramid visibility)
+ * Used for non-Global Director roles to see only their pyramid
+ *
+ * @param subordinateUserIds - Array of user IDs the requester can see (self + subordinates)
+ * @param options - Pagination and filter options
+ * @returns Paginated users and total count
+ */
+export async function findAllPaginated(
+  subordinateUserIds: string[],
+  options?: {
+    page?: number;
+    limit?: number;
+    searchQuery?: string;
+    roleFilter?: Role | null;
+    statusFilter?: "pending" | "active" | "inactive" | null;
+    includeInactive?: boolean;
+  }
+): Promise<{ data: User[]; total: number }> {
+  const supabase = await createClient();
+
+  if (subordinateUserIds.length === 0) {
+    return { data: [], total: 0 };
+  }
+
+  const page = options?.page || 1;
+  const limit = options?.limit || 10;
+  const offset = (page - 1) * limit;
+
+  let countQuery = supabase.from("users").select("*", { count: "exact", head: true }).in("id", subordinateUserIds);
+
+  let dataQuery = supabase
+    .from("users")
+    .select("*")
+    .in("id", subordinateUserIds)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (!options?.includeInactive) {
+    countQuery = countQuery.or("is_active.eq.true,status.eq.pending");
+    dataQuery = dataQuery.or("is_active.eq.true,status.eq.pending");
+  }
+
+  if (options?.roleFilter) {
+    countQuery = countQuery.eq("role", options.roleFilter);
+    dataQuery = dataQuery.eq("role", options.roleFilter);
+  }
+
+  if (options?.statusFilter) {
+    countQuery = countQuery.eq("status", options.statusFilter);
+    dataQuery = dataQuery.eq("status", options.statusFilter);
+  }
+
+  if (options?.searchQuery) {
+    const searchTerm = options.searchQuery;
+    countQuery = countQuery.or(
+      `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`
+    );
+    dataQuery = dataQuery.or(
+      `first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`
+    );
+  }
+
+  const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
+
+  if (countResult.error) {
+    throw new Error(`Failed to count users: ${countResult.error.message}`);
+  }
+
+  if (dataResult.error) {
+    throw new Error(`Failed to fetch users: ${dataResult.error.message}`);
+  }
+
+  return {
+    data: dataResult.data || [],
+    total: countResult.count || 0,
+  };
+}
+
+/**
+ * Get potential parent users by roles with optional search and pagination
+ * Used for Reports To combobox (search + scroll-to-load)
+ */
+export async function findPotentialParentsPaginated(
+  validRoles: Role[],
+  options?: {
+    searchQuery?: string;
+    page?: number;
+    limit?: number;
+    excludeUserId?: string;
+  }
+): Promise<{ data: User[]; total: number }> {
+  const supabase = await createClient();
+
+  const page = options?.page || 1;
+  const limit = Math.min(options?.limit || 20, 50);
+  const offset = (page - 1) * limit;
+
+  if (validRoles.length === 0) {
+    return { data: [], total: 0 };
+  }
+
+  let countQuery = supabase
+    .from("users")
+    .select("*", { count: "exact", head: true })
+    .in("role", validRoles)
+    .eq("is_active", true);
+
+  let dataQuery = supabase
+    .from("users")
+    .select("id, first_name, last_name, email, role")
+    .in("role", validRoles)
+    .eq("is_active", true)
+    .order("first_name", { ascending: true })
+    .range(offset, offset + limit - 1);
+
+  if (options?.excludeUserId) {
+    countQuery = countQuery.neq("id", options.excludeUserId);
+    dataQuery = dataQuery.neq("id", options.excludeUserId);
+  }
+
+  if (options?.searchQuery?.trim()) {
+    const term = options.searchQuery.trim();
+    const or = `first_name.ilike.%${term}%,last_name.ilike.%${term}%,email.ilike.%${term}%`;
+    countQuery = countQuery.or(or);
+    dataQuery = dataQuery.or(or);
+  }
+
+  const [countResult, dataResult] = await Promise.all([countQuery, dataQuery]);
+
+  if (countResult.error) {
+    throw new Error(`Failed to count potential parents: ${countResult.error.message}`);
+  }
+  if (dataResult.error) {
+    throw new Error(`Failed to fetch potential parents: ${dataResult.error.message}`);
+  }
+
+  return {
+    data: (dataResult.data || []) as User[],
     total: countResult.count || 0,
   };
 }

@@ -59,15 +59,15 @@ export function DeleteVenueDialog({ open, onOpenChange, venue, onSuccess }: Dele
             </div>
             <div className="text-sm">
               <p className="text-muted-foreground">Location</p>
-              <p className="font-medium">{[venue.city, venue.state, venue.country].filter(Boolean).join(", ")}</p>
+              <p className="font-medium">{[venue.city, venue.country].filter(Boolean).join(", ")}</p>
             </div>
           </div>
 
           {/* Warning Message */}
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
             <p className="text-sm text-destructive">
-              This action will soft delete the venue (deactivate it). The venue will be hidden from the system but can
-              be reactivated later.
+              This action will soft delete the venue. The venue will be hidden from all lists and cannot be used for new
+              events. The record is kept for history.
             </p>
           </div>
         </div>

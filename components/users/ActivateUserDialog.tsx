@@ -53,10 +53,8 @@ export function ActivateUserDialog({ open, onOpenChange, user }: ActivateUserDia
 
   const selectedRole = form.watch("role");
 
-  // Get location names for display (read-only)
-  // Only fetch when dialog is open to prevent unnecessary requests
+  // Get location name for display (read-only)
   const { data: countryData } = useLocationById(open ? user.country_id || null : null);
-  const { data: stateData } = useLocationById(open ? user.state_id || null : null);
 
   // Load potential parents when dialog opens and role changes
   useEffect(() => {
@@ -150,22 +148,10 @@ export function ActivateUserDialog({ open, onOpenChange, user }: ActivateUserDia
                   <p className="font-medium">{user.phone}</p>
                 </div>
               )}
-              {user.company && (
-                <div>
-                  <Label className="text-muted-foreground">Company</Label>
-                  <p className="font-medium">{user.company}</p>
-                </div>
-              )}
               {countryData && (
                 <div>
                   <Label className="text-muted-foreground">Country</Label>
                   <p className="font-medium">{countryData.name}</p>
-                </div>
-              )}
-              {stateData && (
-                <div>
-                  <Label className="text-muted-foreground">State</Label>
-                  <p className="font-medium">{stateData.name}</p>
                 </div>
               )}
               {user.city && (

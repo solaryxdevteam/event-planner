@@ -3,11 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { PencilIcon, BanIcon, TrashIcon, CheckCircle2 } from "lucide-react";
+import { PencilIcon, BanIcon, TrashIcon, CheckCircle2, CheckCircle, XCircle } from "lucide-react";
 import { Card, CardHeader, CardDescription, CardTitle, CardFooter, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
+import { getVenueDisplayStatus, VENUE_DISPLAY_STATUS_LABELS } from "@/lib/utils/venue-status";
 import { DeleteVenueDialog } from "./DeleteVenueDialog";
 import { BanVenueDialog } from "./BanVenueDialog";
 import { UnbanVenueDialog } from "./UnbanVenueDialog";
@@ -26,67 +27,62 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
   const [unbanDialogOpen, setUnbanDialogOpen] = useState(false);
   const shortId = venue.short_id;
 
-  const firstImage = venue.images && venue.images.length > 0 ? venue.images[0] : null;
+  const coverMedia = venue.media?.find((m) => m.isCover) ?? venue.media?.[0];
+  const firstImage = coverMedia?.url ?? (venue.media && venue.media[0] ? venue.media[0].url : null);
   const isGlobalDirector = userRole === UserRole.GLOBAL_DIRECTOR;
   const isEventPlanner = userRole === UserRole.EVENT_PLANNER;
   const canDelete = isGlobalDirector || isEventPlanner;
-  const canEdit = isGlobalDirector || isEventPlanner;
 
-  const isActive = venue.is_active;
+  const displayStatus = getVenueDisplayStatus(venue);
 
-  // Format location: country/state/city
-  const locationParts = [venue.country, venue.state, venue.city].filter(Boolean);
+  const locationParts = [venue.country, venue.city].filter(Boolean);
   const location = locationParts.join(" / ");
 
-  // Format dates
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null;
-    try {
-      return new Date(dateString).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return null;
-    }
-  };
-
-  const startDate = formatDate(venue.availability_start_date);
-  const endDate = formatDate(venue.availability_end_date);
-
-  // Format capacity
   const capacityParts: string[] = [];
-  if (venue.capacity_standing) {
-    capacityParts.push(`Standing: ${venue.capacity_standing.toLocaleString()}`);
-  }
-  if (venue.capacity_seated) {
-    capacityParts.push(`Seated: ${venue.capacity_seated.toLocaleString()}`);
-  }
+  if (venue.total_capacity != null) capacityParts.push(`Capacity: ${venue.total_capacity.toLocaleString()}`);
+  if (venue.ticket_capacity != null) capacityParts.push(`Tickets: ${venue.ticket_capacity.toLocaleString()}`);
   const capacity = capacityParts.length > 0 ? capacityParts.join(" / ") : "Not specified";
+
+  const contactVerified = venue.contact_email_verified === true;
 
   return (
     <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow p-0">
-      {/* Image Section */}
-      <div className="relative flex h-60 items-center justify-center bg-muted overflow-hidden">
+      {/* Cover image as thumbnail */}
+      <div className="relative flex h-32 shrink-0 items-center justify-center bg-muted overflow-hidden">
         {firstImage ? (
-          <Image src={firstImage} alt={venue.name} fill className="object-cover" unoptimized />
+          <Image
+            src={firstImage}
+            alt={venue.name}
+            fill
+            className="object-cover"
+            unoptimized
+            sizes="(max-width: 400px) 100vw, 340px"
+          />
         ) : (
           <div className="flex items-center justify-center w-full h-full text-muted-foreground">
-            <span className="text-sm">No image available</span>
+            <span className="text-sm">No image</span>
           </div>
         )}
         {/* Status badge in top-right of image */}
         <div className="absolute top-2 right-2">
-          {isActive ? (
-            <Badge variant="white" className="rounded-sm text-xs">
-              Active
-            </Badge>
-          ) : (
-            <Badge variant="destructive" className="rounded-sm text-xs text-white">
-              Banned
-            </Badge>
-          )}
+          <Badge
+            variant={
+              displayStatus === "active"
+                ? "white"
+                : displayStatus === "banned" || displayStatus === "rejected"
+                  ? "destructive"
+                  : "secondary"
+            }
+            className={
+              displayStatus === "active"
+                ? "rounded-sm text-xs text-gray-900 dark:text-gray-900"
+                : displayStatus === "banned" || displayStatus === "rejected"
+                  ? "rounded-sm text-xs text-white"
+                  : "rounded-sm text-xs"
+            }
+          >
+            {VENUE_DISPLAY_STATUS_LABELS[displayStatus]}
+          </Badge>
         </div>
       </div>
 
@@ -97,6 +93,20 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
           </div>
         </div>
         <CardDescription className="flex flex-col gap-2">
+          {/* Verified by venue contact person */}
+          <div className="flex items-center gap-2">
+            {contactVerified ? (
+              <Badge variant="secondary" className="rounded-sm text-xs gap-1 w-fit">
+                <CheckCircle className="h-3.5 w-3.5" />
+                Verified
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="rounded-sm text-xs gap-1 w-fit text-muted-foreground">
+                <XCircle className="h-3.5 w-3.5" />
+                Not verified
+              </Badge>
+            )}
+          </div>
           {location && (
             <Badge variant="outline" className="rounded-sm w-fit">
               {location}
@@ -106,53 +116,31 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {(startDate || endDate) && (
+        {/* Number of tables */}
+        {venue.number_of_tables != null && (
           <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-muted-foreground">Availability</span>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {startDate && (
-                <Badge variant="outline" className="rounded-sm text-xs">
-                  From: {startDate}
-                </Badge>
-              )}
-              {endDate && (
-                <Badge variant="outline" className="rounded-sm text-xs">
-                  To: {endDate}
-                </Badge>
-              )}
-            </div>
+            <span className="text-xs font-medium text-muted-foreground">Tables</span>
+            <p className="text-sm">{venue.number_of_tables.toLocaleString()}</p>
           </div>
         )}
+
         <div className="flex flex-col gap-1">
           <span className="text-xs font-medium text-muted-foreground">Capacity</span>
           <p className="text-sm">{capacity}</p>
         </div>
-        {venue.technical_specs && (
+
+        {(venue.sounds?.trim() || venue.lights?.trim() || venue.screens?.trim()) && (
           <div className="flex flex-col gap-1">
             <span className="text-xs font-medium text-muted-foreground">Technical Specs</span>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {venue.technical_specs.sound && (
-                <Badge variant="secondary" className="rounded-sm text-xs">
-                  Sound
-                </Badge>
-              )}
-              {venue.technical_specs.lights && (
-                <Badge variant="secondary" className="rounded-sm text-xs">
-                  Lights
-                </Badge>
-              )}
-              {venue.technical_specs.screens && (
-                <Badge variant="secondary" className="rounded-sm text-xs">
-                  Screens
-                </Badge>
-              )}
-              {venue.technical_specs &&
-                !venue.technical_specs.sound &&
-                !venue.technical_specs.lights &&
-                !venue.technical_specs.screens && (
-                  <span className="text-xs text-muted-foreground">No specs available</span>
-                )}
-            </div>
+            <p className="text-sm line-clamp-2">
+              {[
+                venue.sounds?.trim() && `Sounds: ${venue.sounds.trim()}`,
+                venue.lights?.trim() && `Lights: ${venue.lights.trim()}`,
+                venue.screens?.trim() && `Screens: ${venue.screens.trim()}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
           </div>
         )}
       </CardContent>
@@ -168,33 +156,31 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
         )}
 
         <div className="flex justify-end gap-2 flex-wrap w-full">
-          {isGlobalDirector && onBan && !isActive && (
+          {isGlobalDirector && onBan && displayStatus === "banned" && (
             <Button size="sm" className="flex-1" variant="default" onClick={() => setUnbanDialogOpen(true)}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Unban
             </Button>
           )}
-          {isGlobalDirector && onBan && isActive && (
-            <Button size="sm" className="flex-1" variant="destructive" onClick={() => setBanDialogOpen(true)}>
+          {isGlobalDirector && onBan && displayStatus === "active" && (
+            <Button size="sm" className="flex-1" variant="outline" onClick={() => setBanDialogOpen(true)}>
               <BanIcon className="mr-2 h-4 w-4" />
               Ban
             </Button>
           )}
           {canDelete && (
-            <Button size="sm" className="flex-1" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
+            <Button size="sm" className="flex-1" variant="outline" onClick={() => setDeleteDialogOpen(true)}>
               <TrashIcon className="mr-2 h-4 w-4" />
               Delete
             </Button>
           )}
 
-          {canEdit && (
-            <Button asChild className="flex-1" size="sm" variant="default">
-              <Link href={`/dashboard/venues/${shortId || venue.id}/edit`}>
-                <PencilIcon className="mr-2 h-4 w-4" />
-                Edit
-              </Link>
-            </Button>
-          )}
+          <Button asChild className="flex-1" size="sm" variant="default">
+            <Link href={`/dashboard/venues/${shortId || venue.id}/edit`}>
+              <PencilIcon className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
         </div>
       </CardFooter>
 
@@ -210,7 +196,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
       />
 
       {/* Ban Dialog */}
-      {isGlobalDirector && onBan && isActive && (
+      {isGlobalDirector && onBan && displayStatus === "active" && (
         <BanVenueDialog
           open={banDialogOpen}
           onOpenChange={setBanDialogOpen}
@@ -223,7 +209,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
       )}
 
       {/* Unban Dialog */}
-      {isGlobalDirector && onBan && !isActive && (
+      {isGlobalDirector && onBan && displayStatus === "banned" && (
         <UnbanVenueDialog
           open={unbanDialogOpen}
           onOpenChange={setUnbanDialogOpen}

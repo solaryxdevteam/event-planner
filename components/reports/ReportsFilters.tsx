@@ -1,21 +1,32 @@
 "use client";
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { EventCombobox } from "@/components/ui/event-combobox";
 import { VenueCombobox } from "@/components/ui/venue-combobox";
+import { UserCombobox } from "@/components/ui/user-combobox";
+import { DjCombobox } from "@/components/ui/dj-combobox";
 import { Filter, XIcon } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
+import type { DJ } from "@/lib/types/database.types";
 
 export interface ReportsFiltersState {
   eventId: string | null;
   venueId: string | null;
   dateFrom: string | null;
   dateTo: string | null;
-  sortByNetProfit: "asc" | "desc" | null;
+  userId: string | null;
+  djId: string | null;
+}
+
+export interface UserOption {
+  id: string;
+  first_name: string;
+  last_name: string | null;
+  email: string;
+  role: string;
 }
 
 export interface ReportsFiltersProps {
@@ -24,15 +35,13 @@ export interface ReportsFiltersProps {
   onApply: () => void;
   eventOptions: EventWithRelations[];
   venueOptions: VenueWithCreator[];
+  userOptions: UserOption[];
+  djOptions: DJ[];
   isLoadingEvents?: boolean;
   isLoadingVenues?: boolean;
+  isLoadingUsers?: boolean;
+  isLoadingDjs?: boolean;
 }
-
-const SORT_OPTIONS: { value: "asc" | "desc" | "__default__"; label: string }[] = [
-  { value: "__default__", label: "Default" },
-  { value: "desc", label: "Net profit: High to low" },
-  { value: "asc", label: "Net profit: Low to high" },
-];
 
 export function ReportsFilters({
   filters,
@@ -40,11 +49,15 @@ export function ReportsFilters({
   onApply,
   eventOptions,
   venueOptions,
+  userOptions,
+  djOptions,
   isLoadingEvents,
   isLoadingVenues,
+  isLoadingUsers,
+  isLoadingDjs,
 }: ReportsFiltersProps) {
   const hasActiveFilters =
-    filters.eventId || filters.venueId || filters.dateFrom || filters.dateTo || filters.sortByNetProfit;
+    filters.eventId || filters.venueId || filters.dateFrom || filters.dateTo || filters.userId || filters.djId;
 
   const handleClear = () => {
     onFiltersChange({
@@ -52,7 +65,8 @@ export function ReportsFilters({
       venueId: null,
       dateFrom: null,
       dateTo: null,
-      sortByNetProfit: null,
+      userId: null,
+      djId: null,
     });
   };
 
@@ -87,7 +101,7 @@ export function ReportsFilters({
         )}
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6">
         <EventCombobox
           label="Event"
           value={filters.eventId}
@@ -106,6 +120,29 @@ export function ReportsFilters({
           loading={isLoadingVenues}
         />
 
+        <UserCombobox
+          label="User"
+          value={filters.userId}
+          onValueChange={(v) => onFiltersChange({ ...filters, userId: v })}
+          options={userOptions}
+          placeholder="All users"
+          loading={isLoadingUsers}
+        />
+
+        <DjCombobox
+          label="DJ"
+          value={filters.djId}
+          onValueChange={(v) => onFiltersChange({ ...filters, djId: v })}
+          options={djOptions.map((dj) => ({
+            id: dj.id,
+            name: dj.name,
+            email: dj.email,
+            music_style: dj.music_style,
+          }))}
+          placeholder="All DJs"
+          loading={isLoadingDjs}
+        />
+
         <div className="space-y-2">
           <DateRangePicker
             value={dateRange}
@@ -113,30 +150,6 @@ export function ReportsFilters({
             placeholder="Date range"
             label="Date range"
           />
-        </div>
-
-        <div className="space-y-2">
-          <label className="text-sm font-medium leading-none">Sort by net profit</label>
-          <Select
-            value={filters.sortByNetProfit ?? "__default__"}
-            onValueChange={(v) =>
-              onFiltersChange({
-                ...filters,
-                sortByNetProfit: v === "asc" || v === "desc" ? v : null,
-              })
-            }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Default" />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value || "__default__"} value={opt.value || "__default__"}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         <div className="flex items-end">

@@ -30,24 +30,36 @@ export interface EventWithRelations extends Event {
     short_id?: string | null;
     name: string;
     address: string;
+    street?: string | null;
     city?: string | null;
-    state?: string | null;
     country?: string | null;
     location_lat?: number | null;
     location_lng?: number | null;
-    images?: string[] | null;
-    capacity_seated?: number | null;
-    capacity_standing?: number | null;
+    total_capacity?: number | null;
+    number_of_tables?: number | null;
+    ticket_capacity?: number | null;
+    sounds?: string | null;
+    lights?: string | null;
+    screens?: string | null;
+    contact_person_name?: string | null;
+    contact_email?: string | null;
+    media?: { url: string; type: string; isCover?: boolean }[] | null;
+    floor_plans?: (string | { url: string; name?: string })[] | null;
     country_location?: {
       id: string;
       name: string;
       code: string | null;
     } | null;
-    state_location?: {
-      id: string;
-      name: string;
-      code: string | null;
-    } | null;
+  } | null;
+  dj?: {
+    id: string;
+    name: string;
+    picture_url?: string | null;
+    music_style?: string | null;
+    price?: number | null;
+    email?: string;
+    technical_rider?: { url: string; type: string }[];
+    hospitality_rider?: { url: string; type: string }[];
   } | null;
 }
 
@@ -67,24 +79,30 @@ interface EventWithRelationsRaw extends Event {
     short_id?: string | null;
     name: string;
     address: string;
+    street?: string | null;
     city?: string | null;
-    state?: string | null;
     country?: string | null;
     location_lat?: number | null;
     location_lng?: number | null;
-    images?: string[] | null;
-    capacity_seated?: number | null;
-    capacity_standing?: number | null;
+    total_capacity?: number | null;
+    number_of_tables?: number | null;
+    ticket_capacity?: number | null;
+    media?: { url: string; type: string; isCover?: boolean }[] | null;
     country_location?: {
       id: string;
       name: string;
       code: string | null;
     } | null;
-    state_location?: {
-      id: string;
-      name: string;
-      code: string | null;
-    } | null;
+  } | null;
+  dj?: {
+    id: string;
+    name: string;
+    picture_url?: string | null;
+    music_style?: string | null;
+    price?: number | null;
+    email?: string;
+    technical_rider?: { url: string; type: string }[];
+    hospitality_rider?: { url: string; type: string }[];
   } | null;
 }
 
@@ -120,13 +138,23 @@ export async function findById(
             short_id,
             name,
             address,
+            street,
             city,
-            state,
             country,
             location_lat,
             location_lng,
-            images
-          )
+            total_capacity,
+            number_of_tables,
+            ticket_capacity,
+            sounds,
+            lights,
+            screens,
+            contact_person_name,
+            contact_email,
+            media,
+            floor_plans
+          ),
+          dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
         `
         : "*"
     )
@@ -165,6 +193,144 @@ export async function findById(
   return data as EventWithRelations;
 }
 
+const MARKETING_VISIBLE_STATUSES = ["approved_scheduled", "completed_awaiting_report", "completed_archived"];
+
+/**
+ * Get event by ID for marketing_manager (no creator check; status must be approved or past)
+ */
+export async function findByIdForMarketing(eventId: string): Promise<EventWithRelations | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("events")
+    .select(
+      `
+      *,
+      creator:users!events_creator_id_fkey (
+        id,
+        first_name,
+        last_name,
+        email,
+        role
+      ),
+      venue:venues!events_venue_id_fkey (
+        id,
+        short_id,
+        name,
+        address,
+        street,
+        city,
+        country,
+        location_lat,
+        location_lng,
+        total_capacity,
+        number_of_tables,
+        ticket_capacity,
+        sounds,
+        lights,
+        screens,
+        contact_person_name,
+        contact_email,
+        media,
+        floor_plans
+      ),
+      dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
+    `
+    )
+    .eq("id", eventId)
+    .in("status", MARKETING_VISIBLE_STATUSES)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const typedData = data as EventWithRelationsRaw;
+  return {
+    ...typedData,
+    creator: typedData.creator
+      ? {
+          id: typedData.creator.id,
+          email: typedData.creator.email,
+          role: typedData.creator.role,
+          name: typedData.creator.last_name
+            ? `${typedData.creator.first_name} ${typedData.creator.last_name}`
+            : typedData.creator.first_name,
+        }
+      : undefined,
+    venue: typedData.venue || null,
+    dj: typedData.dj || null,
+  } as EventWithRelations;
+}
+
+/**
+ * Get event by short_id for marketing_manager (no creator check; status must be approved or past)
+ */
+export async function findByShortIdForMarketing(shortId: string): Promise<EventWithRelations | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("events")
+    .select(
+      `
+      *,
+      creator:users!events_creator_id_fkey (
+        id,
+        first_name,
+        last_name,
+        email,
+        role
+      ),
+      venue:venues!events_venue_id_fkey (
+        id,
+        short_id,
+        name,
+        address,
+        street,
+        city,
+        country,
+        location_lat,
+        location_lng,
+        total_capacity,
+        number_of_tables,
+        ticket_capacity,
+        sounds,
+        lights,
+        screens,
+        contact_person_name,
+        contact_email,
+        media,
+        floor_plans
+      ),
+      dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
+    `
+    )
+    .eq("short_id", shortId)
+    .in("status", MARKETING_VISIBLE_STATUSES)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const typedData = data as EventWithRelationsRaw;
+  return {
+    ...typedData,
+    creator: typedData.creator
+      ? {
+          id: typedData.creator.id,
+          email: typedData.creator.email,
+          role: typedData.creator.role,
+          name: typedData.creator.last_name
+            ? `${typedData.creator.first_name} ${typedData.creator.last_name}`
+            : typedData.creator.first_name,
+        }
+      : undefined,
+    venue: typedData.venue || null,
+    dj: typedData.dj || null,
+  } as EventWithRelations;
+}
+
 /**
  * Get a single event by short_id (with authorization check)
  *
@@ -197,13 +363,23 @@ export async function findByShortId(
             short_id,
             name,
             address,
+            street,
             city,
-            state,
             country,
             location_lat,
             location_lng,
-            images
-          )
+            total_capacity,
+            number_of_tables,
+            ticket_capacity,
+            sounds,
+            lights,
+            screens,
+            contact_person_name,
+            contact_email,
+            media,
+            floor_plans
+          ),
+          dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
         `
         : "*"
     )
@@ -236,6 +412,7 @@ export async function findByShortId(
           }
         : undefined,
       venue: typedData.venue || null,
+      dj: typedData.dj || null,
     } as EventWithRelations;
   }
 
@@ -281,13 +458,17 @@ export async function findByCreator(
             short_id,
             name,
             address,
+            street,
             city,
-            state,
             country,
             location_lat,
             location_lng,
-            images
-          )
+            total_capacity,
+            number_of_tables,
+            ticket_capacity,
+            media
+          ),
+          dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
         `
         : "*"
     )
@@ -318,6 +499,7 @@ export async function findByCreator(
         }
       : undefined,
     venue: event.venue || null,
+    dj: event.dj || null,
   })) as EventWithRelations[];
 }
 
@@ -333,7 +515,6 @@ export interface EventFilterOptions {
   startsAtFrom?: string;
   startsAtTo?: string;
   search?: string;
-  state?: string; // Filter by venue state
   page?: number;
   pageSize?: number;
   includeRelations?: boolean;
@@ -360,11 +541,9 @@ export async function findPyramidVisible(
     startsAtFrom,
     startsAtTo,
     search,
-    state,
     includeRelations = true,
   } = filters;
 
-  // Build select query - need to include venue state for filtering
   const selectQuery = includeRelations
     ? `
       *,
@@ -380,13 +559,17 @@ export async function findPyramidVisible(
         short_id,
         name,
         address,
+        street,
         city,
-        state,
         country,
         location_lat,
         location_lng,
-        images
-      )
+        total_capacity,
+        number_of_tables,
+        ticket_capacity,
+        media
+      ),
+      dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
     `
     : "*";
 
@@ -435,24 +618,11 @@ export async function findPyramidVisible(
   }
 
   if (search && search.trim().length > 0) {
-    query = query.or(`title.ilike.%${search.trim()}%,description.ilike.%${search.trim()}%`);
+    query = query.or(`title.ilike.%${search.trim()}%,notes.ilike.%${search.trim()}%`);
   }
 
-  // Note: State filtering is done in-memory after fetching
-  // because Supabase doesn't easily support filtering on nested relations (venue.state)
-  // For better performance at scale, consider using a database view or function
-
-  // Apply pagination if provided (but note: if state filter is active,
-  // we'll need to fetch more and filter, then paginate)
-  const needsInMemoryFilter = state;
-  const fetchLimit =
-    needsInMemoryFilter && filters.pageSize
-      ? (filters.page || 1) * (filters.pageSize * 2) // Fetch more to account for filtering
-      : undefined;
-
-  if (fetchLimit) {
-    query = query.limit(fetchLimit);
-  } else if (filters.page && filters.pageSize) {
+  // Pagination
+  if (filters.page && filters.pageSize) {
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize - 1;
     query = query.range(from, to);
@@ -465,7 +635,7 @@ export async function findPyramidVisible(
   }
 
   // Transform data to construct creator name
-  let events = (data || []).map((event: EventWithRelationsRaw) => ({
+  const events = (data || []).map((event: EventWithRelationsRaw) => ({
     ...event,
     creator: event.creator
       ? {
@@ -478,22 +648,8 @@ export async function findPyramidVisible(
         }
       : undefined,
     venue: event.venue || null,
+    dj: event.dj || null,
   })) as EventWithRelations[];
-
-  // Apply state filter in memory (filter by venue.state)
-  if (state) {
-    events = events.filter((event) => {
-      const venueState = event.venue?.state;
-      return venueState && venueState.toLowerCase() === state.toLowerCase();
-    });
-  }
-
-  // Apply pagination after in-memory filtering if needed
-  if (needsInMemoryFilter && filters.page && filters.pageSize) {
-    const from = (filters.page - 1) * filters.pageSize;
-    const to = from + filters.pageSize;
-    events = events.slice(from, to);
-  }
 
   return events;
 }
@@ -540,6 +696,107 @@ export async function update(id: string, event: EventUpdate): Promise<Event> {
   }
 
   return data;
+}
+
+/**
+ * Get all events with given statuses (no creator filter).
+ * Used for marketing_manager who sees all approved and past events.
+ */
+export async function findAllByStatuses(
+  statuses: string[],
+  filters: EventFilterOptions = {}
+): Promise<EventWithRelations[]> {
+  const supabase = await createClient();
+
+  const {
+    venueId,
+    dateFrom,
+    dateTo,
+    startsAtFrom,
+    startsAtTo,
+    search,
+    page,
+    pageSize,
+    includeRelations = true,
+  } = filters;
+
+  const selectQuery = includeRelations
+    ? `
+      *,
+      creator:users!events_creator_id_fkey (
+        id,
+        first_name,
+        last_name,
+        email,
+        role
+      ),
+      venue:venues!events_venue_id_fkey (
+        id,
+        short_id,
+        name,
+        address,
+        street,
+        city,
+        country,
+        location_lat,
+        location_lng,
+        total_capacity,
+        number_of_tables,
+        ticket_capacity,
+        media
+      ),
+      dj:djs!events_dj_id_fkey (id, name, picture_url, music_style, price, email, technical_rider, hospitality_rider)
+    `
+    : "*";
+
+  let query = supabase
+    .from("events")
+    .select(selectQuery)
+    .in("status", statuses)
+    .order("created_at", { ascending: false });
+
+  if (venueId) {
+    query = query.eq("venue_id", venueId);
+  }
+  if (dateFrom) {
+    const normalized = dateFrom.includes("T") ? dateFrom : `${dateFrom}T00:00:00.000Z`;
+    query = query.gte("starts_at", normalized);
+  }
+  if (dateTo) {
+    const normalized = dateTo.includes("T") ? dateTo : `${dateTo}T23:59:59.999Z`;
+    query = query.lte("starts_at", normalized);
+  }
+  if (startsAtFrom) query = query.gte("starts_at", startsAtFrom);
+  if (startsAtTo) query = query.lte("starts_at", startsAtTo);
+  if (search?.trim()) {
+    query = query.or(`title.ilike.%${search.trim()}%,notes.ilike.%${search.trim()}%`);
+  }
+  if (page && pageSize) {
+    const from = (page - 1) * pageSize;
+    query = query.range(from, from + pageSize - 1);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch events: ${error.message}`);
+  }
+
+  return (data || []).map((event: EventWithRelationsRaw) => ({
+    ...event,
+    creator: event.creator
+      ? {
+          id: event.creator.id,
+          email: event.creator.email,
+          role: event.creator.role,
+          name: event.creator.last_name
+            ? `${event.creator.first_name} ${event.creator.last_name}`
+            : event.creator.first_name,
+        }
+      : undefined,
+    venue: event.venue || null,
+    dj: event.dj || null,
+  })) as EventWithRelations[];
 }
 
 /**

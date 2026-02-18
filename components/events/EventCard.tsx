@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users, Eye, Trash2, Send, DollarSign, Copy } from "lucide-react";
+import { Calendar, MapPin, Music2, Users, Eye, Trash2, Send, DollarSign, Copy } from "lucide-react";
 import { format } from "date-fns";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 
@@ -60,8 +60,11 @@ export function EventCard({
   hasPendingCancellation = false,
 }: EventCardProps) {
   const startDate = event.starts_at ? new Date(event.starts_at) : null;
-  const endDate = event.ends_at ? new Date(event.ends_at) : null;
-  const firstVenueImage = event.venue?.images && event.venue.images.length > 0 ? event.venue.images[0] : null;
+  const venueMedia = event.venue?.media && Array.isArray(event.venue.media) ? event.venue.media : [];
+  const coverUrl =
+    venueMedia.find((m: { isCover?: boolean; type?: string }) => m.isCover && m.type === "photo")?.url ||
+    venueMedia.find((m: { type?: string }) => m.type === "photo")?.url ||
+    null;
 
   return (
     <Card
@@ -69,14 +72,8 @@ export function EventCard({
     >
       {/* First venue image */}
       <div className="relative h-40 w-full bg-muted">
-        {firstVenueImage ? (
-          <Image
-            src={firstVenueImage}
-            alt={event.venue?.name ?? event.title}
-            fill
-            className="object-cover"
-            unoptimized
-          />
+        {coverUrl ? (
+          <Image src={coverUrl} alt={event.venue?.name ?? event.title} fill className="object-cover" unoptimized />
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground text-sm">No venue image</div>
         )}
@@ -117,10 +114,7 @@ export function EventCard({
               <Calendar className="mr-2 h-4 w-4 mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-foreground">{format(startDate, "MMM d, yyyy")}</div>
-                <div className="text-xs mt-0.5">
-                  {format(startDate, "h:mm a")}
-                  {endDate && ` - ${format(endDate, "h:mm a")}`}
-                </div>
+                <div className="text-xs mt-0.5">{format(startDate, "h:mm a")}</div>
               </div>
             </div>
           )}
@@ -133,6 +127,14 @@ export function EventCard({
             </div>
           )}
 
+          {/* DJ */}
+          {event.dj && (
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Music2 className="mr-2 h-4 w-4" />
+              <span>{event.dj.name}</span>
+            </div>
+          )}
+
           {/* Expected Attendance */}
           {event.expected_attendance && (
             <div className="flex items-center text-sm text-muted-foreground">
@@ -141,16 +143,27 @@ export function EventCard({
             </div>
           )}
 
-          {/* Budget */}
-          {event.budget_amount && (
-            <div className="flex items-center text-sm text-muted-foreground">
-              <DollarSign className="mr-2 h-4 w-4" />
-              <span>
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: event.budget_currency || "USD",
-                }).format(Number(event.budget_amount))}
-              </span>
+          {/* Min prices */}
+          {(event.minimum_ticket_price != null || event.minimum_table_price != null) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {event.minimum_ticket_price != null && (
+                <span className="flex items-center">
+                  <DollarSign className="mr-1 h-4 w-4" />
+                  Ticket from{" "}
+                  {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                    Number(event.minimum_ticket_price)
+                  )}
+                </span>
+              )}
+              {event.minimum_table_price != null && (
+                <span className="flex items-center">
+                  <DollarSign className="mr-1 h-4 w-4" />
+                  Table from{" "}
+                  {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                    Number(event.minimum_table_price)
+                  )}
+                </span>
+              )}
             </div>
           )}
 

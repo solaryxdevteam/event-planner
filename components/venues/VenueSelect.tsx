@@ -102,8 +102,8 @@ export function VenueSelect({
                     <span className="font-medium">{venue.name}</span>
                     <span className="text-xs text-muted-foreground">
                       {venue.address}, {venue.city}
-                      {(venue.capacity_standing || venue.capacity_seated) &&
-                        ` • Capacity: ${Math.max(venue.capacity_standing || 0, venue.capacity_seated || 0).toLocaleString()}`}
+                      {(venue.total_capacity != null || venue.number_of_tables != null) &&
+                        ` • Capacity: ${Math.max(venue.total_capacity ?? 0, venue.number_of_tables ?? 0).toLocaleString()}`}
                     </span>
                   </div>
                 </SelectItem>
@@ -119,10 +119,10 @@ export function VenueSelect({
             <span>
               <strong>Address:</strong> {selectedVenue.address}
             </span>
-            {(selectedVenue.capacity_standing || selectedVenue.capacity_seated) && (
+            {(selectedVenue.total_capacity != null || selectedVenue.number_of_tables != null) && (
               <span>
                 <strong>Capacity:</strong>{" "}
-                {Math.max(selectedVenue.capacity_standing || 0, selectedVenue.capacity_seated || 0).toLocaleString()}
+                {Math.max(selectedVenue.total_capacity ?? 0, selectedVenue.number_of_tables ?? 0).toLocaleString()}
               </span>
             )}
           </div>

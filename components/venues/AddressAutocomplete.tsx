@@ -17,6 +17,10 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   error?: string;
   id?: string;
+  /** When true, on blur geocode the current value and update map (call onChange) if one result is found */
+  geocodeOnBlur?: boolean;
+  /** Optional: pass city and country to improve geocode when blur */
+  geocodeContext?: { city?: string; country?: string };
 }
 
 // Nominatim API endpoint (free OpenStreetMap geocoding service)
@@ -38,6 +42,8 @@ export function AddressAutocomplete({
   placeholder = "Enter address",
   error,
   id = "address",
+  geocodeOnBlur = false,
+  geocodeContext,
 }: AddressAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = useState<
@@ -150,6 +156,35 @@ export function AddressAutocomplete({
     setTimeout(() => {
       setShowSuggestions(false);
     }, 200);
+
+    if (geocodeOnBlur && value && value.trim().length >= 3) {
+      const query = [value.trim(), geocodeContext?.city, geocodeContext?.country].filter(Boolean).join(", ");
+      fetch(`${NOMINATIM_URL}?q=${encodeURIComponent(query)}&format=json&limit=1&addressdetails=1`, {
+        headers: { "User-Agent": "EventPlannerApp/1.0" },
+      })
+        .then((res) => (res.ok ? res.json() : []))
+        .then(
+          (
+            data: Array<{
+              display_name: string;
+              lat: string;
+              lon: string;
+              address?: { city?: string; town?: string; village?: string; state?: string; country?: string };
+            }>
+          ) => {
+            if (data && data.length === 1) {
+              const s = data[0];
+              const lat = parseFloat(s.lat);
+              const lng = parseFloat(s.lon);
+              const city = s.address?.city || s.address?.town || s.address?.village || "";
+              const region = s.address?.state || "";
+              const country = s.address?.country || "";
+              onChange(s.display_name, lat, lng, city, region, country);
+            }
+          }
+        )
+        .catch(() => {});
+    }
   };
 
   return (

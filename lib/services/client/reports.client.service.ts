@@ -17,7 +17,8 @@ export interface ListApprovedReportsParams {
   venueId?: string | null;
   dateFrom?: string | null;
   dateTo?: string | null;
-  sortByNetProfit?: "asc" | "desc" | null;
+  userId?: string | null;
+  djId?: string | null;
   chart?: boolean;
 }
 
@@ -38,7 +39,8 @@ export async function listApprovedReports(params: ListApprovedReportsParams): Pr
   if (params.venueId) searchParams.set("venueId", params.venueId);
   if (params.dateFrom) searchParams.set("dateFrom", params.dateFrom);
   if (params.dateTo) searchParams.set("dateTo", params.dateTo);
-  if (params.sortByNetProfit) searchParams.set("sortByNetProfit", params.sortByNetProfit);
+  if (params.userId) searchParams.set("userId", params.userId);
+  if (params.djId) searchParams.set("djId", params.djId);
   if (params.chart) searchParams.set("chart", "true");
   const query = searchParams.toString();
   const url = query ? `/api/reports?${query}` : "/api/reports";
@@ -56,20 +58,94 @@ export async function listApprovedReports(params: ListApprovedReportsParams): Pr
 
 export interface SubmitReportData {
   attendance_count: number;
-  summary: string;
+  total_ticket_sales?: number | null;
+  total_bar_sales?: number | null;
+  total_table_sales?: number | null;
+  detailed_report: string;
+  incidents?: string | null;
+  summary?: string;
   feedback?: string | null;
   external_links?: Array<{ url: string; title: string }> | null;
   net_profit?: number | null;
+  /** When using upload-on-select (like DJForm/VenueForm) */
+  reelsUrls?: string[];
+  mediaUrls?: string[];
+  reelsFiles?: File[];
   mediaFiles?: File[];
 }
 
 /**
- * Submit a report for an event
+ * Upload a single report media file (reel or photo). Use when user selects files so thumbnails use real URLs.
+ */
+export async function uploadReportMedia(eventId: string, file: File, type: "reel" | "photo"): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("type", type);
+  const res = await fetch(`/api/events/${eventId}/report/upload`, {
+    method: "POST",
+    body: formData,
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Upload failed");
+  }
+  const data = await res.json();
+  return { url: data.url };
+}
+
+/**
+ * Submit a report for an event. Uses JSON when reelsUrls/mediaUrls are provided (upload-on-select flow).
  */
 export async function submitReport(eventId: string, data: SubmitReportData): Promise<Report> {
+  const useJson = Array.isArray(data.reelsUrls) && Array.isArray(data.mediaUrls);
+
+  if (useJson) {
+    const response = await fetch(`/api/events/${eventId}/report`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        attendance_count: data.attendance_count,
+        total_ticket_sales: data.total_ticket_sales ?? null,
+        total_bar_sales: data.total_bar_sales ?? null,
+        total_table_sales: data.total_table_sales ?? null,
+        detailed_report: data.detailed_report,
+        incidents: data.incidents ?? null,
+        summary: data.summary ?? "",
+        feedback: data.feedback ?? null,
+        external_links: data.external_links ?? null,
+        net_profit: data.net_profit ?? null,
+        reels_urls: data.reelsUrls,
+        media_urls: data.mediaUrls,
+      }),
+      credentials: "include",
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to submit report");
+    }
+    const result = await response.json();
+    return result.data;
+  }
+
   const formData = new FormData();
   formData.append("attendance_count", data.attendance_count.toString());
-  formData.append("summary", data.summary);
+  formData.append("detailed_report", data.detailed_report);
+  if (data.total_ticket_sales != null && Number.isFinite(data.total_ticket_sales)) {
+    formData.append("total_ticket_sales", String(data.total_ticket_sales));
+  }
+  if (data.total_bar_sales != null && Number.isFinite(data.total_bar_sales)) {
+    formData.append("total_bar_sales", String(data.total_bar_sales));
+  }
+  if (data.total_table_sales != null && Number.isFinite(data.total_table_sales)) {
+    formData.append("total_table_sales", String(data.total_table_sales));
+  }
+  if (data.incidents) {
+    formData.append("incidents", data.incidents);
+  }
+  if (data.summary) {
+    formData.append("summary", data.summary ?? "");
+  }
   if (data.feedback) {
     formData.append("feedback", data.feedback);
   }
@@ -79,26 +155,26 @@ export async function submitReport(eventId: string, data: SubmitReportData): Pro
   if (data.net_profit != null && Number.isFinite(data.net_profit)) {
     formData.append("net_profit", String(data.net_profit));
   }
-
-  // Append media files
+  if (data.reelsFiles) {
+    data.reelsFiles.forEach((file, index) => {
+      formData.append(`reels_${index}`, file);
+    });
+  }
   if (data.mediaFiles) {
     data.mediaFiles.forEach((file, index) => {
       formData.append(`media_${index}`, file);
     });
   }
 
-  // Use fetch directly for FormData
   const response = await fetch(`/api/events/${eventId}/report`, {
     method: "POST",
     body: formData,
     credentials: "include",
   });
-
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to submit report");
   }
-
   const result = await response.json();
   return result.data;
 }
@@ -124,7 +200,7 @@ export async function updateReport(reportId: string, eventId: string, data: Subm
   const formData = new FormData();
   formData.append("reportId", reportId);
   formData.append("attendance_count", data.attendance_count.toString());
-  formData.append("summary", data.summary);
+  formData.append("summary", data.summary ?? "");
   if (data.feedback) {
     formData.append("feedback", data.feedback);
   }
