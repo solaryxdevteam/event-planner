@@ -13,7 +13,7 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Fallback redirect - middleware should handle this before reaching here
+    // Fallback redirect - middleware  should handle this before reaching here
     router.push("/auth/login");
   }, [router]);
 
