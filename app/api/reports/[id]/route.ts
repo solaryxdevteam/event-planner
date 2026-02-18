@@ -36,12 +36,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Extract form data
     const attendance_count = parseInt(formData.get("attendance_count") as string, 10);
-    const summary = formData.get("summary") as string;
     const detailed_report = formData.get("detailed_report") as string | null;
     const feedback = formData.get("feedback") as string | null;
     const external_links_json = formData.get("external_links") as string | null;
-    const net_profile_raw = formData.get("net_profit") as string | null;
-    const net_profit = net_profile_raw !== null && net_profile_raw !== "" ? parseFloat(net_profile_raw) : null;
 
     // Parse external links
     let external_links = null;
@@ -57,7 +54,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const mediaFiles: (File | Blob)[] = [];
     const fileEntries = Array.from(formData.entries()).filter(([key]) => key.startsWith("media_"));
     for (const [, file] of fileEntries) {
-      if (file instanceof File || (file instanceof Blob && file.size > 0)) {
+      if (file instanceof File) {
         mediaFiles.push(file as File | Blob);
       }
     }
@@ -66,29 +63,23 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const validatedInput = updateReportSchema.parse({
       reportId: id,
       attendance_count,
-      summary,
       detailed_report: detailed_report ?? undefined,
       feedback,
       external_links,
-      net_profit: Number.isFinite(net_profit) ? net_profit : null,
     });
 
-    // Update report (SubmitReportInput requires detailed_report; use summary as fallback for resubmission)
+    // Update report
     const report = await reportService.updateReport(
       authUser.id,
       validatedInput.reportId,
       {
         attendance_count: validatedInput.attendance_count,
-        summary: validatedInput.summary,
         detailed_report:
           validatedInput.detailed_report && validatedInput.detailed_report.length >= 20
             ? validatedInput.detailed_report
-            : summary && summary.length >= 20
-              ? summary
-              : "Resubmitted report.",
+            : "Resubmitted report.",
         feedback: validatedInput.feedback,
         external_links: validatedInput.external_links,
-        net_profit: validatedInput.net_profit ?? null,
       },
       mediaFiles.length > 0 ? mediaFiles : undefined
     );

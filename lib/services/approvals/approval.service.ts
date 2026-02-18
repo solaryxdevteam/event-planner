@@ -206,8 +206,8 @@ export async function approveEvent(
           const emails = new Set<string>();
           if (eventWithRelations.creator?.email) emails.add(eventWithRelations.creator.email);
           if (eventWithRelations.dj?.email) emails.add(eventWithRelations.dj.email);
-          (subordinateUsers ?? []).forEach((u) => u.email && emails.add(u.email));
-          (marketingManagers ?? []).forEach((u) => u.email && emails.add(u.email));
+          (subordinateUsers ?? []).forEach((u: { email: string }) => u.email && emails.add(u.email));
+          (marketingManagers ?? []).forEach((u: { email: string }) => u.email && emails.add(u.email));
           for (const toEmail of emails) {
             if (!toEmail?.trim()) continue;
             try {

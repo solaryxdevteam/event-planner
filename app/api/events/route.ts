@@ -30,7 +30,6 @@ export const dynamic = "force-dynamic";
  * - startsAtFrom: string (ISO datetime, optional)
  * - startsAtTo: string (ISO datetime, optional)
  * - search: string (optional)
- * - state: string (optional) - Filter by venue state
  * - page: number (default: 1)
  * - pageSize: number (default: 20)
  */
@@ -66,7 +65,6 @@ export async function GET(request: NextRequest) {
       startsAtFrom: searchParams.get("startsAtFrom") || undefined,
       startsAtTo: searchParams.get("startsAtTo") || undefined,
       search: searchParams.get("search") || undefined,
-      state: searchParams.get("state") || undefined,
       page: searchParams.get("page") ? parseInt(searchParams.get("page")!, 10) : undefined,
       pageSize: searchParams.get("pageSize") ? parseInt(searchParams.get("pageSize")!, 10) : undefined,
     };

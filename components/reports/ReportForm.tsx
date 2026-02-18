@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Link2, Plus, Trash2 } from "lucide-react";
 import { useSubmitReport } from "@/lib/hooks/use-reports";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -53,10 +53,12 @@ function getMediaType(file: File): "image" | "video" {
 
 type ReelItem = { url: string; type: "image" | "video" };
 type PhotoItem = { url: string };
+type ExternalLinkItem = { url: string; title: string };
 
 export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [externalLinks, setExternalLinks] = useState<ExternalLinkItem[]>([]);
   const [uploadingReels, setUploadingReels] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [preview, setPreview] = useState<{ url: string; type: "image" | "video"; name: string } | null>(null);
@@ -123,6 +125,18 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addExternalLink = () => {
+    setExternalLinks((prev) => [...prev, { url: "", title: "" }]);
+  };
+
+  const removeExternalLink = (index: number) => {
+    setExternalLinks((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateExternalLink = (index: number, field: "url" | "title", value: string) => {
+    setExternalLinks((prev) => prev.map((link, i) => (i === index ? { ...link, [field]: value } : link)));
+  };
+
   const onSubmit = async (data: ReportFormData) => {
     if (reels.length < 3) {
       toast.error("Reels: minimum 3 files required");
@@ -132,6 +146,18 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
       toast.error("Upload photos: minimum 10 files required");
       return;
     }
+
+    // Validate external links: if any row has content, both title and URL must be valid
+    const linkRegex = /^https?:\/\/.+/i;
+    const hasPartialLink = externalLinks.some((l) => l.title.trim() || l.url.trim());
+    const invalidLinks = externalLinks.filter(
+      (l) => l.title.trim() && (!l.url.trim() || !linkRegex.test(l.url.trim()))
+    );
+    if (hasPartialLink && invalidLinks.length > 0) {
+      toast.error("External links: each link must have a title and a valid URL (e.g. https://...)");
+      return;
+    }
+    const validLinks = externalLinks.filter((l) => l.title.trim() && l.url.trim() && linkRegex.test(l.url.trim()));
 
     try {
       await submitReport.mutateAsync({
@@ -143,6 +169,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
           total_table_sales: data.total_table_sales ?? null,
           detailed_report: data.detailed_report,
           incidents: data.incidents ?? null,
+          external_links: validLinks.length > 0 ? validLinks : null,
           reelsUrls: reels.map((r) => r.url),
           mediaUrls: photos.map((p) => p.url),
         },
@@ -405,6 +432,55 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
             maxLength={2000}
           />
           <p className="text-sm text-muted-foreground text-right">{form.watch("incidents")?.length || 0} / 2000</p>
+        </div>
+
+        {/* External links – optional */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold flex items-center gap-2">
+              <Link2 className="h-4 w-4" />
+              External links <span className="text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Button type="button" variant="outline" size="sm" onClick={addExternalLink}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add link
+            </Button>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Add links to external content (e.g. social posts, press, playlists).
+          </p>
+          {externalLinks.length > 0 && (
+            <div className="space-y-3">
+              {externalLinks.map((link, index) => (
+                <div key={index} className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg border bg-muted/30">
+                  <Input
+                    placeholder="Link title"
+                    value={link.title}
+                    onChange={(e) => updateExternalLink(index, "title", e.target.value)}
+                    className="flex-1 min-w-0"
+                    maxLength={200}
+                  />
+                  <Input
+                    placeholder="https://..."
+                    type="url"
+                    value={link.url}
+                    onChange={(e) => updateExternalLink(index, "url", e.target.value)}
+                    className="flex-1 min-w-0"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeExternalLink(index)}
+                    className="shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label="Remove link"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 pt-6 border-t sticky bottom-0 bg-background pb-4 -mb-4">

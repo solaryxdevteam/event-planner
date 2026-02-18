@@ -37,7 +37,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const file = formData.get("file");
     const type = formData.get("type") as string | null;
 
-    const isFile = file instanceof File || (file instanceof Blob && file.size > 0);
+    const isFile = file instanceof File;
     if (!isFile) {
       return NextResponse.json({ success: false, error: "Missing or invalid file" }, { status: 400 });
     }

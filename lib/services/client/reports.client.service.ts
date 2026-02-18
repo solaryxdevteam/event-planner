@@ -63,10 +63,8 @@ export interface SubmitReportData {
   total_table_sales?: number | null;
   detailed_report: string;
   incidents?: string | null;
-  summary?: string;
   feedback?: string | null;
   external_links?: Array<{ url: string; title: string }> | null;
-  net_profit?: number | null;
   /** When using upload-on-select (like DJForm/VenueForm) */
   reelsUrls?: string[];
   mediaUrls?: string[];
@@ -111,10 +109,8 @@ export async function submitReport(eventId: string, data: SubmitReportData): Pro
         total_table_sales: data.total_table_sales ?? null,
         detailed_report: data.detailed_report,
         incidents: data.incidents ?? null,
-        summary: data.summary ?? "",
         feedback: data.feedback ?? null,
         external_links: data.external_links ?? null,
-        net_profit: data.net_profit ?? null,
         reels_urls: data.reelsUrls,
         media_urls: data.mediaUrls,
       }),
@@ -143,17 +139,11 @@ export async function submitReport(eventId: string, data: SubmitReportData): Pro
   if (data.incidents) {
     formData.append("incidents", data.incidents);
   }
-  if (data.summary) {
-    formData.append("summary", data.summary ?? "");
-  }
   if (data.feedback) {
     formData.append("feedback", data.feedback);
   }
   if (data.external_links) {
     formData.append("external_links", JSON.stringify(data.external_links));
-  }
-  if (data.net_profit != null && Number.isFinite(data.net_profit)) {
-    formData.append("net_profit", String(data.net_profit));
   }
   if (data.reelsFiles) {
     data.reelsFiles.forEach((file, index) => {
@@ -200,15 +190,11 @@ export async function updateReport(reportId: string, eventId: string, data: Subm
   const formData = new FormData();
   formData.append("reportId", reportId);
   formData.append("attendance_count", data.attendance_count.toString());
-  formData.append("summary", data.summary ?? "");
   if (data.feedback) {
     formData.append("feedback", data.feedback);
   }
   if (data.external_links) {
     formData.append("external_links", JSON.stringify(data.external_links));
-  }
-  if (data.net_profit != null && Number.isFinite(data.net_profit)) {
-    formData.append("net_profit", String(data.net_profit));
   }
 
   // Append media files

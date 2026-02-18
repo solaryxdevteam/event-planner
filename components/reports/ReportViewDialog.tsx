@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, ExternalLink, Calendar, Users, FileText, Banknote, CheckCircle, XCircle } from "lucide-react";
+import { Download, ExternalLink, Calendar, Users, Banknote, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
 import type { Report } from "@/lib/types/database.types";
@@ -225,15 +225,6 @@ export function ReportViewDialog({
                     : "—"}
                 </p>
               </div>
-            </div>
-
-            {/* Summary */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold">Event Summary</h3>
-              </div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.summary}</p>
             </div>
 
             {/* Feedback */}

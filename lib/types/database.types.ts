@@ -241,12 +241,10 @@ export interface Report {
   id: string;
   event_id: string;
   attendance_count: number;
-  summary: string;
   feedback: string | null;
   media_urls: string[];
   external_links: Array<{ url: string; title: string }>;
   status: ApprovalStatus;
-  net_profit: number | null;
   total_ticket_sales: number | null;
   total_bar_sales: number | null;
   total_table_sales: number | null;

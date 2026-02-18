@@ -47,10 +47,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       total_table_sales: number | null;
       detailed_report: string;
       incidents: string | null;
-      summary?: string;
       feedback?: string | null;
       external_links: unknown;
-      net_profit: number | null;
       reelsUrls?: string[];
       mediaUrls?: string[];
       reelsFiles?: (File | Blob)[];
@@ -59,7 +57,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     if (contentType.includes("application/json")) {
       const body = await request.json();
-      const summaryVal = body.summary != null && String(body.summary).trim() ? body.summary : undefined;
       payload = {
         attendance_count: body.attendance_count,
         total_ticket_sales: body.total_ticket_sales ?? null,
@@ -67,10 +64,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         total_table_sales: body.total_table_sales ?? null,
         detailed_report: body.detailed_report ?? "",
         incidents: body.incidents ?? null,
-        summary: summaryVal,
         feedback: body.feedback ?? null,
         external_links: body.external_links ?? null,
-        net_profit: body.net_profit ?? null,
         reelsUrls: Array.isArray(body.reels_urls) ? body.reels_urls : undefined,
         mediaUrls: Array.isArray(body.media_urls) ? body.media_urls : undefined,
       };
@@ -82,10 +77,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const total_table_sales_raw = formData.get("total_table_sales") as string | null;
       const detailed_report = formData.get("detailed_report") as string;
       const incidents = (formData.get("incidents") as string) || null;
-      const summary = formData.get("summary") as string | null;
       const feedback = formData.get("feedback") as string | null;
       const external_links_json = formData.get("external_links") as string | null;
-      const net_profit_raw = formData.get("net_profit") as string | null;
 
       const total_ticket_sales =
         total_ticket_sales_raw != null && total_ticket_sales_raw !== "" ? parseFloat(total_ticket_sales_raw) : null;
@@ -93,7 +86,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         total_bar_sales_raw != null && total_bar_sales_raw !== "" ? parseFloat(total_bar_sales_raw) : null;
       const total_table_sales =
         total_table_sales_raw != null && total_table_sales_raw !== "" ? parseFloat(total_table_sales_raw) : null;
-      const net_profit = net_profit_raw !== null && net_profit_raw !== "" ? parseFloat(net_profit_raw) : null;
 
       let external_links: unknown = null;
       if (external_links_json) {
@@ -107,7 +99,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       const reelsFiles: (File | Blob)[] = [];
       const mediaFiles: (File | Blob)[] = [];
       for (const [key, value] of formData.entries()) {
-        const isFilePart = value instanceof File || (value instanceof Blob && value.size > 0);
+        const isFilePart = value instanceof File;
         if (isFilePart) {
           if (key.startsWith("reels_")) reelsFiles.push(value as File | Blob);
           else if (key.startsWith("media_")) mediaFiles.push(value as File | Blob);
@@ -121,17 +113,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         total_table_sales: Number.isFinite(total_table_sales) ? total_table_sales : null,
         detailed_report: detailed_report || "",
         incidents,
-        summary: summary ?? undefined,
         feedback: feedback ?? null,
         external_links,
-        net_profit: Number.isFinite(net_profit) ? net_profit : null,
         reelsFiles,
         mediaFiles,
       };
     }
 
-    const summaryForValidation =
-      payload.summary != null && String(payload.summary).trim() ? payload.summary : undefined;
     const validatedInput = submitReportSchema.parse({
       eventId: id,
       attendance_count: payload.attendance_count,
@@ -140,10 +128,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       total_table_sales: payload.total_table_sales,
       detailed_report: payload.detailed_report,
       incidents: payload.incidents,
-      summary: summaryForValidation,
       feedback: payload.feedback,
       external_links: payload.external_links,
-      net_profit: payload.net_profit,
     });
 
     const report = await reportService.submitReport(authUser.id, validatedInput.eventId, {
@@ -153,10 +139,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       total_table_sales: validatedInput.total_table_sales ?? null,
       detailed_report: validatedInput.detailed_report,
       incidents: validatedInput.incidents ?? null,
-      summary: validatedInput.summary,
       feedback: validatedInput.feedback,
       external_links: validatedInput.external_links,
-      net_profit: validatedInput.net_profit ?? null,
       reelsUrls: payload.reelsUrls,
       mediaUrls: payload.mediaUrls,
       reelsFiles: payload.reelsFiles,

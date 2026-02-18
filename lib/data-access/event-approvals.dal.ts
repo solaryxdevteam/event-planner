@@ -305,11 +305,7 @@ export async function updateStatus(
     .single();
 
   if (error) {
-    const hint =
-      error.message?.includes("action_type") && error.message?.includes("audit_logs")
-        ? " Run db/drop_legacy_audit_trigger.sql on your database to remove the legacy audit trigger, then try again."
-        : "";
-    throw new Error(`Failed to update approval status: ${error.message}${hint}`);
+    throw new Error(`Failed to update approval status: ${error.message}`);
   }
 
   return data;

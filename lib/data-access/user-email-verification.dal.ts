@@ -3,8 +3,11 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/lib/types/database.types";
 
 const TABLE = "user_email_verification_otps";
+
+type InsertOtp = Database["public"]["Tables"]["user_email_verification_otps"]["Insert"];
 
 export interface UserEmailVerificationOtpRow {
   id: string;
@@ -23,14 +26,16 @@ export async function create(
   expiresAt: Date
 ): Promise<UserEmailVerificationOtpRow> {
   const supabase = await createClient();
+  const insertRow: InsertOtp = {
+    user_id: userId,
+    email: email.toLowerCase().trim(),
+    otp_hash: otpHash,
+    expires_at: expiresAt.toISOString(),
+    verified_at: null,
+  };
   const { data, error } = await supabase
     .from(TABLE)
-    .insert({
-      user_id: userId,
-      email: email.toLowerCase().trim(),
-      otp_hash: otpHash,
-      expires_at: expiresAt.toISOString(),
-    })
+    .insert(insertRow as never)
     .select()
     .single();
 
@@ -54,7 +59,10 @@ export async function findLatestByEmail(email: string): Promise<UserEmailVerific
 
 export async function markVerified(id: string): Promise<void> {
   const supabase = await createClient();
-  const { error } = await supabase.from(TABLE).update({ verified_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ verified_at: new Date().toISOString() } as never)
+    .eq("id", id);
 
   if (error) throw new Error(`Failed to mark OTP verified: ${error.message}`);
 }

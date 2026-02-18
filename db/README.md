@@ -38,5 +38,5 @@ CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues(deleted_at) WHERE del
 ### Notes
 
 - Application tables do not use Row Level Security; authorization is handled in the backend.
-- `reports.net_profile` is the DB column; the app may expose it as `net_profit` in APIs/types.
+- Reports no longer have `summary` or `net_profit`; use `db/drop_reports_summary_net_profit.sql` on existing DBs to drop those columns.
 - Events, venues, and DJs require a unique `short_id` on insert; the app generates these when creating records.

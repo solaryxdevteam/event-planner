@@ -26,10 +26,8 @@ export interface SubmitReportInput {
   total_table_sales?: number | null;
   detailed_report: string;
   incidents?: string | null;
-  summary?: string;
   feedback?: string | null;
   external_links?: Array<{ url: string; title: string }> | null;
-  net_profit?: number | null;
   /** Reels URLs when form uses upload-on-select (like DJForm/VenueForm). */
   reelsUrls?: string[];
   /** Photo URLs when form uses upload-on-select. */
@@ -130,17 +128,13 @@ export async function submitReport(
     mediaUrls = [];
   }
 
-  const summary = reportData.detailed_report.slice(0, 1000);
-
   // Create report
   const report = await reportDAL.insert({
     event_id: eventId,
     attendance_count: reportData.attendance_count,
-    summary,
     feedback: reportData.feedback || null,
     media_urls: mediaUrls,
     external_links: reportData.external_links || [],
-    net_profit: reportData.net_profit ?? null,
     total_ticket_sales: reportData.total_ticket_sales ?? null,
     total_bar_sales: reportData.total_bar_sales ?? null,
     total_table_sales: reportData.total_table_sales ?? null,
@@ -235,16 +229,11 @@ export async function updateReport(
     reelsUrls = [...reelsUrls, ...newReelsUrls];
   }
 
-  const summary =
-    reportData.detailed_report != null ? reportData.detailed_report.slice(0, 1000) : (reportRow.summary as string);
-
   const updatedReport = await reportDAL.update(reportId, {
     attendance_count: reportData.attendance_count,
-    summary,
     feedback: reportData.feedback || null,
     media_urls: mediaUrls,
     external_links: reportData.external_links || [],
-    net_profit: reportData.net_profit ?? null,
     total_ticket_sales: reportData.total_ticket_sales ?? null,
     total_bar_sales: reportData.total_bar_sales ?? null,
     total_table_sales: reportData.total_table_sales ?? null,

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, MapPin, DollarSign, Users, CalendarDays, Eye, Banknote } from "lucide-react";
+import { CheckCircle, XCircle, MapPin, DollarSign, Users, CalendarDays, Eye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -228,23 +228,7 @@ export function PendingApprovalCard({
                               </span>
                             )}
                           </div>
-                          {report.net_profit != null && (
-                            <div className="flex items-center gap-1.5">
-                              <Banknote className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">
-                                {Number(report.net_profit).toLocaleString(undefined, {
-                                  style: "currency",
-                                  currency: "USD",
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                })}
-                              </span>
-                            </div>
-                          )}
                         </div>
-                        {report.summary && (
-                          <p className="text-sm text-muted-foreground line-clamp-2">{report.summary}</p>
-                        )}
                       </>
                     ) : null}
                   </div>
