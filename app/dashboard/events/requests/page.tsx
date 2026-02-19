@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventList } from "@/components/events/EventList";
@@ -19,6 +20,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
+
+const tabCountBadgeClass =
+  "bg-red-500 text-white rounded-full w-6.5 h-6 px-1 justify-center text-xs font-semibold border-0";
 
 export default function EventRequestsPage() {
   const router = useRouter();
@@ -121,10 +125,28 @@ export default function EventRequestsPage() {
       </div>
 
       <Tabs value={defaultTab} onValueChange={handleTabChange} className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="drafts">Drafts {drafts.length > 0 && `(${drafts.length})`}</TabsTrigger>
-          <TabsTrigger value="in-review">In Review {inReview.length > 0 && `(${inReview.length})`}</TabsTrigger>
-          <TabsTrigger value="rejected">Rejected {rejected.length > 0 && `(${rejected.length})`}</TabsTrigger>
+        <TabsList className="h-12 p-1.5 border border-input/50 gap-1 overflow-x-auto scrollbar-hide w-full sm:w-fit inline-flex rounded-xl bg-muted/60">
+          <TabsTrigger
+            value="drafts"
+            className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm"
+          >
+            <span>Drafts</span>
+            {drafts.length > 0 && <Badge className={tabCountBadgeClass}>{drafts.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger
+            value="in-review"
+            className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm"
+          >
+            <span>In Review</span>
+            {inReview.length > 0 && <Badge className={tabCountBadgeClass}>{inReview.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger
+            value="rejected"
+            className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm"
+          >
+            <span>Rejected</span>
+            {rejected.length > 0 && <Badge className={tabCountBadgeClass}>{rejected.length}</Badge>}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="drafts" className="space-y-4">

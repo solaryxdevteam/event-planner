@@ -23,7 +23,7 @@ import type { EventApprovalWithApprover } from "@/lib/data-access/event-approval
 import type { VenueApprovalWithApprover } from "@/lib/data-access/venue-approvals.dal";
 
 const tabCountBadgeClass =
-  "bg-red-500 text-white rounded-full min-w-[1.25rem] h-6 px-1.5 justify-center text-xs font-semibold border-0";
+  "bg-red-500 text-white rounded-full w-6.5 h-6 px-1 justify-center text-xs font-semibold border-0";
 
 export default function ApprovalsPage() {
   const router = useRouter();

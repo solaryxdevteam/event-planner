@@ -4,6 +4,8 @@ export const dynamic = "force-dynamic";
 
 import { useState, useMemo, useEffect, startTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventList } from "@/components/events/EventList";
 import { EventFilters, type EventFilters as EventFiltersType } from "@/components/events/EventFilters";
@@ -178,6 +180,14 @@ export default function EventsPage() {
     return allEvents.filter((e) => e.status === "cancelled" || e.status === "rejected").length;
   }, [allEvents]);
 
+  const tabCountBadgeClass =
+    "bg-red-500 text-white rounded-full w-6.5 h-6 px-1 justify-center text-xs font-semibold border-0";
+
+  const handleTabChange = (value: string) => {
+    router.push(`/dashboard/events?tab=${value}`);
+    setFilters({ ...filters, status: "all", state: "all" });
+  };
+
   const filtersContent = (
     <EventFilters
       filters={filters}
@@ -228,38 +238,31 @@ export default function EventsPage() {
           </div>
 
           {/* Tabs for Quick Status Filter */}
-          <div className="flex gap-2 mb-6 border-b overflow-x-auto scrollbar-hide">
-            <Button
-              variant={defaultTab === "current" ? "default" : "ghost"}
-              onClick={() => {
-                router.push("/dashboard/events?tab=current");
-                setFilters({ ...filters, status: "all", state: "all" });
-              }}
-              className="rounded-b-none shrink-0"
-            >
-              Current {currentCount > 0 && `(${currentCount})`}
-            </Button>
-            <Button
-              variant={defaultTab === "past" ? "default" : "ghost"}
-              onClick={() => {
-                router.push("/dashboard/events?tab=past");
-                setFilters({ ...filters, status: "all", state: "all" });
-              }}
-              className="rounded-b-none shrink-0"
-            >
-              Past {pastCount > 0 && `(${pastCount})`}
-            </Button>
-            <Button
-              variant={defaultTab === "cancelled" ? "default" : "ghost"}
-              onClick={() => {
-                router.push("/dashboard/events?tab=cancelled");
-                setFilters({ ...filters, status: "all", state: "all" });
-              }}
-              className="rounded-b-none shrink-0 text-xs sm:text-sm"
-            >
-              Cancelled/Rejected {cancelledCount > 0 && `(${cancelledCount})`}
-            </Button>
-          </div>
+          <Tabs value={defaultTab} onValueChange={handleTabChange} className="mb-6">
+            <TabsList className="h-12 p-1.5 border border-input/50 gap-1 overflow-x-auto scrollbar-hide w-full sm:w-fit inline-flex rounded-xl bg-muted/60">
+              <TabsTrigger
+                value="current"
+                className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm"
+              >
+                <span>Current</span>
+                {currentCount > 0 && <Badge className={tabCountBadgeClass}>{currentCount}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger
+                value="past"
+                className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm"
+              >
+                <span>Past</span>
+                {pastCount > 0 && <Badge className={tabCountBadgeClass}>{pastCount}</Badge>}
+              </TabsTrigger>
+              <TabsTrigger
+                value="cancelled"
+                className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm"
+              >
+                <span>Cancelled/Rejected</span>
+                {cancelledCount > 0 && <Badge className={tabCountBadgeClass}>{cancelledCount}</Badge>}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
           {/* Loading State - Skeleton */}
           {isLoading ? (
