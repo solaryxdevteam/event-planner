@@ -15,7 +15,7 @@ export function DocumentTab() {
           <section>
             <h2 className="text-2xl font-semibold mb-4">User Roles</h2>
             <p className="text-muted-foreground mb-4">
-              There are 5 different roles in the system. Each role has different permissions and can see different data.
+              There are 6 different roles in the system. Each role has different permissions and can see different data.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
@@ -55,10 +55,19 @@ export function DocumentTab() {
                     </td>
                     <td className="p-3 text-muted-foreground">Their data + all users under them</td>
                   </tr>
+                  <tr className="border-b">
+                    <td className="p-3 font-medium">Marketing Manager</td>
+                    <td className="p-3 text-muted-foreground">
+                      Adds marketing report after each event is approved. Report must be approved by Global Director
+                    </td>
+                    <td className="p-3 text-muted-foreground">Their data + events they report on</td>
+                  </tr>
                   <tr>
                     <td className="p-3 font-medium">Global Director</td>
                     <td className="p-3 text-muted-foreground">
-                      Final decision maker. Manages users, sets up organization structure, and can ban venues
+                      Final decision maker. Cannot bypass the approval flow—must approve in sequence like other
+                      curators. Manages users, sets up organization structure, can ban venues, and is the only role that
+                      can add DJs.
                     </td>
                     <td className="p-3 text-muted-foreground">Everything in the system</td>
                   </tr>
@@ -98,8 +107,18 @@ export function DocumentTab() {
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="h-5 w-5 text-primary mt-0.5 shrink-0" />
                 <div>
-                  <p className="font-medium mb-1">Global Director exception:</p>
+                  <p className="font-medium mb-1">Global Director visibility:</p>
                   <p className="text-sm text-muted-foreground">Global Director can see everything in the system</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <XCircle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+                <div>
+                  <p className="font-medium mb-1">No bypassing approval:</p>
+                  <p className="text-sm text-muted-foreground">
+                    Global Director cannot skip the approval chain; they must approve in their turn like any other
+                    approver.
+                  </p>
                 </div>
               </div>
             </div>
@@ -136,26 +155,36 @@ export function DocumentTab() {
                     </td>
                   </tr>
                   <tr className="border-b">
-                    <td className="p-3 font-medium">Events</td>
+                    <td className="p-3 font-medium">Calendar</td>
                     <td className="p-3 text-muted-foreground">Everyone</td>
                     <td className="p-3 text-muted-foreground">
-                      View current approved events, past events, and cancelled/rejected events. Filter by city, region,
-                      date, etc.
+                      View all events and DJs according to pyramid level. Filter by city, region, date, etc. Shows
+                      current approved events, past events, and cancelled/rejected events.
                     </td>
                   </tr>
                   <tr className="border-b">
                     <td className="p-3 font-medium">Pending Approvals</td>
                     <td className="p-3 text-muted-foreground">Curators and Global Director</td>
                     <td className="p-3 text-muted-foreground">
-                      Approve or reject events, modifications, cancellations, and reports. Always requires a reason.
+                      Approve or reject events, modifications, cancellations, venue requests, and reports. At each step
+                      you must verify an OTP sent to your email before the action is completed. Always requires a
+                      reason.
                     </td>
                   </tr>
                   <tr className="border-b">
                     <td className="p-3 font-medium">Venues</td>
-                    <td className="p-3 text-muted-foreground">Everyone</td>
+                    <td className="p-3 text-muted-foreground">Everyone (create requires approval)</td>
                     <td className="p-3 text-muted-foreground">
-                      Manage venue database. You see venues you created (or venues from users below you if you&apos;re a
-                      curator). Global Director sees all venues and can ban them.
+                      Manage venue database. Creating a new venue goes through the same approval chain as creating an
+                      event. You see venues you created (or venues from users below you if you&apos;re a curator).
+                      Global Director sees all venues and can ban them.
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="p-3 font-medium">DJs</td>
+                    <td className="p-3 text-muted-foreground">Global Director only (to add)</td>
+                    <td className="p-3 text-muted-foreground">
+                      Only the Global Director can add DJs. Other roles can view DJs according to pyramid visibility.
                     </td>
                   </tr>
                   <tr className="border-b">
@@ -235,22 +264,25 @@ export function DocumentTab() {
                     3
                   </div>
                   <div className="flex-1 p-4 border rounded-lg bg-background">
-                    <p className="font-medium mb-1">Each approver reviews</p>
-                    <p className="text-sm text-muted-foreground mb-2">Curators and Global Director see the request</p>
+                    <p className="font-medium mb-1">Each approver reviews (including Global Director)</p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Global Director cannot bypass—each approver acts in turn. To approve or reject, the approver
+                      receives an OTP by email and must enter it to confirm the action.
+                    </p>
                     <div className="grid grid-cols-2 gap-2 mt-3">
                       <div className="p-2 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-900">
                         <div className="flex items-center gap-2 mb-1">
                           <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
                           <span className="text-sm font-medium">Approve</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">Moves to next level</p>
+                        <p className="text-xs text-muted-foreground">OTP required → moves to next level</p>
                       </div>
                       <div className="p-2 bg-red-50 dark:bg-red-950/20 rounded border border-red-200 dark:border-red-900">
                         <div className="flex items-center gap-2 mb-1">
                           <XCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                           <span className="text-sm font-medium">Reject</span>
                         </div>
-                        <p className="text-xs text-muted-foreground">Requires reason. Event stops here.</p>
+                        <p className="text-xs text-muted-foreground">OTP + reason required. Event stops here.</p>
                       </div>
                     </div>
                   </div>
@@ -265,14 +297,30 @@ export function DocumentTab() {
                     ✓
                   </div>
                   <div className="flex-1 p-4 border rounded-lg bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-900">
-                    <p className="font-medium mb-1">Global Director approves</p>
+                    <p className="font-medium mb-1">Global Director approves (with OTP)</p>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Event becomes &quot;Approved – Scheduled&quot; and appears in Current events.
+                    </p>
                     <p className="text-sm text-muted-foreground">
-                      Event becomes &quot;Approved – Scheduled&quot; and appears in Current events
+                      A calendar event email is sent to the event planner, assigned DJs, other subordinates, and the
+                      marketing manager.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
+          </section>
+
+          <Separator />
+
+          {/* Venue Creation Approval Flow */}
+          <section>
+            <h2 className="text-2xl font-semibold mb-4">Creating a Venue</h2>
+            <p className="text-muted-foreground mb-4">
+              Creating a new venue uses the same approval chain as creating an event. The request goes up the
+              organization (City → Regional → Lead → Global Director). At each step, the approver must verify with OTP
+              to approve or reject, and only after Global Director approval is the venue added to the database.
+            </p>
           </section>
 
           <Separator />
@@ -323,7 +371,9 @@ export function DocumentTab() {
                   </div>
                   <div className="flex-1 p-4 border rounded-lg bg-background">
                     <p className="font-medium mb-1">Goes through approval chain</p>
-                    <p className="text-sm text-muted-foreground">Same process as creating a new event</p>
+                    <p className="text-sm text-muted-foreground">
+                      Same process as creating a new event. Each approver must verify with OTP to approve or reject.
+                    </p>
                   </div>
                 </div>
 
@@ -401,7 +451,9 @@ export function DocumentTab() {
                   </div>
                   <div className="flex-1 p-4 border rounded-lg bg-background">
                     <p className="font-medium mb-1">Goes through approval chain</p>
-                    <p className="text-sm text-muted-foreground">Up to Global Director for final decision</p>
+                    <p className="text-sm text-muted-foreground">
+                      Up to Global Director for final decision. Each approver must verify with OTP to approve or reject.
+                    </p>
                   </div>
                 </div>
 
@@ -436,10 +488,12 @@ export function DocumentTab() {
           {/* Reporting Flow */}
           <section>
             <h2 className="text-2xl font-semibold mb-4">Submitting Event Reports</h2>
-            <p className="text-muted-foreground mb-6">
-              After an event happens, you need to submit a report. Here&apos;s the process:
+            <p className="text-muted-foreground mb-4">
+              After an event happens, the Event Planner submits an event report. After each event is approved (by Global
+              Director), the Marketing Manager must add a marketing report, which the Global Director must approve.
             </p>
 
+            <h3 className="text-lg font-semibold mt-6 mb-3">Event report (Event Planner)</h3>
             <div className="space-y-4">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">
@@ -480,9 +534,9 @@ export function DocumentTab() {
                     3
                   </div>
                   <div className="flex-1 p-4 border rounded-lg bg-background">
-                    <p className="font-medium mb-1">Report goes through approval</p>
+                    <p className="font-medium mb-1">Report goes through approval (with OTP at each step)</p>
                     <p className="text-sm text-muted-foreground">
-                      Same approval chain as events - up to Global Director
+                      Same approval chain as events—up to Global Director. Each approver verifies with OTP.
                     </p>
                   </div>
                 </div>
@@ -511,6 +565,15 @@ export function DocumentTab() {
                 </div>
               </div>
             </div>
+
+            <h3 className="text-lg font-semibold mt-8 mb-3">Marketing report (Marketing Manager)</h3>
+            <div className="p-4 border rounded-lg bg-muted/50 space-y-2">
+              <p className="text-sm text-muted-foreground">
+                After an event is approved by Global Director, the Marketing Manager must add a marketing report for
+                that event. The marketing report then goes to the Global Director for approval. OTP verification is
+                required when the Global Director approves or rejects the marketing report.
+              </p>
+            </div>
           </section>
 
           <Separator />
@@ -532,7 +595,15 @@ export function DocumentTab() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    <span>Approve or reject (with reasons)</span>
+                    <span>Approve or reject (OTP verification + reasons)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span>Create venue (approval chain like events)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span>Add DJ (Global Director only)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -549,6 +620,10 @@ export function DocumentTab() {
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                     <span>Approve or reject report</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                    <span>Submit and approve marketing report</span>
                   </div>
                 </div>
               </div>

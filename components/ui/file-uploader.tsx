@@ -113,7 +113,7 @@ export function FileUploader({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`
-          rounded-lg border-2 border-dashed p-4 flex flex-col items-center justify-center gap-2 min-h-[120px]
+          rounded-lg border-1 border-dashed p-0 flex flex-col items-center justify-center gap-2 min-h-[100px]
           ${isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"}
           ${disabled || atLimit ? "pointer-events-none opacity-60" : ""}
         `}
@@ -129,11 +129,6 @@ export function FileUploader({
           children
         ) : (
           <>
-            <Upload className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground text-center">
-              {acceptLabel && `${acceptLabel}. `}
-              Max {maxFiles} files, {(maxSizeBytes / (1024 * 1024)).toFixed(0)}MB each.
-            </p>
             <Button
               type="button"
               variant="outline"
@@ -141,8 +136,13 @@ export function FileUploader({
               onClick={() => inputRef.current?.click()}
               disabled={disabled || atLimit}
             >
+              <Upload className="h-8 w-8 text-muted-foreground" />
               {atLimit ? `Maximum ${maxFiles} files` : "Choose files"}
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              {acceptLabel && `${acceptLabel}. `}
+              Max {maxFiles} files, {(maxSizeBytes / (1024 * 1024)).toFixed(0)}MB each.
+            </p>
           </>
         )}
       </div>

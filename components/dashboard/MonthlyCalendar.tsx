@@ -79,7 +79,7 @@ export function MonthlyCalendar({
 
   const modifiersClassNames = useMemo(
     () => ({
-      booked: "rounded-full bg-amber-100 text-amber-900 font-semibold dark:bg-amber-900/40 dark:text-amber-100",
+      booked: "rounded-full bg-red-500 text-white !font-bold",
     }),
     []
   );
@@ -192,7 +192,7 @@ export function MonthlyCalendar({
   };
 
   return (
-    <Card className="min-w-0 p-4 flex flex-col h-full overflow-hidden shadow-none gap-0">
+    <Card className="min-w-0 px-4 pb-4 pt-2 flex flex-col h-full overflow-hidden shadow-none gap-0">
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <div
           ref={calendarRef}
@@ -200,7 +200,7 @@ export function MonthlyCalendar({
         >
           <CalendarUi
             captionLayout="dropdown"
-            className="rounded-md border-0 p-1 w-full"
+            className="rounded-md border-0 px-1 pt-0 pb-1 w-full"
             components={{
               MonthCaption: (props) => <>{props.children}</>,
               DropdownNav: (props) => (

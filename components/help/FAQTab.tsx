@@ -20,12 +20,42 @@ const faqItems = [
   {
     question: "How does the approval process work?",
     answer:
-      "When you submit an event request, the system builds an approval chain by walking up the organizational pyramid. Each approver level (City Curator, Regional Curator, Lead Curator, Global Director) can approve or reject. Approvals move to the next level, while rejections stop the process and require you to create a new request.",
+      "When you submit an event request, the system builds an approval chain by walking up the organizational pyramid. Each approver level (City Curator, Regional Curator, Lead Curator, Global Director) can approve or reject. The Global Director cannot bypass this flow—they must approve in their turn like any other approver. At each step, the approver receives an OTP by email and must enter it to confirm approve or reject. Approvals move to the next level; rejections stop the process and require a reason.",
+  },
+  {
+    question: "Why do I need to enter an OTP when approving or rejecting?",
+    answer:
+      "For security, every approve or reject action requires OTP verification. When it's your turn to approve or reject an event, modification, cancellation, venue request, or report, the system sends a one-time code to your email. You must enter this code to complete the action. This ensures that only the intended approver can take the action.",
+  },
+  {
+    question: "How does creating a venue work?",
+    answer:
+      "Creating a new venue uses the same approval chain as creating an event. Your venue request goes up the organization (City → Regional → Lead → Global Director). At each step, the approver must verify with OTP to approve or reject. Only after Global Director approval is the venue added to the database. You see venues you created or those from users below you (by pyramid visibility).",
+  },
+  {
+    question: "Who can add DJs?",
+    answer:
+      "Only the Global Director can add DJs to the system. Other roles can view DJs according to pyramid visibility (e.g. on the Calendar page). To add or edit DJs, you need Global Director access.",
+  },
+  {
+    question: "What does the Calendar page show?",
+    answer:
+      "The Calendar page shows all events and DJs according to your pyramid level. You see events and DJs you have access to based on the organization hierarchy. You can filter by city, region, date, and view current approved events, past events, and cancelled/rejected events.",
+  },
+  {
+    question: "What is the marketing report and who approves it?",
+    answer:
+      "After an event is approved by the Global Director, the Marketing Manager must add a marketing report for that event. The marketing report is then submitted to the Global Director for approval. The Global Director must verify with OTP to approve or reject the marketing report. This is separate from the event report that the Event Planner submits after the event date.",
+  },
+  {
+    question: "When is the calendar event email sent and to whom?",
+    answer:
+      "After the Global Director approves an event, the system sends a calendar event email to the event planner, the assigned DJs, other subordinates, and the marketing manager. This notifies everyone involved that the event is approved and scheduled.",
   },
   {
     question: "What venues can I see and use?",
     answer:
-      "Event Planners can only see venues they created. Curators see venues created by users under them in the hierarchy. Global Directors see all venues. You can edit or remove venues you created. If you create a venue with the same name and address, it will update the existing one instead of creating a duplicate.",
+      "Event Planners can only see venues they created (after approval). Curators see venues created by users under them in the hierarchy. Global Directors see all venues. Creating a new venue goes through the same approval chain as creating an event; only after full approval is the venue available. You can edit or remove venues you created. Global Director can ban venues.",
   },
   {
     question: "How do I submit an event report?",

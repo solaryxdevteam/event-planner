@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { PencilIcon, TrashIcon, CheckCircle2, XCircle, Eye, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { DJ } from "@/lib/types/database.types";
@@ -37,18 +37,18 @@ export function DJCard({ dj, userRole, onDelete, onActivate, onDeactivate }: DJC
     (activateDialogOpen && activateMutation.isPending) ||
     (deactivateDialogOpen && deactivateMutation.isPending);
 
-  const priceFormatted =
-    dj.price != null
-      ? new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency: "USD",
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 2,
-        }).format(Number(dj.price))
-      : null;
+  // const priceFormatted =
+  //   dj.price != null
+  //     ? new Intl.NumberFormat("en-US", {
+  //         style: "currency",
+  //         currency: "USD",
+  //         minimumFractionDigits: 0,
+  //         maximumFractionDigits: 2,
+  //       }).format(Number(dj.price))
+  //     : null;
 
   return (
-    <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow p-0 relative">
+    <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow p-0 gap-6 relative">
       {isActionPending && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/80 backdrop-blur-[1px]">
           <div className="flex flex-col items-center gap-2">
@@ -63,7 +63,7 @@ export function DJCard({ dj, userRole, onDelete, onActivate, onDeactivate }: DJC
           </div>
         </div>
       )}
-      <div className="relative flex h-40 shrink-0 items-center justify-center bg-muted overflow-hidden">
+      <div className="relative flex h-48 shrink-0 items-center justify-center bg-muted overflow-hidden">
         {dj.picture_url ? (
           <Image
             src={dj.picture_url}
@@ -113,14 +113,14 @@ export function DJCard({ dj, userRole, onDelete, onActivate, onDeactivate }: DJC
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-1 px-3">
-        {priceFormatted && (
+      {/* <CardContent className="space-y-1 px-3"> */}
+      {/* {priceFormatted && (
           <div className="flex items-center justify-between gap-1">
             <span className="text-sm font-medium text-muted-foreground">Price</span>
             <p className="text-sm font-medium">{priceFormatted}</p>
           </div>
-        )}
-        {/* <div className="flex flex-wrap gap-1">
+        )} */}
+      {/* <div className="flex flex-wrap gap-1">
           {Array.isArray(dj.technical_rider) && dj.technical_rider.length > 0 && (
             <Badge variant="outline" className="text-xs">
               Tech rider
@@ -132,7 +132,7 @@ export function DJCard({ dj, userRole, onDelete, onActivate, onDeactivate }: DJC
             </Badge>
           )}
         </div> */}
-      </CardContent>
+      {/* </CardContent> */}
 
       <CardFooter className="flex flex-wrap gap-2 px-3 pb-3">
         {isGlobalDirector && !isDeleted && onDeactivate && dj.is_active && (

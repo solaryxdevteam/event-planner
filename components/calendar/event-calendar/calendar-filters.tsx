@@ -84,37 +84,40 @@ export function CalendarFiltersBar({
   return (
     <div className="flex flex-col space-y-2 border-b px-4 pt-2 pb-2">
       <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-        {/* DJs filter */}
-        <Popover open={djSearchOpen} onOpenChange={setDjSearchOpen}>
+        {/* Status filter */}
+        <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
           <PopoverTrigger asChild>
             <Button
-              variant={filters.djIds.length > 0 ? "default" : "outline"}
+              variant={filters.statuses.length > 0 ? "default" : "outline"}
               className="h-9 gap-2 px-4 text-sm font-medium transition-all"
             >
-              <Music2 className="h-4 w-4" />
-              DJs
-              {filters.djIds.length > 0 && (
+              <Search className="h-4 w-4" />
+              Status
+              {filters.statuses.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
-                  {filters.djIds.length}
+                  {filters.statuses.length}
                 </Badge>
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search DJs..." />
-              <CommandList>
-                <CommandEmpty>No DJs found.</CommandEmpty>
-                <CommandGroup>
-                  {uniqueDjs.map((dj) => (
-                    <CommandItem key={dj.id} value={dj.name} onSelect={() => toggleArrayFilter("djIds", dj.id)}>
-                      <Checkbox checked={filters.djIds.includes(dj.id)} className="mr-2" />
-                      <span className="truncate">{dj.name}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
+          <PopoverContent className="w-64 p-4" align="start">
+            <div className="space-y-3">
+              <h4 className="text-muted-foreground text-sm font-medium">Event Status</h4>
+              <div className="max-h-48 space-y-3 overflow-y-auto">
+                {CATEGORY_OPTIONS.map((status) => (
+                  <div key={status.value} className="flex items-center space-x-3">
+                    <Checkbox
+                      id={`status-${status.value}`}
+                      checked={filters.statuses.includes(status.value)}
+                      onCheckedChange={() => toggleArrayFilter("statuses", status.value)}
+                    />
+                    <Label htmlFor={`status-${status.value}`} className="cursor-pointer text-sm font-normal">
+                      {status.label}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
           </PopoverContent>
         </Popover>
 
@@ -171,40 +174,37 @@ export function CalendarFiltersBar({
           )}
         </div>
 
-        {/* Status filter */}
-        <Popover open={statusPopoverOpen} onOpenChange={setStatusPopoverOpen}>
+        {/* DJs filter */}
+        <Popover open={djSearchOpen} onOpenChange={setDjSearchOpen}>
           <PopoverTrigger asChild>
             <Button
-              variant={filters.statuses.length > 0 ? "default" : "outline"}
+              variant={filters.djIds.length > 0 ? "default" : "outline"}
               className="h-9 gap-2 px-4 text-sm font-medium transition-all"
             >
-              <Search className="h-4 w-4" />
-              Status
-              {filters.statuses.length > 0 && (
+              <Music2 className="h-4 w-4" />
+              DJs
+              {filters.djIds.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
-                  {filters.statuses.length}
+                  {filters.djIds.length}
                 </Badge>
               )}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-64 p-4" align="start">
-            <div className="space-y-3">
-              <h4 className="text-muted-foreground text-sm font-medium">Event Status</h4>
-              <div className="max-h-48 space-y-3 overflow-y-auto">
-                {CATEGORY_OPTIONS.map((status) => (
-                  <div key={status.value} className="flex items-center space-x-3">
-                    <Checkbox
-                      id={`status-${status.value}`}
-                      checked={filters.statuses.includes(status.value)}
-                      onCheckedChange={() => toggleArrayFilter("statuses", status.value)}
-                    />
-                    <Label htmlFor={`status-${status.value}`} className="cursor-pointer text-sm font-normal">
-                      {status.label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <PopoverContent className="w-72 p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Search DJs..." />
+              <CommandList>
+                <CommandEmpty>No DJs found.</CommandEmpty>
+                <CommandGroup>
+                  {uniqueDjs.map((dj) => (
+                    <CommandItem key={dj.id} value={dj.name} onSelect={() => toggleArrayFilter("djIds", dj.id)}>
+                      <Checkbox checked={filters.djIds.includes(dj.id)} className="mr-2" />
+                      <span className="truncate">{dj.name}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
           </PopoverContent>
         </Popover>
       </div>

@@ -39,6 +39,7 @@ import type { DJ } from "@/lib/types/database.types";
 /** Minimal DJ shape for event form display (from event relation or full DJ) */
 type DJDisplay = Pick<DJ, "id" | "name" | "picture_url" | "music_style" | "price" | "email">;
 import { DraftDialog } from "@/components/events/DraftDialog";
+import { StepIndicator } from "@/components/events/StepIndicator";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { PriceInput } from "@/components/ui/price-input";
 import { useVenue } from "@/lib/hooks/use-venues";
@@ -50,7 +51,7 @@ import Image from "next/image";
 
 type EventFormData = CreateEventInput;
 
-interface EventFormProps {
+interface EventWizardFormProps {
   eventId?: string | null;
   shortId?: string | null;
 }
@@ -117,8 +118,9 @@ function VenueSelectionDisplay({
   );
 }
 
-export function EventForm({ eventId, shortId }: EventFormProps) {
+export function EventWizardForm({ eventId, shortId }: EventWizardFormProps) {
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(1);
   const [startsAtDate, setStartsAtDate] = useState<Date | undefined>();
   const [existingDraft, setExistingDraft] = useState<EventWithRelations | null>(null);
   const [showDraftDialog, setShowDraftDialog] = useState(false);
@@ -134,8 +136,11 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
   const [showOtpDialog, setShowOtpDialog] = useState(false);
   const [pendingEventData, setPendingEventData] = useState<CreateEventInput | null>(null);
   const dialogShownRef = useRef(false);
+  const currentStepRef = useRef(currentStep);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isSubmittingRef = useRef(false);
+  /** Prevents form submit from firing when user just clicked Next or a step indicator (not the Submit button) */
+  const isNavigatingStepRef = useRef(false);
 
   const { data: profile } = useProfile();
   const createEventMutation = useCreateEventDraft();
@@ -182,6 +187,11 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       setSelectedDj(fullDj);
     }
   }, [fullDj]);
+
+  // Update ref when currentStep changes
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
 
   // Check for existing draft on mount - only show dialog once on initial load
   useEffect(() => {
@@ -261,6 +271,36 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     }
   }, [draftId, deleteEventMutation, form]);
 
+  const totalSteps = 2;
+
+  const getStepFields = useCallback((step: number): (keyof EventFormData)[] => {
+    switch (step) {
+      case 1:
+        return ["title", "venue_id", "dj_id", "expected_attendance"];
+      case 2:
+        return ["starts_at", "notes", "minimum_ticket_price", "minimum_table_price"];
+      default:
+        return [];
+    }
+  }, []);
+
+  const stepErrors = useMemo(() => {
+    const errors: Record<number, boolean> = {};
+    [1, 2].forEach((step) => {
+      const fields = getStepFields(step);
+      errors[step] = fields.some((field) => !!form.formState.errors[field]);
+    });
+    return errors;
+  }, [form.formState.errors, getStepFields]);
+
+  const handlePrevious = useCallback(() => {
+    setCurrentStep((prev) => {
+      const prevStep = Math.max(prev - 1, 1);
+      currentStepRef.current = prevStep;
+      return prevStep;
+    });
+  }, []);
+
   // Auto-save draft function (skipped while form is submitting)
   const autoSaveDraft = useCallback(async () => {
     if (!hasUserStarted) return;
@@ -333,9 +373,33 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     };
   }, [hasUserStarted, autoSaveDraft]);
 
-  // Form submit handler
+  // Handle next (do not create/update draft here — only the 20s timer does that)
+  const handleNext = useCallback(async () => {
+    isNavigatingStepRef.current = true;
+    const fields = getStepFields(currentStep);
+    const isValid = await form.trigger(fields);
+
+    if (isValid) {
+      setCurrentStep((prev) => {
+        const nextStep = Math.min(prev + 1, totalSteps);
+        currentStepRef.current = nextStep;
+        return nextStep;
+      });
+    }
+    // Clear after a tick so any stray submit from re-render is ignored
+    queueMicrotask(() => {
+      isNavigatingStepRef.current = false;
+    });
+  }, [currentStep, form, getStepFields, totalSteps]);
+
+  // Form submit handler - only submits on final step
   const submitFormData = useCallback(
     async (data: EventFormData) => {
+      // Double check - only submit if on final step (use ref to ensure latest value)
+      if (currentStepRef.current < totalSteps) {
+        return;
+      }
+
       isSubmittingRef.current = true;
       try {
         const submitData: CreateEventInput = {
@@ -410,7 +474,16 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         isSubmittingRef.current = false;
       }
     },
-    [startsAtDate, draftId, profile?.role, createEventMutation, updateEventMutation, submitEventMutation, router]
+    [
+      totalSteps,
+      startsAtDate,
+      draftId,
+      profile?.role,
+      createEventMutation,
+      updateEventMutation,
+      submitEventMutation,
+      router,
+    ]
   );
 
   const handleEventCreateOtpVerified = useCallback(
@@ -443,11 +516,18 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     [pendingEventData, createEventMutation, router]
   );
 
+  // Wrap handleSubmit to prevent execution if not on final step
   const handleSubmit = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
+      // Double-check before allowing react-hook-form's handleSubmit to run
+      if (currentStepRef.current < totalSteps) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       form.handleSubmit(submitFormData)(e);
     },
-    [form, submitFormData]
+    [form, submitFormData, totalSteps]
   );
 
   const handleVenueSelect = useCallback(
@@ -487,240 +567,267 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     return undefined;
   }, [maxAttendance, expectedAttendance]);
 
-  const renderFormFields = () => (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Event Title */}
-      <div className="space-y-2">
-        <Label htmlFor="title">
-          Event Title <span className="text-destructive">*</span>
-        </Label>
-        <Input
-          id="title"
-          placeholder="Enter event title"
-          {...form.register("title")}
-          className={cn(form.formState.errors.title && "border-destructive")}
-          maxLength={200}
-        />
-        {form.formState.errors.title && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {form.formState.errors.title.message}
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground">{form.watch("title")?.length || 0} / 200 characters</p>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Venue Selection */}
-        <div className="space-y-2">
-          <Label>
-            Venue <span className="text-destructive">*</span>
-          </Label>
-          <VenueSelectionDisplay
-            selectedVenue={selectedVenue}
-            onSelect={() => setShowVenueDialog(true)}
-            error={form.formState.errors.venue_id?.message}
-            maxAttendance={maxAttendance}
-            currentAttendance={expectedAttendance}
-          />
-        </div>
-
-        {/* DJ Selection */}
-        <div className="space-y-2">
-          <Label>
-            DJ <span className="text-destructive">*</span>
-          </Label>
-          {selectedDj ? (
-            <div className="space-y-3">
-              <div className="border rounded-lg bg-card flex flex-wrap overflow-hidden items-center justify-between gap-2">
-                <div className="relative h-48 w-full">
-                  <Image
-                    src={selectedDj.picture_url!}
-                    alt={selectedDj.name}
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
-                </div>
-                <div className="p-4">
-                  <p className="font-medium">{selectedDj.name}</p>
-                  {selectedDj.music_style && <p className="text-sm text-muted-foreground">{selectedDj.music_style}</p>}
-                  {selectedDj.price != null && (
-                    <p className="text-sm font-medium mt-1">
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 2,
-                      }).format(Number(selectedDj.price))}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Button
-                className="w-full"
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDjDialog(true)}
-              >
-                Change DJ
-              </Button>
-            </div>
-          ) : (
+  const renderStep = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Event Title */}
             <div className="space-y-2">
-              <Button
-                type="button"
-                variant="outline"
-                className={cn(
-                  "w-full justify-start text-left font-normal h-auto py-12 border-2 border-dashed",
-                  form.formState.errors.dj_id ? "border-destructive" : "hover:border-primary"
-                )}
-                onClick={() => setShowDjDialog(true)}
-              >
-                <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
-                  <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted">
-                    <Music2 className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium text-foreground">Select a DJ</p>
-                    <p className="text-sm text-muted-foreground">Assign a DJ to your event</p>
-                  </div>
-                </div>
-              </Button>
-              {form.formState.errors.dj_id && (
-                <div className="flex items-center gap-2 text-sm text-destructive">
+              <Label htmlFor="title">
+                Event Title <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="title"
+                placeholder="Enter event title"
+                {...form.register("title")}
+                className={cn(form.formState.errors.title && "border-destructive")}
+                maxLength={200}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && currentStep < totalSteps) {
+                    e.preventDefault();
+                  }
+                }}
+              />
+              {form.formState.errors.title && (
+                <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="h-4 w-4" />
-                  <span>{form.formState.errors.dj_id.message}</span>
-                </div>
+                  {form.formState.errors.title.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">{form.watch("title")?.length || 0} / 200 characters</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Venue Selection */}
+              <div className="space-y-2">
+                <Label>
+                  Venue <span className="text-destructive">*</span>
+                </Label>
+                <VenueSelectionDisplay
+                  selectedVenue={selectedVenue}
+                  onSelect={() => setShowVenueDialog(true)}
+                  error={form.formState.errors.venue_id?.message}
+                  maxAttendance={maxAttendance}
+                  currentAttendance={expectedAttendance}
+                />
+              </div>
+
+              {/* DJ Selection */}
+              <div className="space-y-2">
+                <Label>
+                  DJ <span className="text-destructive">*</span>
+                </Label>
+                {selectedDj ? (
+                  <div className="space-y-3">
+                    <div className="border rounded-lg  bg-card flex flex-wrap overflow-hidden items-center justify-between gap-2">
+                      <div className="relative h-48 w-full">
+                        <Image
+                          src={selectedDj.picture_url!}
+                          alt={selectedDj.name}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="p-4">
+                        <p className="font-medium">{selectedDj.name}</p>
+                        {selectedDj.music_style && (
+                          <p className="text-sm text-muted-foreground">{selectedDj.music_style}</p>
+                        )}
+                        {selectedDj.price != null && (
+                          <p className="text-sm font-medium mt-1">
+                            {new Intl.NumberFormat("en-US", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 0,
+                              maximumFractionDigits: 2,
+                            }).format(Number(selectedDj.price))}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full"
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDjDialog(true)}
+                    >
+                      Change DJ
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-auto py-12 border-2 border-dashed",
+                        form.formState.errors.dj_id ? "border-destructive" : "hover:border-primary"
+                      )}
+                      onClick={() => setShowDjDialog(true)}
+                    >
+                      <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                        <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted">
+                            <Music2 className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">Select a DJ</p>
+                            <p className="text-sm text-muted-foreground">Assign a DJ to your event</p>
+                          </div>
+                        </div>
+                      </div>
+                    </Button>
+                    {form.formState.errors.dj_id && (
+                      <div className="flex items-center gap-2 text-sm text-destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{form.formState.errors.dj_id.message}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Expected Attendance */}
+            <div className="space-y-2">
+              <Label htmlFor="expected_attendance" className="flex items-center gap-2">
+                <UsersIcon className="h-4 w-4" />
+                Expected Attendance
+                {maxAttendance && (
+                  <span className="pl-1 text-xs text-muted-foreground font-normal">
+                    (Max: {maxAttendance.toLocaleString()})
+                  </span>
+                )}
+              </Label>
+              <Input
+                id="expected_attendance"
+                type="number"
+                min="1"
+                max={maxAttendance || undefined}
+                placeholder="Enter expected number of attendees"
+                {...form.register("expected_attendance", {
+                  valueAsNumber: true,
+                  max: maxAttendance || undefined,
+                })}
+                className={cn(
+                  form.formState.errors.expected_attendance && "border-destructive",
+                  attendanceError && "border-destructive"
+                )}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && currentStep < totalSteps) {
+                    e.preventDefault();
+                  }
+                }}
+              />
+              {form.formState.errors.expected_attendance && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {form.formState.errors.expected_attendance.message}
+                </p>
+              )}
+              {attendanceError && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {attendanceError}
+                </p>
+              )}
+              {maxAttendance && expectedAttendance && expectedAttendance <= maxAttendance && (
+                <p className="text-xs text-muted-foreground">{maxAttendance - expectedAttendance} capacity remaining</p>
               )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        );
 
-      {/* Expected Attendance */}
-      <div className="space-y-2">
-        <Label htmlFor="expected_attendance" className="flex items-center gap-2">
-          <UsersIcon className="h-4 w-4" />
-          Expected Attendance
-          {maxAttendance && (
-            <span className="pl-1 text-xs text-muted-foreground font-normal">
-              (Max: {maxAttendance.toLocaleString()})
-            </span>
-          )}
-        </Label>
-        <Input
-          id="expected_attendance"
-          type="number"
-          min="1"
-          max={maxAttendance || undefined}
-          placeholder="Enter expected number of attendees"
-          {...form.register("expected_attendance", {
-            valueAsNumber: true,
-            max: maxAttendance || undefined,
-          })}
-          className={cn(
-            form.formState.errors.expected_attendance && "border-destructive",
-            attendanceError && "border-destructive"
-          )}
-        />
-        {form.formState.errors.expected_attendance && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {form.formState.errors.expected_attendance.message}
-          </p>
-        )}
-        {attendanceError && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {attendanceError}
-          </p>
-        )}
-        {maxAttendance && expectedAttendance && expectedAttendance <= maxAttendance && (
-          <p className="text-xs text-muted-foreground">{maxAttendance - expectedAttendance} capacity remaining</p>
-        )}
-      </div>
+      case 2:
+        return (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Start date & time (event transitions to past 5h after start via cron) */}
+            <DateTimePickerNew
+              label="Starts At *"
+              value={startsAtDate}
+              onChange={(date) => {
+                setStartsAtDate(date);
+                form.setValue("starts_at", date ? date.toISOString() : null, { shouldValidate: true });
+              }}
+              error={form.formState.errors.starts_at?.message}
+              placeholder="Select start date and time"
+            />
 
-      {/* Start date & time */}
-      <DateTimePickerNew
-        label="Starts At *"
-        value={startsAtDate}
-        onChange={(date) => {
-          setStartsAtDate(date);
-          form.setValue("starts_at", date ? date.toISOString() : null, { shouldValidate: true });
-        }}
-        error={form.formState.errors.starts_at?.message}
-        placeholder="Select start date and time"
-      />
+            {/* Minimum ticket price & table price */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minimum_ticket_price" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Min. ticket price
+                </Label>
+                <PriceInput
+                  id="minimum_ticket_price"
+                  placeholder="0.00"
+                  value={form.watch("minimum_ticket_price")}
+                  onChange={(value) => {
+                    form.setValue("minimum_ticket_price", value ?? null, { shouldValidate: true });
+                  }}
+                  className={cn(form.formState.errors.minimum_ticket_price && "border-destructive")}
+                />
+                {form.formState.errors.minimum_ticket_price && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {form.formState.errors.minimum_ticket_price.message}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="minimum_table_price" className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Min. table price
+                </Label>
+                <PriceInput
+                  id="minimum_table_price"
+                  placeholder="0.00"
+                  value={form.watch("minimum_table_price")}
+                  onChange={(value) => {
+                    form.setValue("minimum_table_price", value ?? null, { shouldValidate: true });
+                  }}
+                  className={cn(form.formState.errors.minimum_table_price && "border-destructive")}
+                />
+                {form.formState.errors.minimum_table_price && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {form.formState.errors.minimum_table_price.message}
+                  </p>
+                )}
+              </div>
+            </div>
 
-      {/* Minimum ticket price & table price */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="minimum_ticket_price" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Min. ticket price
-          </Label>
-          <PriceInput
-            id="minimum_ticket_price"
-            placeholder="0.00"
-            value={form.watch("minimum_ticket_price")}
-            onChange={(value) => {
-              form.setValue("minimum_ticket_price", value ?? null, { shouldValidate: true });
-            }}
-            className={cn(form.formState.errors.minimum_ticket_price && "border-destructive")}
-          />
-          {form.formState.errors.minimum_ticket_price && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {form.formState.errors.minimum_ticket_price.message}
-            </p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="minimum_table_price" className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
-            Min. table price
-          </Label>
-          <PriceInput
-            id="minimum_table_price"
-            placeholder="0.00"
-            value={form.watch("minimum_table_price")}
-            onChange={(value) => {
-              form.setValue("minimum_table_price", value ?? null, { shouldValidate: true });
-            }}
-            className={cn(form.formState.errors.minimum_table_price && "border-destructive")}
-          />
-          {form.formState.errors.minimum_table_price && (
-            <p className="text-xs text-destructive flex items-center gap-1">
-              <AlertCircle className="h-3 w-3" />
-              {form.formState.errors.minimum_table_price.message}
-            </p>
-          )}
-        </div>
-      </div>
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                placeholder="Enter event notes (optional)"
+                rows={8}
+                {...form.register("notes")}
+                className={cn(form.formState.errors.notes && "border-destructive")}
+                maxLength={5000}
+              />
+              {form.formState.errors.notes && (
+                <p className="text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {form.formState.errors.notes.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground">{form.watch("notes")?.length || 0} / 5,000 characters</p>
+            </div>
+          </div>
+        );
 
-      {/* Notes */}
-      <div className="space-y-2">
-        <Label htmlFor="notes">Notes</Label>
-        <Textarea
-          id="notes"
-          placeholder="Enter event notes (optional)"
-          rows={6}
-          {...form.register("notes")}
-          className={cn(form.formState.errors.notes && "border-destructive")}
-          maxLength={5000}
-        />
-        {form.formState.errors.notes && (
-          <p className="text-sm text-destructive flex items-center gap-1">
-            <AlertCircle className="h-4 w-4" />
-            {form.formState.errors.notes.message}
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground">{form.watch("notes")?.length || 0} / 5,000 characters</p>
-      </div>
-    </div>
-  );
+      default:
+        return null;
+    }
+  };
 
   if (isLoadingDraft) {
     return (
@@ -769,26 +876,96 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         </div>
       </div>
 
+      {/* Step Indicator */}
+      <StepIndicator
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        onStepClick={(step) => {
+          isNavigatingStepRef.current = true;
+          const fields = getStepFields(step);
+          form
+            .trigger(fields)
+            .then((isValid) => {
+              if (isValid || currentStep > step) {
+                currentStepRef.current = step;
+                setCurrentStep(step);
+              }
+            })
+            .finally(() => {
+              queueMicrotask(() => {
+                isNavigatingStepRef.current = false;
+              });
+            });
+        }}
+        stepErrors={stepErrors}
+      />
+
       {/* Form Card */}
       <Card className="shadow-sm">
         <CardContent className="pt-4 sm:pt-6 px-4 sm:px-6">
-          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-            {renderFormFields()}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              // Ignore submit if it was triggered by step navigation (Next / step indicator), not the Submit button
+              if (isNavigatingStepRef.current) return;
+              // Only submit when on final step
+              if (currentStep < totalSteps) return;
+              handleSubmit(e);
+            }}
+            onKeyDown={(e) => {
+              // Prevent Enter key from submitting form unless on final step
+              if (e.key === "Enter" && currentStep < totalSteps) {
+                e.preventDefault();
+                e.stopPropagation();
+              }
+            }}
+            className="space-y-4 sm:space-y-6"
+          >
+            {renderStep()}
 
-            <div className="flex justify-end">
-              <Button type="submit" size="lg" disabled={isPending} className="w-full sm:w-auto sm:min-w-[160px]">
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    Submit for Approval
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
+            {/* Navigation Buttons */}
+            <div className="flex flex-col-reverse sm:flex-row justify-between items-stretch sm:items-center gap-3 sm:gap-0 pt-4 sm:pt-6 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevious}
+                disabled={currentStep === 1 || isPending}
+                className="w-full sm:w-auto"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
               </Button>
+
+              {currentStep < totalSteps ? (
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleNext();
+                  }}
+                  disabled={isPending}
+                  className="w-full sm:w-auto"
+                >
+                  Next
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="submit" size="lg" disabled={isPending} className="w-full sm:w-auto sm:min-w-[160px]">
+                  {isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      Submit for Approval
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </form>
         </CardContent>

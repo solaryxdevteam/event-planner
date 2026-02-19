@@ -56,7 +56,7 @@ function UpcomingEventCard({ event }: { event: EventWithRelations }) {
   return (
     <Link href={`/dashboard/events/${shortId}`} className="block shrink-0 w-full">
       <Card className="overflow-hidden h-full p-0 shadow-none gap-1">
-        <div className="relative h-32 bg-muted flex items-center justify-center overflow-hidden">
+        <div className="relative h-48 bg-muted flex items-center justify-center overflow-hidden">
           {venueImage ? (
             <Image src={venueImage} alt="" fill className="object-cover" unoptimized />
           ) : (
@@ -69,7 +69,7 @@ function UpcomingEventCard({ event }: { event: EventWithRelations }) {
           </div>
         </div>
         <CardContent className="p-3">
-          <h3 className="font-semibold line-clamp-2 text-sm">{event.title}</h3>
+          <h3 className="font-semibold line-clamp-2 text-sm mb-3">{event.title}</h3>
           {startDate && <p className="text-xs text-muted-foreground mt-1">{format(startDate, "EEE, MMM d, yyyy")}</p>}
           {event.venue && (
             <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
@@ -305,7 +305,7 @@ export function DashboardClient() {
   const venues = venuesResponse?.data ?? [];
 
   const displayEvents = currentEvents.slice(0, LIMIT);
-  const displayVenues = venues.slice(0, LIMIT);
+  const displayVenues = venues.slice(0, 2);
 
   return (
     <div className="w-full min-w-0 max-w-full">
@@ -313,8 +313,8 @@ export function DashboardClient() {
       <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Left column (2/3): Upcoming Events + Reports (one chart) */}
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="min-w-0 overflow-hidden">
-            <div className="flex flex-row items-center justify-between space-y-0 pb-2 gap-2">
+          <Card className="min-w-0 overflow-hidden shadow-none gap-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-0 gap-2">
               <div className="text-base sm:text-lg leading-none font-semibold flex items-center gap-2">
                 <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                 Upcoming Events
@@ -323,30 +323,32 @@ export function DashboardClient() {
               <Button variant="ghost" size="sm" asChild className="shrink-0">
                 <Link href="/dashboard/events">View all</Link>
               </Button>
-            </div>
+            </CardHeader>
 
-            {currentEventsLoading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                  <Skeleton key={i} className="h-[200px] w-full shrink-0 rounded-lg" />
-                ))}
-              </div>
-            ) : displayEvents.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed bg-muted/30">
-                <Calendar className="h-10 w-10 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">No upcoming events</p>
-                <Button variant="outline" size="sm" className="mt-3" asChild>
-                  <Link href="/dashboard/events/requests/new">Create event</Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                {displayEvents.map((event) => (
-                  <UpcomingEventCard key={event.id} event={event} />
-                ))}
-              </div>
-            )}
-          </div>
+            <CardContent className="py-0 px-4">
+              {currentEventsLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-[200px] w-full shrink-0 rounded-lg" />
+                  ))}
+                </div>
+              ) : displayEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed bg-muted/30">
+                  <Calendar className="h-10 w-10 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">No upcoming events</p>
+                  <Button variant="outline" size="sm" className="mt-3" asChild>
+                    <Link href="/dashboard/events/requests/new">Create event</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {displayEvents.map((event) => (
+                    <UpcomingEventCard key={event.id} event={event} />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <DashboardReportsCard />
         </div>
@@ -420,8 +422,8 @@ export function DashboardClient() {
             </CardHeader>
             <CardContent className="p-0">
               {venuesLoading ? (
-                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3].map((i) => (
+                <div className="grid min-w-0 grid-cols-1 gap-4">
+                  {[1, 2].map((i) => (
                     <Skeleton key={i} className="h-[180px] w-full rounded-lg" />
                   ))}
                 </div>

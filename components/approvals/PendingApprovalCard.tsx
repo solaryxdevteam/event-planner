@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, XCircle, MapPin, DollarSign, Users, CalendarDays, Eye } from "lucide-react";
+import { MapPin, DollarSign, Users, CalendarDays, Eye } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -141,7 +141,7 @@ export function PendingApprovalCard({
         <CardContent className="p-4 sm:p-4 flex flex-col flex-1">
           <div
             className={cn(
-              "flex flex-col flex-1",
+              "flex flex-col flex-1 justify-between",
               !isVertical ? "xl:grid xl:grid-cols-[1fr_2fr] xl:items-stretch gap-6 xl:gap-8" : "gap-6"
             )}
           >
@@ -279,7 +279,7 @@ export function PendingApprovalCard({
                   isVertical ? "flex flex-col gap-2" : "flex flex-row flex-wrap gap-2"
                 )}
               >
-                {hasPendingApprovalForCurrentUser && (
+                {/* {hasPendingApprovalForCurrentUser && (
                   <>
                     <Button
                       variant="outline"
@@ -300,7 +300,7 @@ export function PendingApprovalCard({
                       Approve
                     </Button>
                   </>
-                )}
+                )} */}
                 <Button
                   variant={hasPendingApprovalForCurrentUser ? "outline" : "default"}
                   className={cn(isVertical ? "w-full" : "flex-1 min-w-0")}

@@ -18,14 +18,19 @@ import {
 import { DateTimePickerNew } from "@/components/ui/date-time-picker-new";
 import { createEventSchema, type CreateEventInput } from "@/lib/validation/events.schema";
 import { useRequestModification } from "@/lib/hooks/use-events";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, Music2 } from "lucide-react";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { VenueSelectionDialog } from "@/components/events/VenueSelectionDialog";
+import { DJSelectionDialog } from "@/components/events/DJSelectionDialog";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
+import type { DJ } from "@/lib/types/database.types";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { PriceInput } from "@/components/ui/price-input";
 import { useVenue } from "@/lib/hooks/use-venues";
+import { useDj } from "@/lib/hooks/use-djs";
 import { cn } from "@/lib/utils";
+
+type DJDisplay = Pick<DJ, "id" | "name" | "picture_url" | "music_style" | "price" | "email">;
 
 interface ModificationRequestDialogProps {
   open: boolean;
@@ -43,6 +48,8 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
   );
   const [showVenueDialog, setShowVenueDialog] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<VenueWithCreator | null>(null);
+  const [showDjDialog, setShowDjDialog] = useState(false);
+  const [selectedDj, setSelectedDj] = useState<DJDisplay | null>(null);
 
   const requestModificationMutation = useRequestModification();
 
@@ -54,6 +61,7 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
       title: event.title,
       starts_at: event.starts_at || null,
       venue_id: event.venue_id || null,
+      dj_id: event.dj_id ?? event.dj?.id ?? null,
       expected_attendance: event.expected_attendance || null,
       minimum_ticket_price: event.minimum_ticket_price ?? null,
       minimum_table_price: event.minimum_table_price ?? null,
@@ -67,6 +75,8 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
   // This is expected behavior with React Hook Form and can be safely ignored
   const venueId = form.watch("venue_id");
   const { data: fullVenue } = useVenue(venueId || null);
+  const djId = form.watch("dj_id");
+  const { data: fullDj } = useDj(djId || null);
 
   // Update selected venue when full venue is loaded
   useEffect(() => {
@@ -75,13 +85,29 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
     }
   }, [fullVenue]);
 
+  // Update selected DJ when full DJ is loaded
+  useEffect(() => {
+    if (fullDj) {
+      setSelectedDj({
+        id: fullDj.id,
+        name: fullDj.name,
+        picture_url: fullDj.picture_url,
+        music_style: fullDj.music_style,
+        price: fullDj.price,
+        email: fullDj.email,
+      });
+    }
+  }, [fullDj]);
+
   // Reset form when dialog opens/closes or event changes
   useEffect(() => {
     if (open) {
+      const initialDjId = event.dj_id ?? event.dj?.id ?? null;
       form.reset({
         title: event.title,
         starts_at: event.starts_at || null,
         venue_id: event.venue_id || null,
+        dj_id: initialDjId,
         expected_attendance: event.expected_attendance || null,
         minimum_ticket_price: event.minimum_ticket_price ?? null,
         minimum_table_price: event.minimum_table_price ?? null,
@@ -90,12 +116,29 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
       });
       setStartsAtDate(event.starts_at ? new Date(event.starts_at) : undefined);
       setSelectedVenue(null);
+      setSelectedDj(null);
     }
   }, [open, event, form]);
 
   const handleVenueSelect = (venue: VenueWithCreator | null) => {
     setSelectedVenue(venue);
     form.setValue("venue_id", venue?.id || null, { shouldValidate: true });
+  };
+
+  const handleSelectDj = (dj: DJ | null) => {
+    setSelectedDj(
+      dj
+        ? {
+            id: dj.id,
+            name: dj.name,
+            picture_url: dj.picture_url,
+            music_style: dj.music_style,
+            price: dj.price,
+            email: dj.email,
+          }
+        : null
+    );
+    form.setValue("dj_id", dj?.id || null, { shouldValidate: true });
   };
 
   const maxAttendance = selectedVenue?.total_capacity ?? undefined;
@@ -194,6 +237,70 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
               )}
             </div>
 
+            {/* DJ Selection */}
+            <div className="space-y-2">
+              <Label>
+                DJ <span className="text-destructive">*</span>
+              </Label>
+              {selectedDj ? (
+                <div className="space-y-3">
+                  <div className="border rounded-lg p-4 bg-card flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{selectedDj.name}</p>
+                      {selectedDj.music_style && (
+                        <p className="text-sm text-muted-foreground">{selectedDj.music_style}</p>
+                      )}
+                      {selectedDj.price != null && (
+                        <p className="text-sm font-medium mt-1">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          }).format(Number(selectedDj.price))}
+                        </p>
+                      )}
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowDjDialog(true)}>
+                      Change DJ
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-auto py-12 border-2 border-dashed",
+                      form.formState.errors.dj_id ? "border-destructive" : "hover:border-primary"
+                    )}
+                    onClick={() => setShowDjDialog(true)}
+                  >
+                    <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                      <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                        <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
+                          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted">
+                            <Music2 className="h-8 w-8 text-muted-foreground" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="font-medium text-foreground">Select a DJ</p>
+                            <p className="text-sm text-muted-foreground">Assign a DJ to your event</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Button>
+                  {form.formState.errors.dj_id && (
+                    <p className="text-sm text-destructive flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {form.formState.errors.dj_id.message}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Expected Attendance */}
             <div className="space-y-2">
               <Label htmlFor="expected_attendance">
@@ -231,7 +338,7 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
             </div>
 
             {/* Date & Time */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <DateTimePickerNew
                 label="Starts At *"
                 value={startsAtDate}
@@ -325,6 +432,14 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
         onOpenChange={setShowVenueDialog}
         selectedVenueId={form.watch("venue_id") || null}
         onSelectVenue={handleVenueSelect}
+      />
+
+      {/* DJ Selection Dialog */}
+      <DJSelectionDialog
+        open={showDjDialog}
+        onOpenChange={setShowDjDialog}
+        selectedDjId={form.watch("dj_id") || null}
+        onSelectDj={handleSelectDj}
       />
     </>
   );

@@ -10,13 +10,13 @@ import {
   CalendarDays,
   CheckSquare,
   Building2,
-  Music2,
   Users,
   User,
   FileText,
   Clock,
   BarChart3,
   HelpCircle,
+  Disc3,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -68,56 +68,57 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
       url: "/dashboard",
       icon: LayoutDashboard,
     },
-    // Event Requests - only for users who can create events
-    ...(canCreateEvents
-      ? [
-          {
-            title: "Event Requests",
-            url: "/dashboard/events/requests?tab=drafts", // Default to first sub-item
-            icon: FileText,
-            items: [
-              {
-                title: "Drafts",
-                url: "/dashboard/events/requests?tab=drafts",
-              },
-              {
-                title: "In Review",
-                url: "/dashboard/events/requests?tab=in-review",
-              },
-              {
-                title: "Rejected",
-                url: "/dashboard/events/requests?tab=rejected",
-              },
-            ],
-          },
-        ]
-      : []),
     // Calendar - for all users
     {
       title: "Calendar",
       url: "/dashboard/calendar",
       icon: CalendarDays,
     },
+
     // Events - for all users
     {
       title: "Events",
       url: "/dashboard/events?tab=current", // Default to first sub-item
       icon: Calendar,
-      items: [
-        {
-          title: "Current",
-          url: "/dashboard/events?tab=current",
-        },
-        {
-          title: "Past",
-          url: "/dashboard/events?tab=past",
-        },
-        {
-          title: "Cancelled/Rejected",
-          url: "/dashboard/events?tab=cancelled",
-        },
-      ],
+      // items: [
+      //   {
+      //     title: "Current",
+      //     url: "/dashboard/events?tab=current",
+      //   },
+      //   {
+      //     title: "Past",
+      //     url: "/dashboard/events?tab=past",
+      //   },
+      //   {
+      //     title: "Cancelled/Rejected",
+      //     url: "/dashboard/events?tab=cancelled",
+      //   },
+      // ],
     },
+    // Event Requests - only for users who can create events
+    ...(canCreateEvents
+      ? [
+          {
+            title: "Event Requests",
+            url: "/dashboard/events/requests?tab=in-review", // Default to first sub-item
+            icon: FileText,
+            // items: [
+            //   {
+            //     title: "Drafts",
+            //     url: "/dashboard/events/requests?tab=drafts",
+            //   },
+            //   {
+            //     title: "In Review",
+            //     url: "/dashboard/events/requests?tab=in-review",
+            //   },
+            //   {
+            //     title: "Rejected",
+            //     url: "/dashboard/events/requests?tab=rejected",
+            //   },
+            // ],
+          },
+        ]
+      : []),
     // Pending Approvals - only for curators and global
     ...(isCurator
       ? [
@@ -125,55 +126,56 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
             title: "Pending Approvals",
             url: "/dashboard/approvals?type=event", // Default to first sub-item
             icon: CheckSquare,
-            items: [
-              {
-                title: "Event Approvals",
-                url: "/dashboard/approvals?type=event",
-              },
-              {
-                title: "Modifications",
-                url: "/dashboard/approvals?type=modification",
-              },
-              {
-                title: "Cancellations",
-                url: "/dashboard/approvals?type=cancellation",
-              },
-              {
-                title: "Reports",
-                url: "/dashboard/approvals?type=report",
-              },
-              {
-                title: "Marketing Reports",
-                url: "/dashboard/approvals?type=marketing_report",
-              },
-              {
-                title: "Venues",
-                url: "/dashboard/approvals?type=venues",
-              },
-            ],
+            // items: [
+            //   {
+            //     title: "Event Approvals",
+            //     url: "/dashboard/approvals?type=event",
+            //   },
+            //   {
+            //     title: "Modifications",
+            //     url: "/dashboard/approvals?type=modification",
+            //   },
+            //   {
+            //     title: "Cancellations",
+            //     url: "/dashboard/approvals?type=cancellation",
+            //   },
+            //   {
+            //     title: "Reports",
+            //     url: "/dashboard/approvals?type=report",
+            //   },
+            //   {
+            //     title: "Marketing Reports",
+            //     url: "/dashboard/approvals?type=marketing_report",
+            //   },
+            //   {
+            //     title: "Venues",
+            //     url: "/dashboard/approvals?type=venues",
+            //   },
+            // ],
           },
         ]
       : []),
-    {
-      title: "Venue Management",
-      url: "/dashboard/venues",
-      icon: Building2,
-    },
-    {
-      title: "DJs",
-      url: "/dashboard/djs",
-      icon: Music2,
-    },
     // User Management - only for curators
     ...(isCurator
       ? [
           {
-            title: "User Management",
+            title: "Users",
             url: "/dashboard/users",
             icon: Users,
           },
         ]
       : []),
+    {
+      title: "DJs",
+      url: "/dashboard/djs",
+      icon: Disc3,
+    },
+    {
+      title: "Venues",
+      url: "/dashboard/venues",
+      icon: Building2,
+    },
+
     {
       title: "Reports",
       url: "/dashboard/reports",
@@ -183,21 +185,21 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
     ...(isCurator
       ? [
           {
-            title: "Activity Logs",
+            title: "Logs",
             url: "/dashboard/logs",
             icon: Clock,
           },
         ]
       : []),
     {
-      title: "Help Center",
-      url: "/dashboard/help",
-      icon: HelpCircle,
-    },
-    {
       title: "Profile",
       url: "/dashboard/profile",
       icon: User,
+    },
+    {
+      title: "Help Center",
+      url: "/dashboard/help",
+      icon: HelpCircle,
     },
   ];
 

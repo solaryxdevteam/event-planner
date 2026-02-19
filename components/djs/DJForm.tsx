@@ -255,7 +255,7 @@ export function DJForm({ mode, dj }: DJFormProps) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="price">Price</Label>
+        <Label htmlFor="price">Price+++</Label>
         <PriceInput
           id="price"
           value={form.watch("price") ?? undefined}
@@ -285,146 +285,148 @@ export function DJForm({ mode, dj }: DJFormProps) {
         )}
       </div>
 
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2">
-          <FileUp className="h-4 w-4" />
-          Technical rider
-        </Label>
-        {!isViewMode && (
-          <FileUploader
-            accept=".pdf,image/*,video/*,.doc,.docx"
-            multiple={true}
-            maxFiles={20}
-            currentCount={(form.watch("technical_rider") ?? []).length}
-            onFilesSelected={handleTechRiderSelect}
-            acceptLabel="PDF, images, video, or Word"
-            disabled={techRiderUploading}
-            uploadProgress={techRiderUploading ? 50 : undefined}
-          />
-        )}
-        {(form.watch("technical_rider") ?? []).length > 0 && (
-          <ul className="space-y-2">
-            {(form.watch("technical_rider") ?? []).map((item, index) => (
-              <li
-                key={`${item.url}-${index}`}
-                className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
-              >
-                {item.type === "photo" && (
-                  <button
-                    type="button"
-                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-                    onClick={() => setMediaPreview({ url: item.url, type: "image" })}
-                  >
-                    <Image src={item.url} alt="" fill className="object-cover" unoptimized sizes="40px" />
-                  </button>
-                )}
-                {item.type === "video" && (
-                  <button
-                    type="button"
-                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-center"
-                    onClick={() => setMediaPreview({ url: item.url, type: "video" })}
-                  >
-                    <Video className="h-5 w-5 text-muted-foreground" />
-                  </button>
-                )}
-                {item.type === "file" && <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />}
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate flex-1 text-primary hover:underline"
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <FileUp className="h-4 w-4" />
+            Technical rider
+          </Label>
+          {!isViewMode && (
+            <FileUploader
+              accept=".pdf,image/*,video/*,.doc,.docx"
+              multiple={true}
+              maxFiles={20}
+              currentCount={(form.watch("technical_rider") ?? []).length}
+              onFilesSelected={handleTechRiderSelect}
+              acceptLabel="PDF, images, video"
+              disabled={techRiderUploading}
+              uploadProgress={techRiderUploading ? 50 : undefined}
+            />
+          )}
+          {(form.watch("technical_rider") ?? []).length > 0 && (
+            <ul className="space-y-2">
+              {(form.watch("technical_rider") ?? []).map((item, index) => (
+                <li
+                  key={`${item.url}-${index}`}
+                  className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
                 >
-                  {item.url.split("/").pop() ?? "File"}
-                </a>
-                {!isViewMode && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeTechnicalRiderAt(index)}
-                    aria-label="Remove"
+                  {item.type === "photo" && (
+                    <button
+                      type="button"
+                      className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                      onClick={() => setMediaPreview({ url: item.url, type: "image" })}
+                    >
+                      <Image src={item.url} alt="" fill className="object-cover" unoptimized sizes="40px" />
+                    </button>
+                  )}
+                  {item.type === "video" && (
+                    <button
+                      type="button"
+                      className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-center"
+                      onClick={() => setMediaPreview({ url: item.url, type: "video" })}
+                    >
+                      <Video className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                  )}
+                  {item.type === "file" && <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />}
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate flex-1 text-primary hover:underline"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {form.formState.errors.technical_rider && (
-          <p className="text-sm text-destructive">{form.formState.errors.technical_rider.message}</p>
-        )}
-      </div>
+                    {item.url.split("/").pop() ?? "File"}
+                  </a>
+                  {!isViewMode && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeTechnicalRiderAt(index)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {form.formState.errors.technical_rider && (
+            <p className="text-sm text-destructive">{form.formState.errors.technical_rider.message}</p>
+          )}
+        </div>
 
-      <div className="space-y-2">
-        <Label className="flex items-center gap-2">
-          <FileText className="h-4 w-4" />
-          Hospitality rider
-        </Label>
-        {!isViewMode && (
-          <FileUploader
-            accept=".pdf,image/*,video/*,.doc,.docx"
-            multiple={true}
-            maxFiles={20}
-            currentCount={(form.watch("hospitality_rider") ?? []).length}
-            onFilesSelected={handleHospRiderSelect}
-            acceptLabel="PDF, images, video, or Word"
-            disabled={hospRiderUploading}
-            uploadProgress={hospRiderUploading ? 50 : undefined}
-          />
-        )}
-        {(form.watch("hospitality_rider") ?? []).length > 0 && (
-          <ul className="space-y-2">
-            {(form.watch("hospitality_rider") ?? []).map((item, index) => (
-              <li
-                key={`${item.url}-${index}`}
-                className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
-              >
-                {item.type === "photo" && (
-                  <button
-                    type="button"
-                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-                    onClick={() => setMediaPreview({ url: item.url, type: "image" })}
-                  >
-                    <Image src={item.url} alt="" fill className="object-cover" unoptimized sizes="40px" />
-                  </button>
-                )}
-                {item.type === "video" && (
-                  <button
-                    type="button"
-                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-center"
-                    onClick={() => setMediaPreview({ url: item.url, type: "video" })}
-                  >
-                    <Video className="h-5 w-5 text-muted-foreground" />
-                  </button>
-                )}
-                {item.type === "file" && <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />}
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate flex-1 text-primary hover:underline"
+        <div className="space-y-2">
+          <Label className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Hospitality rider
+          </Label>
+          {!isViewMode && (
+            <FileUploader
+              accept=".pdf,image/*,video/*,.doc,.docx"
+              multiple={true}
+              maxFiles={20}
+              currentCount={(form.watch("hospitality_rider") ?? []).length}
+              onFilesSelected={handleHospRiderSelect}
+              acceptLabel="PDF, images, video"
+              disabled={hospRiderUploading}
+              uploadProgress={hospRiderUploading ? 50 : undefined}
+            />
+          )}
+          {(form.watch("hospitality_rider") ?? []).length > 0 && (
+            <ul className="space-y-2">
+              {(form.watch("hospitality_rider") ?? []).map((item, index) => (
+                <li
+                  key={`${item.url}-${index}`}
+                  className="flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
                 >
-                  {item.url.split("/").pop() ?? "File"}
-                </a>
-                {!isViewMode && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeHospitalityRiderAt(index)}
-                    aria-label="Remove"
+                  {item.type === "photo" && (
+                    <button
+                      type="button"
+                      className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                      onClick={() => setMediaPreview({ url: item.url, type: "image" })}
+                    >
+                      <Image src={item.url} alt="" fill className="object-cover" unoptimized sizes="40px" />
+                    </button>
+                  )}
+                  {item.type === "video" && (
+                    <button
+                      type="button"
+                      className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted focus:outline-none focus:ring-2 focus:ring-primary flex items-center justify-center"
+                      onClick={() => setMediaPreview({ url: item.url, type: "video" })}
+                    >
+                      <Video className="h-5 w-5 text-muted-foreground" />
+                    </button>
+                  )}
+                  {item.type === "file" && <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />}
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate flex-1 text-primary hover:underline"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {form.formState.errors.hospitality_rider && (
-          <p className="text-sm text-destructive">{form.formState.errors.hospitality_rider.message}</p>
-        )}
+                    {item.url.split("/").pop() ?? "File"}
+                  </a>
+                  {!isViewMode && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeHospitalityRiderAt(index)}
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {form.formState.errors.hospitality_rider && (
+            <p className="text-sm text-destructive">{form.formState.errors.hospitality_rider.message}</p>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-3">

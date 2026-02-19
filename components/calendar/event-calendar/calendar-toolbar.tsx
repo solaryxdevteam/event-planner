@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { TimeFormatToggle } from "./ui/time-format-toggel";
+// import { TimeFormatToggle } from "./ui/time-format-toggel";
 import { TodayButton } from "./ui/today-button";
 import { ViewModeToggle } from "./ui/view-mode-toggle";
 import { SearchYearPicker } from "./ui/search-year-picker";
@@ -166,7 +166,7 @@ export default function CalendarToolbar() {
       <div className="bg-muted/30 flex items-center justify-between border-b px-4 py-2">
         <EventCalendarTabs viewType={currentView} onChange={handleViewTypeChange} />
         <div className="flex items-center sm:space-x-2">
-          <TimeFormatToggle format={timeFormat} onChange={handleTimeFormatChange} />
+          {/* <TimeFormatToggle format={timeFormat} onChange={handleTimeFormatChange} /> */}
           <ViewModeToggle mode={viewMode} onChange={handleViewModeChange} />
           <CalendarSettingsDialog />
         </div>

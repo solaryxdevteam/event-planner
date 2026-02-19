@@ -256,7 +256,7 @@ function TimelineGroup({
                     ${isCurrent ? "ring-2 ring-blue-500/60 shadow-md" : ""}
                   `}
                 >
-                  <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-1.5">
                     <Badge variant="outline" className="text-[9px] whitespace-nowrap px-1.5 py-0">
                       {roleLabel}
                     </Badge>

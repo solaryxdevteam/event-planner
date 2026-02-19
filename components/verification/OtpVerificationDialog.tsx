@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -86,32 +87,45 @@ export function OtpVerificationDialog({
     return () => clearInterval(t);
   }, [resendCooldown]);
 
-  const handleVerify = async () => {
-    const trimmed = code.replace(/\s/g, "");
-    if (trimmed.length !== OTP_LENGTH) {
-      toast.error("Please enter the 4-digit code from your email.");
-      return;
-    }
-    setIsVerifying(true);
-    try {
-      const res = await fetch("/api/verification-otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contextType, contextId, action, code: trimmed }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.message || "Invalid code");
+  const handleVerify = useCallback(
+    async (codeOverride?: string) => {
+      const value = (codeOverride ?? code).replace(/\s/g, "");
+      if (value.length !== OTP_LENGTH) {
+        toast.error("Please enter the 4-digit code from your email.");
         return;
       }
-      onVerified(data.verificationToken);
-      onOpenChange(false);
-    } catch {
-      toast.error("Verification failed.");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+      setIsVerifying(true);
+      try {
+        const res = await fetch("/api/verification-otp/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contextType, contextId, action, code: value }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          toast.error(data.message || "Invalid code");
+          return;
+        }
+        onVerified(data.verificationToken);
+        onOpenChange(false);
+      } catch {
+        toast.error("Verification failed.");
+      } finally {
+        setIsVerifying(false);
+      }
+    },
+    [code, contextType, contextId, action, onVerified, onOpenChange]
+  );
+
+  const handleCodeChange = useCallback(
+    (value: string) => {
+      setCode(value);
+      if (value.replace(/\s/g, "").length === OTP_LENGTH && !isVerifying && !isRequesting) {
+        handleVerify(value);
+      }
+    },
+    [handleVerify, isVerifying, isRequesting]
+  );
 
   const handleOpenChange = (next: boolean) => {
     if (!next) {
@@ -130,7 +144,7 @@ export function OtpVerificationDialog({
         </DialogHeader>
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-center">
-            <InputOTP maxLength={OTP_LENGTH} value={code} onChange={setCode}>
+            <InputOTP maxLength={OTP_LENGTH} value={code} onChange={handleCodeChange}>
               <InputOTPGroup>
                 <InputOTPSlot index={0} />
                 <InputOTPSlot index={1} />
@@ -148,6 +162,7 @@ export function OtpVerificationDialog({
               disabled={resendCooldown > 0 || isRequesting}
               onClick={requestOtp}
             >
+              {isRequesting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {resendCooldown > 0
                 ? `Resend in ${Math.floor(resendCooldown / 60)}:${String(resendCooldown % 60).padStart(2, "0")}`
                 : "Resend code"}
@@ -158,7 +173,10 @@ export function OtpVerificationDialog({
           <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isVerifying}>
             Cancel
           </Button>
-          <Button onClick={handleVerify} disabled={code.replace(/\s/g, "").length !== OTP_LENGTH || isVerifying}>
+          <Button
+            onClick={() => handleVerify()}
+            disabled={code.replace(/\s/g, "").length !== OTP_LENGTH || isVerifying || isRequesting}
+          >
             {isVerifying ? "Verifying..." : "Verify"}
           </Button>
         </DialogFooter>
