@@ -196,9 +196,6 @@ export default function EventsPage() {
   return (
     <div className="flex h-screen">
       {/* Left Sidebar - Filters (Desktop) */}
-      {!isMobile && <div className="hidden md:block w-80 shrink-0 border-r">{filtersContent}</div>}
-
-      {/* Right Content - Events */}
       <div className="flex-1 overflow-y-auto min-w-0" data-events-content>
         <div className="container mx-auto py-4 sm:py-8 px-4 sm:px-6 max-w-7xl">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6 sm:mb-8">
@@ -287,6 +284,9 @@ export default function EventsPage() {
           )}
         </div>
       </div>
+      {/* Right Content - Events */}
+
+      {!isMobile && <div className="hidden md:block w-80 shrink-0 border-l">{filtersContent}</div>}
     </div>
   );
 }

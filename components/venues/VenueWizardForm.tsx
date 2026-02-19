@@ -25,7 +25,8 @@ import { getCountryCoordinates } from "@/lib/utils/country-coordinates";
 import { useCountries } from "@/lib/hooks/use-locations";
 import { MAX_TEXTAREA_LENGTH } from "@/lib/validation/venues.schema";
 import { toast } from "sonner";
-import { Loader2, Save, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Home, User, CreditCard, ChevronRight, Save, FileText } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useVenueTemplates, useVenueTemplate } from "@/lib/hooks/use-venues";
 import { SaveVenueTemplateDialog } from "./SaveVenueTemplateDialog";
 import { UseVenueTemplateDialog } from "./UseVenueTemplateDialog";
@@ -49,8 +50,102 @@ function normalizeFloorPlans(
   return raw.map((item) => (typeof item === "string" ? { url: item } : { url: item.url, name: item.name }));
 }
 
-export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: VenueFormProps) {
+// Step indicator component matching the image style (horizontal, no borders)
+function StepIndicator({
+  currentStep,
+  totalSteps: _unusedTotalSteps,
+  onStepClick,
+  stepErrors,
+}: {
+  currentStep: number;
+  totalSteps: number;
+  onStepClick?: (step: number) => void;
+  stepErrors?: Record<number, boolean>;
+}) {
+  // totalSteps is part of the interface but not currently used
+  void _unusedTotalSteps;
+  const steps = [
+    { number: 1, title: "Basic Information", subtitle: "Venue Details", icon: Home },
+    { number: 2, title: "Capacity & Features", subtitle: "Specifications", icon: User },
+    { number: 3, title: "Contact & Media", subtitle: "Final Details", icon: CreditCard },
+  ];
+
+  return (
+    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between w-full mb-5 gap-3 sm:gap-0">
+      {steps.map((step, index) => {
+        const Icon = step.icon;
+        const isActive = currentStep === step.number;
+        const isCompleted = currentStep > step.number;
+        const hasError = stepErrors?.[step.number] || false;
+        const isLast = index === steps.length - 1;
+
+        return (
+          <div key={step.number} className="flex flex-col sm:flex-row items-center flex-1">
+            <button
+              type="button"
+              onClick={() => onStepClick && onStepClick(step.number)}
+              className={cn(
+                "flex items-center gap-3 w-full sm:flex-1 cursor-pointer rounded-lg p-2 transition-colors",
+                hasError && "bg-rose-100"
+              )}
+            >
+              <div
+                className={cn(
+                  "flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-colors shrink-0",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : isCompleted
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </div>
+              <div className="text-left flex-1">
+                <div
+                  className={cn(
+                    "text-sm font-semibold",
+                    hasError
+                      ? "text-destructive"
+                      : isActive
+                        ? "text-foreground"
+                        : isCompleted
+                          ? "text-foreground"
+                          : "text-muted-foreground"
+                  )}
+                >
+                  {step.title}
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">{step.subtitle}</div>
+              </div>
+            </button>
+            {!isLast && (
+              <ChevronRight
+                className={cn(
+                  "hidden sm:block mx-5 h-5 w-5 flex-shrink-0 self-center",
+                  isCompleted ? "text-primary" : "text-muted-foreground"
+                )}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// Character counter component for textareas
+// function CharacterCounter({ current: currentLength, max: maxLength }: { current: number; max: number }) {
+//   return (
+//     <div className="text-xs text-muted-foreground text-right mt-1">
+//       {currentLength.toLocaleString()}/{maxLength.toLocaleString()}
+//     </div>
+//   );
+// }
+
+export function VenueWizardForm({ mode, venue, defaultCountry, defaultCountryId }: VenueFormProps) {
   const router = useRouter();
+  const [currentStep, setCurrentStep] = useState(1);
   const [venueId, setVenueId] = useState<string | undefined>(venue?.id);
   const [showSaveTemplateDialog, setShowSaveTemplateDialog] = useState(false);
   const [showUseTemplateDialog, setShowUseTemplateDialog] = useState(false);
@@ -228,13 +323,178 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
     }
   }, [selectedTemplate, form, isEditing]);
 
+  // Calculate step errors for visual feedback (only after submission or duplicate)
+  // Since validation only happens on onSubmit, errors only exist after form submission
+  const stepErrors = useMemo(() => {
+    const errors: Record<number, boolean> = {};
+
+    // Step 1 has error if duplicate venue exists (always show this)
+    if (duplicateVenue) {
+      errors[1] = true;
+    }
+
+    // Only calculate field errors if form has been submitted (when validation occurs)
+    if (!form.formState.isSubmitted) {
+      return errors;
+    }
+
+    // Check step 1
+    const step1Fields: (keyof VenueFormData)[] = ["name", "street", "city", "country"];
+    errors[1] = errors[1] || step1Fields.some((field) => !!form.formState.errors[field]);
+
+    const step2Fields: (keyof VenueFormData)[] = [
+      "total_capacity",
+      "number_of_tables",
+      "ticket_capacity",
+      "sounds",
+      "lights",
+      "screens",
+    ];
+    errors[2] = step2Fields.some((field) => !!form.formState.errors[field]);
+
+    const step3Fields: (keyof VenueFormData)[] = ["contact_person_name", "contact_email", "floor_plans", "media"];
+    errors[3] = step3Fields.some((field) => !!form.formState.errors[field]);
+
+    return errors;
+  }, [form.formState.errors, form.formState.isSubmitted, duplicateVenue]);
+
+  // Validate current step
+  const validateStep = async (step: number): Promise<boolean> => {
+    let schema: typeof venueStep1Schema | typeof venueStep2Schema | typeof venueStep3Schema;
+    switch (step) {
+      case 1:
+        schema = venueStep1Schema;
+        break;
+      case 2:
+        schema = venueStep2Schema;
+        break;
+      case 3:
+        schema = venueStep3Schema;
+        break;
+      default:
+        return true;
+    }
+
+    // Trigger validation for all fields in the current step
+    const stepFields: (keyof VenueFormData)[] = [];
+    if (step === 1) {
+      stepFields.push("name", "street", "city", "country", "location_lat", "location_lng");
+    } else if (step === 2) {
+      stepFields.push("total_capacity", "number_of_tables", "ticket_capacity", "sounds", "lights", "screens");
+    } else if (step === 3) {
+      stepFields.push("contact_person_name", "contact_email", "floor_plans", "media");
+    }
+
+    // Trigger validation for step fields
+    const validationResults = await Promise.all(stepFields.map((field) => form.trigger(field)));
+
+    // Also validate with schema
+    const values = form.getValues();
+    const result = schema.safeParse(values);
+
+    if (!result.success) {
+      // Set errors for the current step
+      result.error.issues.forEach((issue) => {
+        const field = issue.path[0] as keyof VenueFormData;
+        form.setError(field, { message: issue.message, type: "validation" });
+      });
+      return false;
+    }
+
+    // Check if any field validation failed
+    if (validationResults.some((valid) => !valid)) {
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleNext = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent form submission if event is provided
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Block if duplicate exists in Step 1
+    if (currentStep === 1 && duplicateVenue) {
+      toast.error("Cannot proceed with duplicate venue", {
+        description: "Please modify the venue name, address, or city to create a unique venue.",
+      });
+      return;
+    }
+
+    // Prevent double-click by checking if already on last step
+    setCurrentStep((prev) => {
+      if (prev >= 3) return prev;
+      const nextStep = Math.min(prev + 1, 3);
+      // Scroll to top when moving to next step
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 0);
+      return nextStep;
+    });
+  };
+
+  const handleStepClick = (step: number) => {
+    // Allow free navigation to any step - no validation
+    setCurrentStep(step);
+    // Scroll to top when changing steps
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
+  };
+
+  const handlePrevious = (e?: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent form submission if event is provided
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    setCurrentStep((prev) => {
+      const prevStep = Math.max(prev - 1, 1);
+      // Scroll to top when going to previous step
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 0);
+      return prevStep;
+    });
+  };
+
   const onSubmit = async (data: VenueFormData): Promise<void> => {
+    // Validate all steps before submission
+    // Only submit if we're on the final step
+    if (currentStep !== 3) {
+      return;
+    }
+
     // Block submission if duplicate venue exists
     if (duplicateVenue) {
       toast.error("Cannot create duplicate venue", {
         description:
           "A venue with the same name, address, and city already exists. Please modify the venue details or view the existing venue.",
       });
+      setCurrentStep(1);
+      return;
+    }
+
+    const step1Valid = await validateStep(1);
+    const step2Valid = await validateStep(2);
+    const step3Valid = await validateStep(3);
+
+    if (!step1Valid || !step2Valid || !step3Valid) {
+      // Find the first step with errors and navigate to it
+      if (!step1Valid) {
+        setCurrentStep(1);
+        toast.error("Please fix errors in Step 1 before submitting");
+      } else if (!step2Valid) {
+        setCurrentStep(2);
+        toast.error("Please fix errors in Step 2 before submitting");
+      } else if (!step3Valid) {
+        setCurrentStep(3);
+        toast.error("Please fix errors in Step 3 before submitting");
+      }
       return;
     }
 
@@ -257,11 +517,13 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
         }
         const result = await createVenueMutation.mutateAsync(submitData);
         if (result.isDuplicate) {
+          // This shouldn't happen since we check in Step 1, but handle it anyway
           setDuplicateVenue(result.duplicateVenue || null);
           toast.error("Cannot create duplicate venue", {
             description:
               "A venue with the same name, address, and city already exists. Please modify the venue details.",
           });
+          setCurrentStep(1);
         } else {
           const newVenue = result.venue;
           setVenueId(newVenue.id);
@@ -294,6 +556,7 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
         toast.error("Cannot create duplicate venue", {
           description: "A venue with the same name, address, and city already exists. Please modify the venue details.",
         });
+        setCurrentStep(1);
       } else {
         const newVenue = result.venue;
         setVenueId(newVenue.id);
@@ -448,45 +711,52 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
           </Card>
         )}
 
-        <Card>
-          <CardContent className="space-y-6 p-1 sm:p-6">
-            {/* Venue Name - full width */}
-            <div className="space-y-2 w-full">
-              <Label htmlFor="name">
-                Venue Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="name"
-                {...form.register("name")}
-                placeholder="Conference Center"
-                aria-invalid={!!form.formState.errors.name}
-                className="w-full"
-              />
-              {form.formState.errors.name && (
-                <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-              )}
-            </div>
+        {/* Step Indicator */}
+        <StepIndicator currentStep={currentStep} totalSteps={3} onStepClick={handleStepClick} stepErrors={stepErrors} />
 
-            {/* Address section: left = country, city, street (flex col); right = map */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="flex flex-col gap-4">
-                <LocationCombobox
-                  value={form.watch("country_id") ?? undefined}
-                  onValueChange={(value) => {
-                    const c = countries.find((x) => x.id === value);
-                    if (c) {
-                      form.setValue("country_id", c.id);
-                      form.setValue("country", c.name);
-                    } else {
-                      form.setValue("country_id", null);
-                      form.setValue("country", "");
-                    }
-                  }}
-                  options={countries.map((c) => ({ id: c.id, name: c.name }))}
-                  placeholder="Select country"
-                  label="Country"
-                  error={form.formState.errors.country?.message}
-                />
+        {/* Step 1: Basic Information */}
+        {currentStep === 1 && (
+          <Card>
+            <CardContent className="space-y-4 p-1 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Venue Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="name">
+                    Venue Name <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="name"
+                    {...form.register("name")}
+                    placeholder="Conference Center"
+                    aria-invalid={!!form.formState.errors.name}
+                  />
+                  {form.formState.errors.name && (
+                    <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+                  )}
+                </div>
+
+                {/* Country - selectable */}
+                <div className="space-y-2">
+                  <LocationCombobox
+                    value={form.watch("country_id") ?? undefined}
+                    onValueChange={(value) => {
+                      const c = countries.find((x) => x.id === value);
+                      if (c) {
+                        form.setValue("country_id", c.id);
+                        form.setValue("country", c.name);
+                      } else {
+                        form.setValue("country_id", null);
+                        form.setValue("country", "");
+                      }
+                    }}
+                    options={countries.map((c) => ({ id: c.id, name: c.name }))}
+                    placeholder="Select country"
+                    label="Country"
+                    error={form.formState.errors.country?.message}
+                  />
+                </div>
+
+                {/* City */}
                 <div className="space-y-2">
                   <Label htmlFor="city">
                     City <span className="text-destructive">*</span>
@@ -501,163 +771,186 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                     <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
                   )}
                 </div>
-                <div className="space-y-2 flex-1">
-                  <Label htmlFor="street">
-                    Street Address <span className="text-destructive">*</span>
-                  </Label>
-                  <AddressAutocomplete
-                    id="street"
-                    value={form.watch("street") || ""}
-                    onChange={handleAddressChange}
-                    placeholder="Enter street address (autocomplete enabled)"
-                    error={form.formState.errors.street?.message}
-                    geocodeOnBlur
-                    geocodeContext={{
-                      city: form.watch("city") || undefined,
-                      country: form.watch("country") || undefined,
-                    }}
-                  />
-                </div>
-                {duplicateVenue && (
-                  <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
-                    <h4 className="font-semibold text-destructive">Duplicate Venue Detected</h4>
-                    <p className="text-sm text-destructive/90 mt-1">
-                      A venue with the same name, address, and city already exists.
-                    </p>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      <p>
-                        <strong>Existing venue:</strong> {duplicateVenue.name} — {duplicateVenue.street},{" "}
-                        {duplicateVenue.city}
-                        {duplicateVenue.country ? `, ${duplicateVenue.country}` : ""}
+              </div>
+
+              {/* Street Address */}
+              <div className="space-y-2">
+                <Label htmlFor="street">
+                  Street Address <span className="text-destructive">*</span>
+                </Label>
+                <AddressAutocomplete
+                  id="street"
+                  value={form.watch("street") || ""}
+                  onChange={handleAddressChange}
+                  placeholder="Enter street address (autocomplete enabled)"
+                  error={form.formState.errors.street?.message}
+                  geocodeOnBlur
+                  geocodeContext={{
+                    city: form.watch("city") || undefined,
+                    country: form.watch("country") || undefined,
+                  }}
+                />
+              </div>
+
+              {/* Map Selector */}
+              <VenueMapSelector
+                lat={form.watch("location_lat") ?? null}
+                lng={form.watch("location_lng") ?? null}
+                onLocationSelect={handleLocationSelect}
+                countryCenter={countryCenter}
+                stateCenter={undefined}
+                error={form.formState.errors.location_lat?.message || form.formState.errors.location_lng?.message}
+              />
+
+              {/* Duplicate Venue Error */}
+              {duplicateVenue && (
+                <div className="rounded-lg border border-destructive bg-destructive/10 p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-destructive">Duplicate Venue Detected</h4>
+                      <p className="text-sm text-destructive/90 mt-1">
+                        A venue with the same name, address, and city already exists. You cannot create a duplicate
+                        venue.
                       </p>
+                      <div className="mt-2 text-sm text-muted-foreground">
+                        <p>
+                          <strong>Existing venue:</strong> {duplicateVenue.name}
+                        </p>
+                        <p>
+                          {duplicateVenue.street}, {duplicateVenue.city}
+                          {duplicateVenue.country ? `, ${duplicateVenue.country}` : ""}
+                        </p>
+                      </div>
                       {duplicateVenue.short_id && (
                         <Button
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="mt-2"
-                          onClick={() => router.push(`/dashboard/venues/${duplicateVenue!.short_id}`)}
+                          className="mt-3"
+                          onClick={() => router.push(`/dashboard/venues/${duplicateVenue.short_id}`)}
                         >
                           View Existing Venue
                         </Button>
                       )}
                     </div>
                   </div>
-                )}
-                {checkDuplicateMutation.isPending && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Checking for duplicate venues...
-                  </div>
-                )}
-              </div>
-              <div className="min-h-[180px]">
-                <VenueMapSelector
-                  lat={form.watch("location_lat") ?? null}
-                  lng={form.watch("location_lng") ?? null}
-                  onLocationSelect={handleLocationSelect}
-                  countryCenter={countryCenter}
-                  stateCenter={undefined}
-                  error={form.formState.errors.location_lat?.message || form.formState.errors.location_lng?.message}
-                />
-              </div>
-            </div>
+                </div>
+              )}
 
-            {/* Capacity & Features */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="total_capacity">Total Capacity</Label>
-                <Input
-                  id="total_capacity"
-                  type="number"
-                  min="0"
-                  max="99999999"
-                  {...form.register("total_capacity", { valueAsNumber: true })}
-                  placeholder="0"
-                  aria-invalid={!!form.formState.errors.total_capacity}
-                />
-                {form.formState.errors.total_capacity && (
-                  <p className="text-sm text-destructive">{form.formState.errors.total_capacity.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="number_of_tables">Number of Tables</Label>
-                <Input
-                  id="number_of_tables"
-                  type="number"
-                  min="0"
-                  max="99999999"
-                  {...form.register("number_of_tables", { valueAsNumber: true })}
-                  placeholder="0"
-                  aria-invalid={!!form.formState.errors.number_of_tables}
-                />
-                {form.formState.errors.number_of_tables && (
-                  <p className="text-sm text-destructive">{form.formState.errors.number_of_tables.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ticket_capacity">Ticket Capacity</Label>
-                <Input
-                  id="ticket_capacity"
-                  type="number"
-                  min="0"
-                  max="99999999"
-                  {...form.register("ticket_capacity", { valueAsNumber: true })}
-                  placeholder="0"
-                  aria-invalid={!!form.formState.errors.ticket_capacity}
-                />
-                {form.formState.errors.ticket_capacity && (
-                  <p className="text-sm text-destructive">{form.formState.errors.ticket_capacity.message}</p>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="sounds">Sounds</Label>
-                <textarea
-                  id="sounds"
-                  {...form.register("sounds")}
-                  maxLength={MAX_TEXTAREA_LENGTH}
-                  placeholder="Sound equipment, PA, etc."
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-invalid={!!form.formState.errors.sounds}
-                />
-                {form.formState.errors.sounds && (
-                  <p className="text-sm text-destructive">{form.formState.errors.sounds.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lights">Lights</Label>
-                <textarea
-                  id="lights"
-                  {...form.register("lights")}
-                  maxLength={MAX_TEXTAREA_LENGTH}
-                  placeholder="Lighting options..."
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-invalid={!!form.formState.errors.lights}
-                />
-                {form.formState.errors.lights && (
-                  <p className="text-sm text-destructive">{form.formState.errors.lights.message}</p>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="screens">Screens</Label>
-                <textarea
-                  id="screens"
-                  {...form.register("screens")}
-                  maxLength={MAX_TEXTAREA_LENGTH}
-                  placeholder="Screens, projectors..."
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-invalid={!!form.formState.errors.screens}
-                />
-                {form.formState.errors.screens && (
-                  <p className="text-sm text-destructive">{form.formState.errors.screens.message}</p>
-                )}
-              </div>
-            </div>
+              {/* Duplicate Check Loading */}
+              {checkDuplicateMutation.isPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Checking for duplicate venues...
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Contact person name and venue contact email in one row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Step 2: Capacity & Features */}
+        {currentStep === 2 && (
+          <Card>
+            <CardContent className="space-y-4 p-1 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="total_capacity">Total Capacity</Label>
+                  <Input
+                    id="total_capacity"
+                    type="number"
+                    min="0"
+                    max="99999999"
+                    {...form.register("total_capacity", { valueAsNumber: true })}
+                    placeholder="0"
+                    aria-invalid={!!form.formState.errors.total_capacity}
+                  />
+                  {form.formState.errors.total_capacity && (
+                    <p className="text-sm text-destructive">{form.formState.errors.total_capacity.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="number_of_tables">Number of Tables</Label>
+                  <Input
+                    id="number_of_tables"
+                    type="number"
+                    min="0"
+                    max="99999999"
+                    {...form.register("number_of_tables", { valueAsNumber: true })}
+                    placeholder="0"
+                    aria-invalid={!!form.formState.errors.number_of_tables}
+                  />
+                  {form.formState.errors.number_of_tables && (
+                    <p className="text-sm text-destructive">{form.formState.errors.number_of_tables.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ticket_capacity">Ticket Capacity</Label>
+                  <Input
+                    id="ticket_capacity"
+                    type="number"
+                    min="0"
+                    max="99999999"
+                    {...form.register("ticket_capacity", { valueAsNumber: true })}
+                    placeholder="0"
+                    aria-invalid={!!form.formState.errors.ticket_capacity}
+                  />
+                  {form.formState.errors.ticket_capacity && (
+                    <p className="text-sm text-destructive">{form.formState.errors.ticket_capacity.message}</p>
+                  )}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="sounds">Sounds</Label>
+                  <textarea
+                    id="sounds"
+                    {...form.register("sounds")}
+                    maxLength={MAX_TEXTAREA_LENGTH}
+                    placeholder="Sound equipment, PA, etc."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={!!form.formState.errors.sounds}
+                  />
+                  {form.formState.errors.sounds && (
+                    <p className="text-sm text-destructive">{form.formState.errors.sounds.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lights">Lights</Label>
+                  <textarea
+                    id="lights"
+                    {...form.register("lights")}
+                    maxLength={MAX_TEXTAREA_LENGTH}
+                    placeholder="Lighting options..."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={!!form.formState.errors.lights}
+                  />
+                  {form.formState.errors.lights && (
+                    <p className="text-sm text-destructive">{form.formState.errors.lights.message}</p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="screens">Screens</Label>
+                  <textarea
+                    id="screens"
+                    {...form.register("screens")}
+                    maxLength={MAX_TEXTAREA_LENGTH}
+                    placeholder="Screens, projectors..."
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-invalid={!!form.formState.errors.screens}
+                  />
+                  {form.formState.errors.screens && (
+                    <p className="text-sm text-destructive">{form.formState.errors.screens.message}</p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Contact & Media */}
+        {currentStep === 3 && (
+          <Card>
+            <CardContent className="space-y-4 p-1 sm:p-6">
               <div className="space-y-2">
                 <Label htmlFor="contact_person_name">
                   Contact Person Name <span className="text-destructive">*</span>
@@ -681,15 +974,14 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                   placeholder="contact@venue.com"
                   aria-invalid={!!form.formState.errors.contact_email}
                 />
-                <p className="text-xs text-muted-foreground">Verified by OTP; venue shows verified badge after.</p>
+                <p className="text-xs text-muted-foreground">
+                  This email will need to be verified by the contact person using an OTP code sent to their inbox. Until
+                  then, the venue will not show a verified badge.
+                </p>
                 {form.formState.errors.contact_email && (
                   <p className="text-sm text-destructive">{form.formState.errors.contact_email.message}</p>
                 )}
               </div>
-            </div>
-
-            {/* Floor plans and photos/videos in one row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Floor Plans (PDF, images)</Label>
                 <VenueFloorPlansUpload
@@ -707,43 +999,85 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                   error={form.formState.errors.media?.message}
                 />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Submit row */}
-        <div className="flex items-center justify-end gap-2 pt-4">
-          {!isEditing && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleSaveAsTemplate}
-              disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save as Template
-            </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={
-              createVenueMutation.isPending ||
-              updateVenueMutation.isPending ||
-              !!duplicateVenue ||
-              (!isEditing && profileLoading)
-            }
-          >
-            {createVenueMutation.isPending || updateVenueMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {isEditing ? "Updating..." : "Creating..."}
-              </>
-            ) : isEditing ? (
-              "Update Venue"
-            ) : (
-              "Create Venue"
+        {/* Navigation Buttons */}
+        <div className="flex items-center justify-between pt-4">
+          <div>
+            {currentStep > 1 && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={(e) => handlePrevious(e)}
+                disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
+              </Button>
             )}
-          </Button>
+          </div>
+
+          <div className="flex gap-2">
+            {/* Save as Template button - Only show in step 3 and when form has data */}
+            {currentStep === 3 && !isEditing && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAsTemplate}
+                disabled={createVenueMutation.isPending || updateVenueMutation.isPending}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save as Template
+              </Button>
+            )}
+            {currentStep < 3 ? (
+              <Button
+                type="button"
+                onClick={(e) => handleNext(e)}
+                disabled={
+                  createVenueMutation.isPending ||
+                  updateVenueMutation.isPending ||
+                  checkDuplicateMutation.isPending ||
+                  (currentStep === 1 && !!duplicateVenue)
+                }
+              >
+                {checkDuplicateMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                disabled={
+                  createVenueMutation.isPending ||
+                  updateVenueMutation.isPending ||
+                  !!duplicateVenue ||
+                  (!isEditing && profileLoading)
+                }
+              >
+                {createVenueMutation.isPending || updateVenueMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isEditing ? "Updating..." : "Creating..."}
+                  </>
+                ) : isEditing ? (
+                  "Update Venue"
+                ) : (
+                  "Create Venue"
+                )}
+              </Button>
+            )}
+          </div>
         </div>
       </form>
 

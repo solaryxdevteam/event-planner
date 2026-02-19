@@ -26,6 +26,8 @@ export interface EventFilters {
   state?: string; // Filter by venue state
   page?: number;
   pageSize?: number;
+  /** When true, return only approved events that need a marketing report (marketing_manager only) */
+  needsMarketingReport?: boolean;
 }
 
 /**
@@ -51,6 +53,7 @@ export async function fetchEvents(filters: EventFilters): Promise<EventWithRelat
   if (filters.state) params.state = filters.state;
   if (filters.page) params.page = filters.page;
   if (filters.pageSize) params.pageSize = filters.pageSize;
+  if (filters.needsMarketingReport === true) params.needsMarketingReport = "true";
 
   return apiClient.get<EventWithRelations[]>("/api/events", { params });
 }

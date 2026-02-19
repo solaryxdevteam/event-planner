@@ -192,51 +192,54 @@ export function DJForm({ mode, dj }: DJFormProps) {
           <ImageIcon className="h-4 w-4" />
           Picture
         </Label>
-        {!isViewMode && (
-          <FileUploader
-            accept="image/*"
-            multiple={false}
-            maxFiles={1}
-            currentCount={form.watch("picture_url") ? 1 : 0}
-            onFilesSelected={handlePictureSelect}
-            acceptLabel="Image (JPEG, PNG, WebP)"
-            disabled={pictureUploading}
-            uploadProgress={pictureUploading ? 50 : undefined}
-          />
-        )}
-        {form.watch("picture_url") && (
-          <div className="flex items-center gap-3 rounded-md border bg-muted/50 p-2">
-            <button
-              type="button"
-              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
-              onClick={() => setMediaPreview({ url: form.watch("picture_url")!, type: "image" })}
-            >
-              <Image
-                src={form.watch("picture_url")!}
-                alt="DJ picture"
-                fill
-                className="object-cover"
-                unoptimized
-                sizes="64px"
-              />
-            </button>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-muted-foreground">Photo uploaded</p>
-            </div>
-            {!isViewMode && (
-              <Button
+        <div className="grid grid-cols-3 gap-3">
+          {!isViewMode && (
+            <FileUploader
+              accept="image/*"
+              multiple={false}
+              maxFiles={1}
+              currentCount={form.watch("picture_url") ? 1 : 0}
+              onFilesSelected={handlePictureSelect}
+              acceptLabel="Image (JPEG, PNG, WebP)"
+              disabled={pictureUploading}
+              uploadProgress={pictureUploading ? 50 : undefined}
+              className={form.watch("picture_url") ? "col-span-2" : "col-span-3"}
+            />
+          )}
+          {form.watch("picture_url") && (
+            <div className="flex items-center justify-between gap-3 rounded-md border bg-muted/50 p-3 col-span-1">
+              <button
                 type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0 text-muted-foreground hover:text-destructive"
-                onClick={clearPicture}
-                aria-label="Delete picture"
+                className="relative h-full w-full overflow-hidden rounded-md bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
+                onClick={() => setMediaPreview({ url: form.watch("picture_url")!, type: "image" })}
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
+                <Image
+                  src={form.watch("picture_url")!}
+                  alt="DJ picture"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                  sizes="64px"
+                />
+              </button>
+              {/* <div className="flex-1 min-w-0">
+                <p className="text-sm text-muted-foreground">Photo uploaded</p>
+              </div> */}
+              {!isViewMode && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={clearPicture}
+                  aria-label="Delete picture"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
         {form.formState.errors.picture_url && (
           <p className="text-sm text-destructive">{form.formState.errors.picture_url.message}</p>
         )}

@@ -123,7 +123,7 @@ export function VenueMapSelector({
     <div className="space-y-2">
       <Label>Location on Map</Label>
       <div className="relative z-0">
-        <div className="w-full h-[400px] rounded-md border border-input overflow-hidden relative z-0">
+        <div className="w-full h-[300px] rounded-md border border-input overflow-hidden relative z-0">
           <MapContainer
             center={center}
             zoom={zoom}

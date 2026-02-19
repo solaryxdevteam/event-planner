@@ -78,7 +78,7 @@ export function DJCard({ dj, userRole, onDelete, onActivate, onDeactivate }: DJC
             <span className="text-sm">No photo</span>
           </div>
         )}
-        <div className="absolute top-2 right-2 flex gap-1">
+        <div className="absolute top-2 right-2 flex flex-wrap gap-1 justify-end">
           {isDeleted ? (
             <Badge variant="destructive" className="rounded-sm text-xs">
               Deleted
@@ -92,10 +92,18 @@ export function DJCard({ dj, userRole, onDelete, onActivate, onDeactivate }: DJC
               Active
             </Badge>
           )}
-          {dj.email_verified && (
-            <Badge variant="secondary" className="rounded-sm text-xs gap-1">
+          {dj.email_verified ? (
+            <Badge variant="white" className="rounded-sm text-xs gap-1 text-green-600 dark:text-green-700">
               <CheckCircle2 className="h-3 w-3" />
               Verified
+            </Badge>
+          ) : (
+            <Badge
+              variant="secondary"
+              className="rounded-sm text-xs gap-1 text-muted-foreground bg-white text-red-600 dark:text-red-400"
+            >
+              <XCircle className="h-3 w-3" />
+              Not verified
             </Badge>
           )}
         </div>

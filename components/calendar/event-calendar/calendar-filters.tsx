@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { X, Search, Music2, Globe, MapPin } from "lucide-react";
+import { X, Search, Disc3, Globe, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -181,7 +181,7 @@ export function CalendarFiltersBar({
               variant={filters.djIds.length > 0 ? "default" : "outline"}
               className="h-9 gap-2 px-4 text-sm font-medium transition-all"
             >
-              <Music2 className="h-4 w-4" />
+              <Disc3 className="h-4 w-4" />
               DJs
               {filters.djIds.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
@@ -223,7 +223,7 @@ export function CalendarFiltersBar({
                 variant="outline"
                 className="h-7 gap-1.5 border-purple-200 bg-purple-50 px-2 py-1 text-purple-700 hover:bg-purple-100 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300"
               >
-                <Music2 className="h-3 w-3" />
+                <Disc3 className="h-3 w-3" />
                 <span className="max-w-[120px] truncate text-xs font-medium">{dj?.name || id}</span>
                 <button
                   onClick={() => toggleArrayFilter("djIds", id)}

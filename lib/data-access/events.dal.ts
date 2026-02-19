@@ -518,6 +518,8 @@ export interface EventFilterOptions {
   page?: number;
   pageSize?: number;
   includeRelations?: boolean;
+  /** When true (marketing_manager only), return only approved_scheduled events that do not yet have an approved marketing report */
+  needsMarketingReport?: boolean;
 }
 
 /**

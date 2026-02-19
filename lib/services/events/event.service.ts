@@ -12,6 +12,7 @@ import { NotFoundError, ForbiddenError, ValidationError } from "@/lib/utils/erro
 import { getSubordinateUserIds } from "@/lib/services/users/hierarchy.service";
 import * as eventDAL from "@/lib/data-access/events.dal";
 import * as approvalDAL from "@/lib/data-access/event-approvals.dal";
+import * as marketingReportsDAL from "@/lib/data-access/marketing-reports.dal";
 import * as eventVersionDAL from "@/lib/data-access/event-versions.dal";
 import type { EventVersionInsert } from "@/lib/data-access/event-versions.dal";
 import * as auditService from "@/lib/services/audit/audit.service";
@@ -168,11 +169,18 @@ export async function getEventsForUser(
     const allowed = [...MARKETING_MANAGER_EVENT_STATUSES];
     const requested = filters.status ? (Array.isArray(filters.status) ? filters.status : [filters.status]) : allowed;
     const statusFilter = requested.filter((s) => allowed.includes(s as (typeof allowed)[number]));
-    return eventDAL.findAllByStatuses(statusFilter.length ? statusFilter : allowed, {
-      ...filters,
+    const { needsMarketingReport, ...restFilters } = filters;
+    let events = await eventDAL.findAllByStatuses(statusFilter.length ? statusFilter : allowed, {
+      ...restFilters,
       status: undefined,
       includeRelations: true,
     });
+    if (needsMarketingReport) {
+      const eventIdsWithApprovedReport = await marketingReportsDAL.findEventIdsWithApprovedReport();
+      const excludeSet = new Set(eventIdsWithApprovedReport);
+      events = events.filter((e) => e.status === "approved_scheduled" && !excludeSet.has(e.id));
+    }
+    return events;
   }
 
   const subordinateIds = await getSubordinateUserIds(userId);

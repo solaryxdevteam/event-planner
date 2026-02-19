@@ -140,6 +140,17 @@ export interface VenueContactVerification {
   created_at: string;
 }
 
+export interface DjContactVerification {
+  id: string;
+  dj_id: string;
+  token: string;
+  token_expires_at: string;
+  otp_hash: string;
+  otp_expires_at: string;
+  verified_at: string | null;
+  created_at: string;
+}
+
 export interface VenueApproval {
   id: string;
   venue_id: string;
@@ -415,6 +426,14 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Omit<VenueContactVerification, "id" | "created_at">>;
+      };
+      dj_contact_verifications: {
+        Row: DjContactVerification;
+        Insert: Omit<DjContactVerification, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: Partial<Omit<DjContactVerification, "id" | "created_at">>;
       };
       reports: {
         Row: Report;

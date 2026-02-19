@@ -18,7 +18,7 @@ import { useShallow } from "zustand/shallow";
 import { formatTimeDisplay } from "@/lib/calendar/date-utils";
 import { getColorClasses, getCategoryLabel } from "@/lib/calendar/event-utils";
 import { format } from "date-fns";
-import { Calendar, Clock, MapPin, Music2, Users, ExternalLink, Building2, DollarSign } from "lucide-react";
+import { Calendar, Clock, MapPin, Disc3, Users, ExternalLink, Building2, DollarSign } from "lucide-react";
 
 function useIsMounted() {
   const [isMounted, setIsMounted] = useState(false);
@@ -94,7 +94,7 @@ export default function EventDetailDialog() {
               <>
                 <Separator />
                 <div className="flex items-start gap-3">
-                  <Music2 className="text-muted-foreground mt-0.5 h-4 w-4" />
+                  <Disc3 className="text-muted-foreground mt-0.5 h-4 w-4" />
                   <div>
                     <p className="text-muted-foreground text-xs">DJ</p>
                     <p className="text-sm font-medium">{event.djName}</p>

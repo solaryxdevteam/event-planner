@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Music2, Users, Eye, Trash2, Send, DollarSign, Copy } from "lucide-react";
+import { Calendar, MapPin, Disc3, Users, Eye, Trash2, Send, DollarSign, Copy } from "lucide-react";
 import { format } from "date-fns";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 
@@ -130,7 +130,7 @@ export function EventCard({
           {/* DJ */}
           {event.dj && (
             <div className="flex items-center text-sm text-muted-foreground">
-              <Music2 className="mr-2 h-4 w-4" />
+              <Disc3 className="mr-2 h-4 w-4" />
               <span>{event.dj.name}</span>
             </div>
           )}

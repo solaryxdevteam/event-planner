@@ -17,7 +17,7 @@ export default async function DashboardPage() {
   return (
     <div className="w-full min-w-0 max-w-full space-y-4 sm:space-y-6 overflow-x-hidden px-4 sm:px-0">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-3">Dashboard</h1>
         <p className="text-muted-foreground text-sm sm:text-base">Welcome to your Event Planner dashboard</p>
       </div>
       <DashboardClient />

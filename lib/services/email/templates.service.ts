@@ -320,6 +320,61 @@ export function renderVenueContactVerificationEmail(
 }
 
 /**
+ * Render DJ contact verification email
+ * "Dear [name], Shiraz House has invited you to verify as a DJ"
+ * Includes button link to verify-dj page and OTP code
+ */
+export function renderDjContactVerificationEmail(
+  djName: string,
+  verifyUrl: string,
+  otpCode: string,
+  validMinutes: number
+): string {
+  const appName = process.env.NEXT_PUBLIC_APP_NAME || "Shiraz House";
+  const validText =
+    validMinutes >= 60
+      ? `${Math.round(validMinutes / 60)} hour${validMinutes >= 120 ? "s" : ""}`
+      : `${validMinutes} minutes`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your DJ profile</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
+  <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
+    <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
+      <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
+        <img src="${LOGO_URL}" alt="${appName}" width="96" height="auto" style="display: inline-block; max-width: 96px; height: auto;" />
+      </div>
+      <div style="padding: 30px;">
+        <h2 style="color: #f5f5f5; margin-top: 0;">Verify your DJ profile</h2>
+        <p style="color: #e5e5e5; margin: 0 0 1rem;">Dear ${djName},</p>
+        <p style="color: #e5e5e5; margin: 0 0 1rem;">You have been added as a DJ on ${appName}. Please verify your email to be recognized as a verified DJ.</p>
+        <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Click the button below to go to the verification page, then enter the code shown in this email.</p>
+        <div style="text-align: center; margin: 1.5rem 0;">
+          <a href="${verifyUrl}" style="${buttonStyle}">Go to verification page</a>
+        </div>
+        <p style="color: #a3a3a3; margin: 1rem 0 0.5rem;">Your verification code:</p>
+        <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #404040;">
+          <p style="margin: 0; font-size: 1.5rem; font-weight: bold; text-align: center; letter-spacing: 0.25em; color: ${BRAND_RED_LINK};">${otpCode}</p>
+        </div>
+        <p style="color: #a3a3a3; font-size: 0.875rem; margin: 0;">This code is valid for ${validText}. Do not share it with anyone.</p>
+      </div>
+      <div style="background-color: #0a0a0a; padding: 1rem 2rem; border-top: 1px solid #262626;">
+        <p style="margin: 0; font-size: 0.75rem; color: #737373; text-align: center;">&copy; ${new Date().getFullYear()} ${appName}</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim();
+}
+
+/**
  * Render verification OTP email for approvers.
  * Sent when an approver requests OTP for an approval step.
  */

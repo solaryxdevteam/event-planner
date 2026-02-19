@@ -18,7 +18,7 @@ import {
 import { DateTimePickerNew } from "@/components/ui/date-time-picker-new";
 import { createEventSchema, type CreateEventInput } from "@/lib/validation/events.schema";
 import { useRequestModification } from "@/lib/hooks/use-events";
-import { Loader2, AlertCircle, Music2 } from "lucide-react";
+import { Loader2, AlertCircle, Disc3 } from "lucide-react";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { VenueSelectionDialog } from "@/components/events/VenueSelectionDialog";
 import { DJSelectionDialog } from "@/components/events/DJSelectionDialog";
@@ -281,7 +281,7 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
                       <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
                         <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
                           <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted">
-                            <Music2 className="h-8 w-8 text-muted-foreground" />
+                            <Disc3 className="h-8 w-8 text-muted-foreground" />
                           </div>
                           <div className="space-y-1">
                             <p className="font-medium text-foreground">Select a DJ</p>

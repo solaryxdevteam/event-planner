@@ -36,7 +36,7 @@ import {
   Clock,
   MapPin,
   Building2,
-  Music2,
+  Disc3,
   CheckCircle2,
   Loader2,
   CheckCircle,
@@ -271,7 +271,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
             )}
             {event.dj && (
               <span className="flex items-center gap-1">
-                <Music2 className="h-4 w-4" />
+                <Disc3 className="h-4 w-4" />
                 {event.dj.name}
               </span>
             )}
@@ -496,7 +496,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                 <Card className="gap-3">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Music2 className="h-4 w-4 text-muted-foreground" />
+                      <Disc3 className="h-4 w-4 text-muted-foreground" />
                       <div>
                         DJ (<span className="font-medium text-foreground">{event.dj.name}</span>)
                       </div>

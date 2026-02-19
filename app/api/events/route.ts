@@ -56,6 +56,8 @@ export async function GET(request: NextRequest) {
         : statusParam
       : undefined;
 
+    const needsMarketingReport = searchParams.get("needsMarketingReport") === "true";
+
     const filters: EventFilterOptions = {
       status,
       creatorId: searchParams.get("creatorId") || undefined,
@@ -67,6 +69,7 @@ export async function GET(request: NextRequest) {
       search: searchParams.get("search") || undefined,
       page: searchParams.get("page") ? parseInt(searchParams.get("page")!, 10) : undefined,
       pageSize: searchParams.get("pageSize") ? parseInt(searchParams.get("pageSize")!, 10) : undefined,
+      needsMarketingReport: needsMarketingReport || undefined,
     };
 
     // Get events with filters

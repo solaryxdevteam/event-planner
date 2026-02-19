@@ -101,7 +101,7 @@ export const useEventCalendarStore = create<EventCalendarState>()(
   persist(
     (set, get) => ({
       selectedEvent: null,
-      currentView: CalendarViewType.MONTH,
+      currentView: CalendarViewType.YEAR,
       viewMode: "calendar" as ViewModeType,
       timeFormat: TimeFormatType.HOUR_24,
       locale: "en-US",

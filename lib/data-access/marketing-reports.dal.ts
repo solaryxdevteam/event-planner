@@ -88,3 +88,20 @@ export async function updateStatus(id: string, status: "approved" | "rejected"):
 
   return data as MarketingReport;
 }
+
+/**
+ * Get event IDs that have at least one approved marketing report.
+ * Used to filter "events needing marketing report" (exclude these).
+ */
+export async function findEventIdsWithApprovedReport(): Promise<string[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.from("marketing_reports").select("event_id").eq("status", "approved");
+
+  if (error) {
+    throw new Error(`Failed to fetch event IDs with approved marketing report: ${error.message}`);
+  }
+
+  const ids = [...new Set((data || []).map((row: { event_id: string }) => row.event_id))];
+  return ids;
+}

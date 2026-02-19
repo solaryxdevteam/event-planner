@@ -24,7 +24,7 @@ import {
   ArrowRight,
   Loader2,
   MapPinIcon,
-  Music2,
+  Disc3,
   UsersIcon,
   CheckCircle2,
   DollarSign,
@@ -671,7 +671,7 @@ export function EventWizardForm({ eventId, shortId }: EventWizardFormProps) {
                       <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
                         <div className="flex flex-col items-center justify-center gap-3 w-full text-center">
                           <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted">
-                            <Music2 className="h-8 w-8 text-muted-foreground" />
+                            <Disc3 className="h-8 w-8 text-muted-foreground" />
                           </div>
                           <div className="space-y-1">
                             <p className="font-medium text-foreground">Select a DJ</p>

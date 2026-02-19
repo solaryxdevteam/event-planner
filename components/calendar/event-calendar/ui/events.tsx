@@ -80,7 +80,10 @@ export const EventCard = ({
     >
       <div className="flex w-full items-start justify-between gap-2">
         <span className="text-wrap text-base font-medium text-foreground">{event.title}</span>
-        <Badge variant="secondary" className={cn("shrink-0 font-normal text-white", badge.bg)}>
+        <Badge
+          variant="secondary"
+          className={cn("shrink-0 font-normal", badge.bg, badge.text, "text-white hover:text-black")}
+        >
           {statusLabel}
         </Badge>
       </div>

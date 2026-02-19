@@ -38,7 +38,7 @@ export function useCreateDj() {
     mutationFn: djsClient.createDj,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["djs"] });
-      toast.success("DJ added successfully. A notification email was sent.");
+      toast.success("DJ added successfully. A verification email with a link and code was sent to the DJ.");
     },
     onError: (error: Error) => {
       toast.error("Failed to add DJ", { description: error.message });

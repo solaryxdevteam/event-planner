@@ -50,6 +50,7 @@ export async function middleware(request: NextRequest) {
     "/auth/pending",
     "/auth/onboarding",
     "/verify-venue", // Venue contact verification (link from email, no auth required)
+    "/verify-dj", // DJ contact verification (link from email, no auth required)
   ];
 
   const { pathname } = request.nextUrl;

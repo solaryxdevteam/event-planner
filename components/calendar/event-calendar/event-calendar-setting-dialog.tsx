@@ -49,7 +49,7 @@ const VIEW_MODES = [
 const TABS = [
   { id: "general", label: "General", icon: Settings },
   { id: "calendar", label: "Calendar Views", icon: Calendar },
-  { id: "integration", label: "Integration", icon: Zap },
+  // { id: "integration", label: "Integration", icon: Zap },
 ] as const;
 
 const ConfigRow = ({

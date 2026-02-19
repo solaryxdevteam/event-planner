@@ -157,7 +157,7 @@ export function DashboardLayoutWrapper({ children, user, isPending }: DashboardL
           </div>
         )}
         <div
-          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden p-1 sm:p-4 ${isPending && !isProfilePage ? "pointer-events-none opacity-50" : ""}`}
+          className={`flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden p-1 sm:px-4 sm:!py-0 ${isPending && !isProfilePage ? "pointer-events-none opacity-50" : ""}`}
         >
           {children}
         </div>

@@ -11,7 +11,7 @@ import * as djDAL from "@/lib/data-access/djs.dal";
 import type { CreateDjInput, UpdateDjInput } from "@/lib/validation/djs.schema";
 import { requireActiveUser } from "@/lib/auth/server";
 import { isGlobalDirector } from "@/lib/permissions/roles";
-import * as emailService from "@/lib/services/email/email.service";
+import * as djContactVerificationService from "@/lib/services/djs/dj-contact-verification.service";
 import type { DJ } from "@/lib/types/database.types";
 
 /**
@@ -83,9 +83,9 @@ export async function createDj(input: CreateDjInput): Promise<DJ> {
   });
 
   try {
-    await emailService.sendDjAddedEmail(dj.name, dj.email);
+    await djContactVerificationService.sendVerificationEmail(dj.id);
   } catch (e) {
-    console.error("Failed to send DJ added email:", e);
+    console.error("Failed to send DJ verification email:", e);
     // Don't fail create; email is best-effort
   }
 

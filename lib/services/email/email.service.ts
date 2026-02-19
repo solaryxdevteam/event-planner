@@ -365,8 +365,38 @@ export async function sendVenueContactVerificationEmail(
 }
 
 /**
- * Send DJ added notification email
- * Sent when a DJ is added to the platform (verification/notification to the DJ)
+ * Send DJ contact verification email (link + OTP).
+ * Sent when a DJ is created by GD or when resending verification.
+ */
+export async function sendDjContactVerificationEmail(
+  toEmail: string,
+  djName: string,
+  verifyUrl: string,
+  otpCode: string,
+  validMinutes: number = 15
+): Promise<void> {
+  try {
+    const htmlContent = templatesService.renderDjContactVerificationEmail(djName, verifyUrl, otpCode, validMinutes);
+    const { data, error } = await getResend().emails.send({
+      from: getFromEmail(),
+      to: getEffectiveToEmail(toEmail),
+      subject: "Verify your DJ profile on " + (process.env.NEXT_PUBLIC_APP_NAME || "Shiraz House"),
+      html: htmlContent,
+    });
+    if (error) {
+      console.error("Failed to send DJ contact verification email:", error);
+      throw new Error(`Failed to send verification email: ${error.message}`);
+    }
+    console.log("DJ contact verification email sent successfully:", data);
+  } catch (error) {
+    console.error("Error sending DJ contact verification email:", error);
+    throw error;
+  }
+}
+
+/**
+ * Send DJ added notification email (simple notification, no OTP).
+ * Kept for backwards compatibility if needed; prefer sendDjContactVerificationEmail for new DJs.
  */
 export async function sendDjAddedEmail(djName: string, djEmail: string): Promise<void> {
   try {

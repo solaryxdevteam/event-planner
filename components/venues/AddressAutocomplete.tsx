@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 
 interface AddressAutocompleteProps {
@@ -45,7 +45,7 @@ export function AddressAutocomplete({
   geocodeOnBlur = false,
   geocodeContext,
 }: AddressAutocompleteProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [suggestions, setSuggestions] = useState<
     Array<{
       display_name: string;
@@ -105,7 +105,7 @@ export function AddressAutocomplete({
     }, 300)
   ).current;
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     onChange(newValue, null, null);
     setSelectedIndex(-1);
@@ -133,7 +133,7 @@ export function AddressAutocomplete({
     setSelectedIndex(-1);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!showSuggestions || suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
@@ -188,10 +188,10 @@ export function AddressAutocomplete({
   };
 
   return (
-    <div className="space-y-2 relative">
-      <div className="relative">
-        <Input
-          ref={inputRef}
+    <div className="space-y-2 h-[150px] max-h-full relative">
+      <div className="relative h-full">
+        <Textarea
+          ref={textareaRef}
           id={id}
           value={value}
           onChange={handleInputChange}
@@ -204,10 +204,10 @@ export function AddressAutocomplete({
           }}
           placeholder={placeholder}
           aria-invalid={!!error}
-          className="pr-10"
+          className="h-full pr-10 resize-none"
         />
         {isLoading && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+          <div className="absolute right-3 top-3">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           </div>
         )}

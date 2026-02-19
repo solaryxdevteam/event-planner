@@ -32,11 +32,11 @@ const tabsConfig: TabConfig[] = [
     label: "Day",
     value: CalendarViewType.DAY,
   },
-  {
-    label: "Days",
-    value: CalendarViewType.DAYS,
-    hasDropdown: true,
-  },
+  // {
+  //   label: "Days",
+  //   value: CalendarViewType.DAYS,
+  //   hasDropdown: true,
+  // },
   {
     label: "Week",
     value: CalendarViewType.WEEK,

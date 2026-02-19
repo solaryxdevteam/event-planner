@@ -22,6 +22,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import type { VenueApprovalWithApprover } from "@/lib/data-access/venue-approvals.dal";
 
+const tabCountBadgeClass =
+  "bg-red-500 text-white rounded-full min-w-[1.25rem] h-6 px-1.5 justify-center text-xs font-semibold border-0";
+
 export default function ApprovalsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -154,53 +157,53 @@ export default function ApprovalsPage() {
 
       <Tabs value={defaultTab} onValueChange={handleTabChange} className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <TabsList className="overflow-x-auto scrollbar-hide w-full sm:w-fit">
-            <TabsTrigger value="event">
-              Events{" "}
-              {eventApprovals.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {eventApprovals.length}
-                </Badge>
-              )}
+          <TabsList className="h-12 p-1.5 border border-input/50 gap-1 overflow-x-auto scrollbar-hide w-full sm:w-fit inline-flex rounded-xl bg-muted/60">
+            <TabsTrigger
+              value="event"
+              className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm "
+            >
+              <span>Events</span>
+              {eventApprovals.length > 0 && <Badge className={tabCountBadgeClass}>{eventApprovals.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="modification">
-              Modifications{" "}
-              {modificationApprovals.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {modificationApprovals.length}
-                </Badge>
-              )}
+            <TabsTrigger
+              value="venues"
+              className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm "
+            >
+              <span>Venues</span>
+              {venueApprovals.length > 0 && <Badge className={tabCountBadgeClass}>{venueApprovals.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="cancellation">
-              Cancellations{" "}
-              {cancellationApprovals.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {cancellationApprovals.length}
-                </Badge>
-              )}
+            <TabsTrigger
+              value="report"
+              className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm "
+            >
+              <span>Reports</span>
+              {reportApprovals.length > 0 && <Badge className={tabCountBadgeClass}>{reportApprovals.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="report">
-              Reports{" "}
-              {reportApprovals.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {reportApprovals.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="marketing_report">
-              Marketing Reports{" "}
+            <TabsTrigger
+              value="marketing_report"
+              className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm "
+            >
+              <span>Marketing Reports</span>
               {marketingReportApprovals.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {marketingReportApprovals.length}
-                </Badge>
+                <Badge className={tabCountBadgeClass}>{marketingReportApprovals.length}</Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="venues">
-              Venues{" "}
-              {venueApprovals.length > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {venueApprovals.length}
-                </Badge>
+            <TabsTrigger
+              value="modification"
+              className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm "
+            >
+              <span>Modifications</span>
+              {modificationApprovals.length > 0 && (
+                <Badge className={tabCountBadgeClass}>{modificationApprovals.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="cancellation"
+              className="px-2 py-2.5 h-full text-sm font-medium gap-2 rounded-lg data-[state=active]:shadow-sm "
+            >
+              <span>Cancellations</span>
+              {cancellationApprovals.length > 0 && (
+                <Badge className={tabCountBadgeClass}>{cancellationApprovals.length}</Badge>
               )}
             </TabsTrigger>
           </TabsList>

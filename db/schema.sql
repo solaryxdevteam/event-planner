@@ -475,6 +475,23 @@ CREATE INDEX idx_venue_contact_verifications_venue_id ON venue_contact_verificat
 CREATE INDEX idx_venue_contact_verifications_token ON venue_contact_verifications(token) WHERE verified_at IS NULL;
 
 -- ---------------------------------------------
+-- 3.15b DJ Contact Verifications
+-- ---------------------------------------------
+CREATE TABLE dj_contact_verifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  dj_id UUID NOT NULL REFERENCES djs(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  token_expires_at TIMESTAMPTZ NOT NULL,
+  otp_hash TEXT NOT NULL,
+  otp_expires_at TIMESTAMPTZ NOT NULL,
+  verified_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_dj_contact_verifications_dj_id ON dj_contact_verifications(dj_id);
+CREATE INDEX idx_dj_contact_verifications_token ON dj_contact_verifications(token) WHERE verified_at IS NULL;
+
+-- ---------------------------------------------
 -- 3.16 Verification OTPs
 -- ---------------------------------------------
 CREATE TABLE verification_otps (
