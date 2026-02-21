@@ -10,7 +10,6 @@ import type { Invitation, User } from "@/lib/types/database.types";
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
 // Use PNG in email when available for sharper rendering in Gmail (proxy often degrades WebP). Add public/images/shiraz-house-logo.png for best results.
 const EMAIL_LOGO_URL = `${BASE_URL}/images/shiraz-house-logo.png`;
-const LOGO_URL = `${BASE_URL}/images/shiraz-house-logo.webp`;
 // Explicit dimensions prevent Gmail/image proxies from resizing and blurring. Aspect from source logo ~325:204.
 const LOGO_WIDTH = 96;
 const LOGO_HEIGHT = 60;

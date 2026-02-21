@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Edit, MoreVertical, UserX } from "lucide-react";
+import { Edit, UserX } from "lucide-react";
 import { DeactivateUserDialog } from "../DeactivateUserDialog";
 import type { Database } from "@/lib/types/database.types";
 import { useRouter } from "next/navigation";

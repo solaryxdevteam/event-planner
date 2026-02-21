@@ -20,8 +20,11 @@ export function useInvitationsList(enabled: boolean) {
     queryKey: ["invitations", "list"],
     queryFn: async () => {
       const result = await listInvitations();
-      if (!result.success || result.data === undefined) {
-        throw new Error(result.error ?? "Failed to load invitations");
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      if (result.data === undefined) {
+        throw new Error("Failed to load invitations");
       }
       return result.data;
     },
