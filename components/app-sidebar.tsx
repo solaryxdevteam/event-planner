@@ -176,11 +176,16 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
       icon: Building2,
     },
 
-    {
-      title: "Reports",
-      url: "/dashboard/reports",
-      icon: BarChart3,
-    },
+    // Reports - only for Global Director
+    ...(userRole === "global_director"
+      ? [
+          {
+            title: "Reports",
+            url: "/dashboard/reports",
+            icon: BarChart3,
+          },
+        ]
+      : []),
     // Activity Logs - only for curators and above (non-event-planner)
     ...(isCurator
       ? [

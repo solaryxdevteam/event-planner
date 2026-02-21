@@ -15,6 +15,16 @@ export interface InvitationInsert {
 }
 
 /**
+ * Find invitation by id
+ */
+export async function findById(id: string): Promise<Invitation | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("invitations").select("*").eq("id", id).single();
+  if (error || !data) return null;
+  return data as Invitation;
+}
+
+/**
  * Find invitation by token
  */
 export async function findByToken(token: string): Promise<Invitation | null> {
@@ -113,4 +123,38 @@ export async function revoke(invitationId: string): Promise<void> {
   if (error) {
     throw new Error(`Failed to revoke invitation: ${error.message}`);
   }
+}
+
+export interface InvitationWithCountry extends Invitation {
+  country_name: string | null;
+}
+
+/**
+ * List all invitations (for admin)
+ */
+export async function listAll(): Promise<Invitation[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.from("invitations").select("*").order("created_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to list invitations: ${error.message}`);
+  }
+
+  return (data ?? []) as Invitation[];
+}
+
+/**
+ * Get location names by IDs
+ */
+export async function getLocationNamesByIds(ids: string[]): Promise<Map<string, string>> {
+  if (ids.length === 0) return new Map();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("locations").select("id, name").in("id", ids);
+  if (error) return new Map();
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    map.set((row as { id: string; name: string }).id, (row as { id: string; name: string }).name);
+  }
+  return map;
 }

@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as userService from "@/lib/services/users/user.service";
 import { registerWithInvitationSchema } from "@/lib/validation/users.schema";
 import { NotFoundError } from "@/lib/utils/errors";
-import { decryptPassword } from "@/lib/utils/password-encryption.server";
+import { decryptPassword, EncryptionKeyNotConfiguredError } from "@/lib/utils/password-encryption.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,11 +23,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    if (body.password == null || typeof body.password !== "string") {
+      return NextResponse.json({ success: false, error: "Password is required" }, { status: 400 });
+    }
+
     // Decrypt password before validation (or use plain text if in development)
     let decryptedPassword: string;
 
     // Check if password is plain text (development fallback)
-    if (typeof body.password === "string" && body.password.startsWith("__PLAIN__")) {
+    if (body.password.startsWith("__PLAIN__")) {
       // Development mode: use plain text password
       if (process.env.NODE_ENV !== "development") {
         return NextResponse.json(
@@ -40,10 +44,20 @@ export async function POST(request: NextRequest) {
       }
       decryptedPassword = body.password.replace("__PLAIN__", "");
     } else {
-      // Production mode: decrypt password
+      // Production: decrypt password (client must encrypt with same key as ENCRYPTION_KEY)
       try {
         decryptedPassword = decryptPassword(body.password);
-      } catch {
+      } catch (err) {
+        if (err instanceof EncryptionKeyNotConfiguredError) {
+          console.error("Registration failed: ENCRYPTION_KEY is not set on the server.");
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Server configuration error. Please try again later.",
+            },
+            { status: 503 }
+          );
+        }
         return NextResponse.json(
           {
             success: false,

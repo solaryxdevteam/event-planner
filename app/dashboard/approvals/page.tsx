@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,12 +30,19 @@ export default function ApprovalsPage() {
   const searchParams = useSearchParams();
   const urlType = searchParams.get("type") || "event";
   const [viewMode, setViewMode] = useState<"grid" | "list">("list");
+  // Local tab state so switching is instant; URL updates in background
+  const [activeTab, setActiveTab] = useState(urlType);
+
+  // Sync active tab when URL changes (e.g. initial load, back/forward)
+  useEffect(() => {
+    setActiveTab(urlType);
+  }, [urlType]);
 
   // Get current user profile for role checking (e.g. PendingApprovalCard)
   const { data: profile } = useProfile();
-  const defaultTab = urlType;
 
   const handleTabChange = (value: string) => {
+    setActiveTab(value);
     const params = new URLSearchParams(searchParams.toString());
     params.set("type", value);
     router.push(`/dashboard/approvals?${params.toString()}`);
@@ -149,13 +156,13 @@ export default function ApprovalsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-3">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Pending Approvals</h1>
         <p className="text-muted-foreground">Review and approve pending requests</p>
       </div>
 
-      <Tabs value={defaultTab} onValueChange={handleTabChange} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <TabsList className="h-12 p-1.5 border border-input/50 gap-1 overflow-x-auto scrollbar-hide w-full sm:w-fit inline-flex rounded-xl bg-muted/60">
             <TabsTrigger

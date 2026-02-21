@@ -5,6 +5,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import * as invitationsDal from "@/lib/data-access/invitations.dal";
+import type { InvitationWithCountry } from "@/lib/data-access/invitations.dal";
 import * as emailService from "../email/email.service";
 import type { CreateInvitationInput } from "@/lib/validation/invitations.schema";
 import type { Invitation } from "@/lib/types/database.types";
@@ -155,4 +156,49 @@ export async function revokeInvitation(creatorId: string, invitationId: string):
   }
 
   await invitationsDal.revoke(invitationId);
+}
+
+/**
+ * List all invitations (for Global Director), with country names
+ */
+export async function listInvitations(): Promise<InvitationWithCountry[]> {
+  const invitations = await invitationsDal.listAll();
+  const countryIds = [...new Set(invitations.map((i) => i.country_id))];
+  const nameMap = await invitationsDal.getLocationNamesByIds(countryIds);
+  return invitations.map((inv) => ({
+    ...inv,
+    country_name: nameMap.get(inv.country_id) ?? null,
+  }));
+}
+
+/**
+ * Resend an invitation: revoke the old one and create + send a new one with same email/country.
+ */
+export async function resendInvitation(creatorId: string, invitationId: string): Promise<Invitation> {
+  const supabase = await createClient();
+
+  const { data: creator, error: creatorError } = await supabase
+    .from("users")
+    .select("role")
+    .eq("id", creatorId)
+    .single<{ role: string }>();
+
+  if (creatorError || !creator || creator.role !== "global_director") {
+    throw new Error("Only Global Directors can resend invitations");
+  }
+
+  const oldInv = await invitationsDal.findById(invitationId);
+  if (!oldInv) {
+    throw new Error("Invitation not found");
+  }
+  if (oldInv.used_at) {
+    throw new Error("Cannot resend an invitation that has already been used");
+  }
+
+  await invitationsDal.revoke(invitationId);
+  return createInvitation(creatorId, {
+    email: oldInv.email,
+    country_id: oldInv.country_id,
+    expires_in_days: 7,
+  });
 }

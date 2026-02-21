@@ -6,8 +6,14 @@
 
 import type { Invitation, User } from "@/lib/types/database.types";
 
-// const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-const LOGO_URL = "https://panel.shirazhouse.com/_next/image?url=%2Fimages%2Fshiraz-house-logo.webp&w=96&q=75";
+// Base URL for links; logo must be a direct static URL so email clients can load it (not /_next/image).
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
+// Use PNG in email when available for sharper rendering in Gmail (proxy often degrades WebP). Add public/images/shiraz-house-logo.png for best results.
+const EMAIL_LOGO_URL = `${BASE_URL}/images/shiraz-house-logo.png`;
+const LOGO_URL = `${BASE_URL}/images/shiraz-house-logo.webp`;
+// Explicit dimensions prevent Gmail/image proxies from resizing and blurring. Aspect from source logo ~325:204.
+const LOGO_WIDTH = 96;
+const LOGO_HEIGHT = 60;
 const BRAND_RED = "#b91c1c";
 const BRAND_RED_LINK = "#dc2626";
 
@@ -38,7 +44,7 @@ function baseTemplate(content: string): string {
   <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
     <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
       <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${LOGO_URL}" alt="${appName}" width="96" height="auto" style="display: inline-block; max-width: 96px; height: auto;" />
+        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
       </div>
       <div style="padding: 30px;">
         ${content}
@@ -293,7 +299,7 @@ export function renderVenueContactVerificationEmail(
   <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
     <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
       <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${LOGO_URL}" alt="${appName}" width="96" height="auto" style="display: inline-block; max-width: 96px; height: auto;" />
+        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
       </div>
       <div style="padding: 30px;">
         <h2 style="color: #f5f5f5; margin-top: 0;">Verify your email</h2>
@@ -348,7 +354,7 @@ export function renderDjContactVerificationEmail(
   <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
     <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
       <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${LOGO_URL}" alt="${appName}" width="96" height="auto" style="display: inline-block; max-width: 96px; height: auto;" />
+        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
       </div>
       <div style="padding: 30px;">
         <h2 style="color: #f5f5f5; margin-top: 0;">Verify your DJ profile</h2>
@@ -393,7 +399,7 @@ export function renderVerificationOtpEmail(otpCode: string, validMinutes: number
   <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
     <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
       <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${LOGO_URL}" alt="${appName}" width="96" height="auto" style="display: inline-block; max-width: 96px; height: auto;" />
+        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
       </div>
       <div style="padding: 30px;">
         <h2 style="color: #f5f5f5; margin-top: 0;">Your OTP Code</h2>

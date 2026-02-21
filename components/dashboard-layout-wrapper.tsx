@@ -91,7 +91,7 @@ export function DashboardLayoutWrapper({ children, user, isPending }: DashboardL
   return (
     <SidebarProvider>
       <PendingRedirect isPending={isPending} />
-      <AppSidebar user={user} disabled={isPending && !isProfilePage} userRole={user.role} />
+      <AppSidebar user={user} disabled={isPending} userRole={user.role} />
       <SidebarInset>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-1 sm:px-4">
           <SidebarTrigger className="-ml-1" disabled={isPending && !isProfilePage} />

@@ -11,13 +11,17 @@ import type { Database } from "@/lib/types/database.types";
 import { UserTable } from "./UserTable";
 import { UserFormDialog } from "./UserFormDialog";
 import { CreateInvitationDialog } from "./CreateInvitationDialog";
+import { InvitationsTable } from "./InvitationsTable";
 import { HierarchyTreeFlow } from "@/components/users/hierarchy";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Mail } from "lucide-react";
 import { useUsers, type UserFilters } from "@/lib/hooks/use-users";
+import { useInvitationsList } from "@/lib/hooks/use-invitations";
 import * as usersClientService from "@/lib/services/client/users.client.service";
 import { useQueryClient } from "@tanstack/react-query";
+import { resendInvitation, revokeInvitation } from "@/lib/actions/invitations";
+import { toast } from "sonner";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 
@@ -65,6 +69,9 @@ export function UserManagementClient({ initialUsers, isGlobalDirector = true }: 
 
   // Use React Query hook to fetch users
   const { data: usersData, isLoading } = useUsers(filters);
+
+  // Invitations list (only fetched when Global Director)
+  const { data: invitations = [], isLoading: invitationsLoading } = useInvitationsList(isGlobalDirector ?? false);
 
   // Extract users and pagination from response
   const users = usersData?.data || [];
@@ -127,12 +134,32 @@ export function UserManagementClient({ initialUsers, isGlobalDirector = true }: 
     setIsEditDialogOpen(open);
     if (!open) {
       setEditingUser(undefined);
-      // Invalidate hierarchy query to refresh after user update
       queryClient.invalidateQueries({ queryKey: ["users", "hierarchy"] });
     }
   };
 
-  // Refresh is handled automatically by React Query invalidation in mutations
+  const handleResendInvitation = async (invitationId: string) => {
+    const result = await resendInvitation(invitationId);
+    if (result?.success !== false) {
+      toast.success("Invitation resent");
+      queryClient.invalidateQueries({ queryKey: ["invitations", "list"] });
+    } else {
+      toast.error(result?.error ?? "Failed to resend invitation");
+      throw new Error(result?.error);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId: string) => {
+    const result = await revokeInvitation(invitationId);
+    if (result?.success !== false) {
+      toast.success("Invitation deleted");
+      queryClient.invalidateQueries({ queryKey: ["invitations", "list"] });
+    } else {
+      toast.error(result?.error ?? "Failed to delete invitation");
+      throw new Error(result?.error);
+    }
+  };
+
   const handleUserCreated = () => {
     // No-op - React Query will automatically refetch when mutations invalidate queries
   };
@@ -166,6 +193,7 @@ export function UserManagementClient({ initialUsers, isGlobalDirector = true }: 
         <TabsList>
           <TabsTrigger value="list">Users List</TabsTrigger>
           <TabsTrigger value="hierarchy">Hierarchy</TabsTrigger>
+          {isGlobalDirector && <TabsTrigger value="invitations">Invitations</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="list" className="space-y-4">
@@ -193,6 +221,17 @@ export function UserManagementClient({ initialUsers, isGlobalDirector = true }: 
             onEditUser={isGlobalDirector ? handleEditUserFromHierarchy : undefined}
           />
         </TabsContent>
+
+        {isGlobalDirector && (
+          <TabsContent value="invitations" className="space-y-4">
+            <InvitationsTable
+              invitations={invitations}
+              isLoading={invitationsLoading}
+              onResend={handleResendInvitation}
+              onDelete={handleRevokeInvitation}
+            />
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Create User Dialog */}

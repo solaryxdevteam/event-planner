@@ -7,11 +7,20 @@
 
 import { createDecipheriv, randomBytes } from "node:crypto";
 
+/** Thrown when the server encryption key is not set (config error). */
+export class EncryptionKeyNotConfiguredError extends Error {
+  constructor() {
+    super("Encryption key not configured");
+    this.name = "EncryptionKeyNotConfiguredError";
+  }
+}
+
 /**
  * Decrypts a password using AES-GCM
  *
  * @param encryptedPassword - Base64-encoded encrypted password (format: iv:encrypted:authTag)
  * @returns Plain text password
+ * @throws EncryptionKeyNotConfiguredError if ENCRYPTION_KEY is not set
  * @throws Error if decryption fails
  */
 export function decryptPassword(encryptedPassword: string): string {
@@ -20,14 +29,17 @@ export function decryptPassword(encryptedPassword: string): string {
     const keyString = process.env.ENCRYPTION_KEY;
 
     if (!keyString) {
-      throw new Error("Encryption key not configured");
+      throw new EncryptionKeyNotConfiguredError();
+    }
+
+    // Basic format check: must be base64 and at least IV(12) + authTag(16) = 28 bytes when decoded
+    const combined = Buffer.from(encryptedPassword, "base64");
+    if (combined.length < 28) {
+      throw new Error("Invalid encrypted password format");
     }
 
     // Convert base64 key to Buffer
     const key = Buffer.from(keyString, "base64");
-
-    // Decode the encrypted password from base64
-    const combined = Buffer.from(encryptedPassword, "base64");
 
     // Extract IV (first 12 bytes), encrypted data (middle), and auth tag (last 16 bytes)
     const iv = combined.subarray(0, 12);
@@ -43,6 +55,9 @@ export function decryptPassword(encryptedPassword: string): string {
 
     return decrypted.toString("utf8");
   } catch (error) {
+    if (error instanceof EncryptionKeyNotConfiguredError) {
+      throw error;
+    }
     console.error("Password decryption error:", error);
     throw new Error("Failed to decrypt password");
   }

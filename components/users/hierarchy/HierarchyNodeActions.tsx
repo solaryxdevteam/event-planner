@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Edit, UserX } from "lucide-react";
+import { Edit, MoreVertical, UserX } from "lucide-react";
 import { DeactivateUserDialog } from "../DeactivateUserDialog";
 import type { Database } from "@/lib/types/database.types";
 import { useRouter } from "next/navigation";
@@ -66,8 +66,8 @@ export function HierarchyNodeActions({ node, onEditUser }: HierarchyNodeActionsP
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="default" size="sm" className="h-6">
-            <span>Edit</span>
+          <Button variant="ghost" size="icon" className="h-6 w-6">
+            <Edit className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

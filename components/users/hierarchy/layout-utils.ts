@@ -136,7 +136,7 @@ function centerParentNodes(nodes: Node[], edges: Edge[]): Node[] {
 export function getFallbackLayout(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } {
   const NODE_WIDTH = 220;
   const NODE_HEIGHT = 100;
-  const HORIZONTAL_SPACING = 220;
+  const HORIZONTAL_SPACING = 240;
   const VERTICAL_SPACING = 160;
 
   // Create a map of node IDs to their data

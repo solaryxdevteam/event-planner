@@ -25,7 +25,7 @@ import { UserRole } from "@/lib/types/roles";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 
-const LIMIT = 3;
+const LIMIT = 6;
 
 const statusLabels: Record<string, string> = {
   approved_scheduled: "Confirmed",
@@ -118,6 +118,7 @@ export function DashboardClient() {
   const { data: profile } = useProfile();
   const isEventPlanner = profile?.role === UserRole.EVENT_PLANNER;
   const isMarketingManager = profile?.role === UserRole.MARKETING_MANAGER;
+  const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
 
   const { data: currentEvents = [], isLoading: currentEventsLoading } = useEvents({
     status: ["approved_scheduled"],
@@ -272,7 +273,7 @@ export function DashboardClient() {
             </CardContent>
           </Card>
 
-          <DashboardReportsCard />
+          {isGlobalDirector && <DashboardReportsCard />}
         </div>
 
         {/* Right column (1/3): Calendar + Pending Approvals + Venues */}

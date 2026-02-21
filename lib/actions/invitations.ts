@@ -7,10 +7,13 @@
 import { requireRole } from "@/lib/auth/server";
 import type { ActionResponse } from "@/lib/types/api.types";
 import type { Invitation } from "@/lib/types/database.types";
+import type { InvitationWithCountry } from "@/lib/data-access/invitations.dal";
 import { handleAsync } from "@/lib/utils/response";
 import * as invitationService from "@/lib/services/invitations/invitation.service";
 import { createInvitationSchema } from "@/lib/validation/invitations.schema";
 import { revalidatePath } from "next/cache";
+
+const USERS_PAGE_PATH = "/dashboard/users";
 
 /**
  * Create an invitation
@@ -44,9 +47,7 @@ export async function createInvitation(
     // Create invitation
     const invitation = await invitationService.createInvitation(user.id, validated);
 
-    // Revalidate users page
-    revalidatePath("/admin/users");
-
+    revalidatePath(USERS_PAGE_PATH);
     return invitation;
   }, "createInvitation");
 }
@@ -69,6 +70,30 @@ export async function validateInvitation(token: string): Promise<ActionResponse<
 }
 
 /**
+ * List all invitations (Global Director only)
+ */
+export async function listInvitations(): Promise<ActionResponse<InvitationWithCountry[]>> {
+  return handleAsync(async () => {
+    await requireRole(["global_director"]);
+    return invitationService.listInvitations();
+  }, "listInvitations");
+}
+
+/**
+ * Resend an invitation: removes old one and sends a new invitation email
+ *
+ * @param invitationId - ID of invitation to resend
+ */
+export async function resendInvitation(invitationId: string): Promise<ActionResponse<Invitation>> {
+  return handleAsync(async () => {
+    const user = await requireRole(["global_director"]);
+    const invitation = await invitationService.resendInvitation(user.id, invitationId);
+    revalidatePath(USERS_PAGE_PATH);
+    return invitation;
+  }, "resendInvitation");
+}
+
+/**
  * Revoke an invitation
  *
  * @param invitationId - ID of invitation to revoke
@@ -79,9 +104,7 @@ export async function revokeInvitation(invitationId: string): Promise<ActionResp
 
     await invitationService.revokeInvitation(user.id, invitationId);
 
-    // Revalidate users page
-    revalidatePath("/admin/users");
-
+    revalidatePath(USERS_PAGE_PATH);
     return undefined;
   }, "revokeInvitation");
 }

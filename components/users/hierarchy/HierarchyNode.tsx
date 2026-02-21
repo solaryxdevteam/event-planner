@@ -30,7 +30,7 @@ export const HierarchyNodeComponent = memo(function HierarchyNodeComponent({ dat
 
   return (
     <div
-      className={`px-4 py-3 shadow-lg rounded-lg border-2 text-card-foreground w-[260px] min-w-[260px] max-w-[260px] relative ${nodeBg}`}
+      className={`px-4 py-3 shadow-lg rounded-lg border-2 text-card-foreground w-[220px] min-w-[220px] max-w-[220px] relative ${nodeBg}`}
     >
       {/* Top handle (target) - to receive connections from parent above */}
       {data.hasParent && <Handle type="target" position={Position.Top} className="!bg-slate-400 !w-3 !h-3" />}
