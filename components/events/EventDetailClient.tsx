@@ -1,10 +1,9 @@
 /* eslint-disable react/no-unescaped-entities */
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,20 +29,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  ArrowLeft,
-  Calendar,
-  Clock,
-  MapPin,
-  Building2,
-  Disc3,
-  CheckCircle2,
-  Loader2,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Disc3, CheckCircle2, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
-import Image from "next/image";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
 import { AuditTimeline } from "@/components/audit/AuditTimeline";
@@ -56,7 +43,6 @@ import { useAllReports } from "@/lib/hooks/use-reports";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { useTransitionEventToCompleted, useEventVersions } from "@/lib/hooks/use-events";
 import { UserRole } from "@/lib/types/roles";
-import { VenueMapDisplay } from "./VenueMapDisplay";
 import { EventCreatorCard } from "./EventCreatorCard";
 import { ModificationRequestDialog } from "./ModificationRequestDialog";
 import { CancellationDialog } from "./CancellationDialog";
@@ -64,8 +50,8 @@ import { useCanRequestCancellation } from "@/lib/hooks/use-cancellations";
 import { ApprovalStatus, ApprovalType } from "@/lib/types/database.types";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
 import { ModificationVersionsList } from "./ModificationVersionsList";
-import { VenueMediaAndFloorPlans } from "./VenueMediaAndFloorPlans";
-import { DJMediaAndRiders } from "./DJMediaAndRiders";
+import { EventDetailVenueCard } from "./EventDetailVenueCard";
+import { EventDetailDJCard } from "./EventDetailDJCard";
 import { MarketingTab } from "./MarketingTab";
 
 interface EventDetailClientProps {
@@ -109,6 +95,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   // Get current user profile to check role
   const { data: profile } = useProfile();
   const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
+  const isMarketingManager = profile?.role === UserRole.MARKETING_MANAGER;
   const isEventPlanner = profile?.role === UserRole.EVENT_PLANNER;
   const isEventCreator = event.creator_id === profile?.id;
 
@@ -212,29 +199,30 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
     }
   };
 
-  // Build venue address for map
-  const venueAddress = event.venue
-    ? [event.venue.address, event.venue.city, event.venue.country].filter(Boolean).join(", ")
-    : null;
+  // Marketing tab: only visible to global director and marketing manager
+  const showMarketingTab =
+    (event.status === "approved_scheduled" ||
+      event.status === "completed_awaiting_report" ||
+      event.status === "completed_archived") &&
+    (isGlobalDirector || isMarketingManager);
 
-  // Build map URL - use coordinates if available, otherwise use address
-  const mapUrl = event.venue
-    ? event.venue.location_lat && event.venue.location_lng
-      ? `https://www.google.com/maps?q=${event.venue.location_lat},${event.venue.location_lng}`
-      : venueAddress
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueAddress)}`
-        : null
-    : null;
+  // Controlled tab so we can switch to Marketing once profile loads (profile is async)
+  const [activeTab, setActiveTab] = useState("information");
+  const hasAppliedMarketingDefault = useRef(false);
 
-  // Venue cover image from media (cover or first photo)
-  const venueMedia = event.venue?.media && Array.isArray(event.venue.media) ? event.venue.media : [];
-  const venueCover =
-    venueMedia.find((m: { isCover?: boolean; type?: string }) => m.isCover && m.type === "photo") ||
-    venueMedia.find((m: { type?: string }) => m.type === "photo");
-  const venueImage = venueCover && typeof venueCover.url === "string" ? venueCover.url : null;
+  useEffect(() => {
+    // Only marketing manager gets Marketing as default tab; global director stays on Information
+    if (showMarketingTab && isMarketingManager && !hasAppliedMarketingDefault.current) {
+      setActiveTab("marketing");
+      hasAppliedMarketingDefault.current = true;
+    }
+    if (!showMarketingTab && activeTab === "marketing") {
+      setActiveTab("information");
+    }
+  }, [showMarketingTab, isMarketingManager, activeTab]);
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-1 sm:px-0">
+    <div className="space-y-4 sm:space-y-6 px-1 sm:px-0 mt-4">
       {/* Header */}
       <div className="flex items-start gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -280,16 +268,14 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
       </div>
 
       {/* Tabs for Information, Modification Versions, Reports, and Marketing */}
-      <Tabs defaultValue="information" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="information">Information</TabsTrigger>
           {hasVersions && <TabsTrigger value="modification-versions">Modification Versions</TabsTrigger>}
           {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
             <TabsTrigger value="reports">Reports</TabsTrigger>
           )}
-          {(event.status === "approved_scheduled" ||
-            event.status === "completed_awaiting_report" ||
-            event.status === "completed_archived") && <TabsTrigger value="marketing">Marketing</TabsTrigger>}
+          {showMarketingTab && <TabsTrigger value="marketing">Marketing</TabsTrigger>}
         </TabsList>
 
         {/* Information Tab */}
@@ -384,150 +370,8 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
 
             {/* RIGHT COLUMN (SIDEBAR) */}
             <div className="space-y-6">
-              {/* Venue / Location Card - full info, media, floor plans */}
-              {event.venue && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                      Venue / Location
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {venueImage && (
-                      <div className="relative w-full h-48 rounded-md overflow-hidden bg-muted">
-                        <Image
-                          src={venueImage}
-                          alt={event.venue.name || "Venue image"}
-                          fill
-                          className="object-cover"
-                          unoptimized
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2 text-sm">
-                      <p className="font-medium text-foreground">{event.venue.name}</p>
-                      {/* {event.venue.address && <p className="text-muted-foreground">{event.venue.address}</p>} */}
-                      {event.venue.street && <p className="text-muted-foreground">{event.venue.street}</p>}
-                      {(event.venue.city || event.venue.country) && (
-                        <p className="text-muted-foreground">
-                          {[event.venue.city, event.venue.country].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                      {(event.venue.total_capacity != null ||
-                        event.venue.number_of_tables != null ||
-                        event.venue.ticket_capacity != null) && (
-                        <div className="pt-2 border-t space-y-1">
-                          {event.venue.total_capacity != null && (
-                            <p className="text-muted-foreground">
-                              Capacity: {event.venue.total_capacity.toLocaleString()}
-                            </p>
-                          )}
-                          {event.venue.number_of_tables != null && (
-                            <p className="text-muted-foreground">
-                              Tables: {event.venue.number_of_tables.toLocaleString()}
-                            </p>
-                          )}
-                          {event.venue.ticket_capacity != null && (
-                            <p className="text-muted-foreground">
-                              Ticket capacity: {event.venue.ticket_capacity.toLocaleString()}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      {(event.venue.sounds?.trim() || event.venue.lights?.trim() || event.venue.screens?.trim()) && (
-                        <div className="pt-2 border-t space-y-1">
-                          {event.venue.sounds?.trim() && (
-                            <p className="text-muted-foreground">Sounds: {event.venue.sounds.trim()}</p>
-                          )}
-                          {event.venue.lights?.trim() && (
-                            <p className="text-muted-foreground">Lights: {event.venue.lights.trim()}</p>
-                          )}
-                          {event.venue.screens?.trim() && (
-                            <p className="text-muted-foreground">Screens: {event.venue.screens.trim()}</p>
-                          )}
-                        </div>
-                      )}
-                      {(event.venue.contact_person_name || event.venue.contact_email) && (
-                        <div className="pt-2 border-t space-y-1">
-                          {event.venue.contact_person_name && (
-                            <p className="text-muted-foreground">Contact: {event.venue.contact_person_name}</p>
-                          )}
-                          {event.venue.contact_email && (
-                            <p className="text-muted-foreground">
-                              <a href={`mailto:${event.venue.contact_email}`} className="text-primary hover:underline">
-                                {event.venue.contact_email}
-                              </a>
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    <VenueMediaAndFloorPlans media={event.venue.media} floorPlans={event.venue.floor_plans} />
-
-                    {event.venue.location_lat && event.venue.location_lng ? (
-                      <VenueMapDisplay
-                        lat={event.venue.location_lat}
-                        lng={event.venue.location_lng}
-                        venueName={event.venue.name || undefined}
-                      />
-                    ) : mapUrl ? (
-                      <Button asChild variant="outline" size="sm" className="w-full">
-                        <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-                          <MapPin className="mr-2 h-4 w-4" />
-                          View on Map
-                        </a>
-                      </Button>
-                    ) : null}
-
-                    <Button asChild variant="outline" size="sm" className="w-full" disabled={!event.venue.short_id}>
-                      {event.venue.short_id ? (
-                        <Link href={`/dashboard/venues/${event.venue.short_id}/edit`}>View Venue Details</Link>
-                      ) : null}
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* DJ Card */}
-              {event.dj && (
-                <Card className="gap-3">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Disc3 className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        DJ (<span className="font-medium text-foreground">{event.dj.name}</span>)
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3 text-sm">
-                    <DJMediaAndRiders
-                      pictureUrl={event.dj.picture_url ?? null}
-                      technicalRider={event.dj.technical_rider}
-                      hospitalityRider={event.dj.hospitality_rider}
-                    />
-
-                    {event.dj.music_style && (
-                      <p className="text-muted-foreground">Music style: {event.dj.music_style}</p>
-                    )}
-                    {event.dj.price != null && (
-                      <p className="text-muted-foreground">
-                        price:{" "}
-                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-                          Number(event.dj.price)
-                        )}
-                      </p>
-                    )}
-                    {event.dj.email && (
-                      <a href={`mailto:${event.dj.email}`} className="text-primary hover:underline block">
-                        {event.dj.email}
-                      </a>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
+              {event.venue && <EventDetailVenueCard venue={event.venue} />}
+              {event.dj && <EventDetailDJCard dj={event.dj} />}
             </div>
           </div>
         </TabsContent>
@@ -559,10 +403,8 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           </TabsContent>
         )}
 
-        {/* Marketing Tab */}
-        {(event.status === "approved_scheduled" ||
-          event.status === "completed_awaiting_report" ||
-          event.status === "completed_archived") && (
+        {/* Marketing Tab - only global director and marketing manager */}
+        {showMarketingTab && (
           <TabsContent value="marketing" className="space-y-6">
             <MarketingTab eventId={event.id} event={event} />
           </TabsContent>

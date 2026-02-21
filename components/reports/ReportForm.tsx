@@ -23,6 +23,7 @@ import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { FileUploader } from "@/components/ui/file-uploader";
 import { MediaPreviewDialog } from "@/components/ui/media-preview-dialog";
 import * as reportsClientService from "@/lib/services/client/reports.client.service";
+import Image from "next/image";
 
 const reportSchema = z.object({
   attendance_count: z
@@ -307,7 +308,13 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
                     onClick={() => setPreview({ url: item.url, type: item.type, name: `reel-${index + 1}` })}
                   >
                     {item.type === "image" ? (
-                      <img src={item.url} alt={`Reel ${index + 1}`} className="w-full h-full object-cover" />
+                      <Image
+                        src={item.url}
+                        alt={`Reel ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        width={100}
+                        height={100}
+                      />
                     ) : (
                       <video
                         src={item.url}
@@ -367,7 +374,13 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
                     className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
                     onClick={() => setPreview({ url: item.url, type: "image", name: `photo-${index + 1}` })}
                   >
-                    <img src={item.url} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                    <Image
+                      src={item.url}
+                      alt={`Photo ${index + 1}`}
+                      className="w-full h-full object-cover"
+                      width={100}
+                      height={100}
+                    />
                   </button>
                   <Button
                     type="button"

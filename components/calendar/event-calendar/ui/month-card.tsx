@@ -8,7 +8,7 @@ import {
   endOfMonth,
   format,
   getDate,
-  getMonth,
+  // getMonth,
   isSameMonth,
   isSameYear,
   startOfMonth,
@@ -121,7 +121,7 @@ const MonthCard = memo(
     onDateClick,
     onQuickAdd,
   }: MonthCardProps) => {
-    const _monthIndex = getMonth(month);
+    // const _monthIndex = getMonth(month);
     const today = new Date();
     const isCurrentMonth = isSameMonth(month, today) && isSameYear(month, today);
     const hasEvents = eventCount > 0;

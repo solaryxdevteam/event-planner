@@ -8,7 +8,7 @@ import { ViewModeToggle } from "./ui/view-mode-toggle";
 import { SearchYearPicker } from "./ui/search-year-picker";
 import { SearchMonthPicker } from "./ui/search-month-picker";
 import { SearchDayPicker } from "./ui/search-day-picker";
-import { CalendarViewType, TimeFormatType, ViewModeType } from "@/lib/calendar/types";
+import { CalendarViewType, ViewModeType } from "@/lib/calendar/types";
 import { useEventCalendarStore } from "@/lib/calendar/store";
 import { EventCalendarTabs } from "./event-calendar-tabs";
 import { useShallow } from "zustand/shallow";
@@ -28,14 +28,14 @@ export default function CalendarToolbar() {
       throttleMs: 300,
     })
   );
-  const { viewMode, locale, timeFormat, currentView, setView, setTimeFormat, setMode } = useEventCalendarStore(
+  const { viewMode, locale, currentView, setView, setMode } = useEventCalendarStore(
     useShallow((state) => ({
       viewMode: state.viewMode,
       locale: state.locale,
-      timeFormat: state.timeFormat,
+      // timeFormat: state.timeFormat,
       currentView: state.currentView,
       setView: state.setView,
-      setTimeFormat: state.setTimeFormat,
+      // setTimeFormat: state.setTimeFormat,
       setMode: state.setMode,
     }))
   );
@@ -83,12 +83,12 @@ export default function CalendarToolbar() {
     setDate(newDate);
   }, [date, currentView, setDate]);
 
-  const handleTimeFormatChange = useCallback(
-    (format: TimeFormatType) => {
-      setTimeFormat(format);
-    },
-    [setTimeFormat]
-  );
+  // const handleTimeFormatChange = useCallback(
+  //   (format: TimeFormatType) => {
+  //     setTimeFormat(format);
+  //   },
+  //   [setTimeFormat]
+  // );
 
   const handleViewModeChange = useCallback(
     (mode: ViewModeType) => {

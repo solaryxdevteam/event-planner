@@ -23,7 +23,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 sm:space-y-6 px-1 sm:px-0">
+      <div className="space-y-4 sm:space-y-6 px-1 sm:px-0 mt-4">
         {/* Header skeleton */}
         <div className="flex items-start gap-2 sm:gap-4">
           <Skeleton className="h-10 w-10 shrink-0 rounded-md" />
@@ -108,7 +108,7 @@ export default function EventDetailPage({ params }: EventDetailPageProps) {
 
   if (error || !event) {
     return (
-      <div className="container mx-auto pt-4 pb-8 max-w-5xl">
+      <div className="container mx-auto pt-4 pb-8 mt-2 max-w-5xl">
         <div className="flex flex-col items-center justify-center py-12 px-4">
           <div className="text-center max-w-md">
             <p className="text-destructive text-lg font-semibold mb-2">Event not found</p>
