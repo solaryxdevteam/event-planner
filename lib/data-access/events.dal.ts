@@ -10,15 +10,20 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database.types";
+import type { EventMarketingFile } from "@/lib/types/database.types";
 
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type EventInsert = Database["public"]["Tables"]["events"]["Insert"];
 type EventUpdate = Database["public"]["Tables"]["events"]["Update"];
 
 /**
- * Event with creator and venue information
+ * Event with creator and venue information.
+ * marketing_flyers, marketing_videos, marketing_budget are populated from the approved marketing report when present (not stored on events table).
  */
 export interface EventWithRelations extends Event {
+  marketing_flyers?: EventMarketingFile[] | null;
+  marketing_videos?: EventMarketingFile[] | null;
+  marketing_budget?: number | null;
   creator?: {
     id: string;
     name: string;

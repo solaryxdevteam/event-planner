@@ -31,6 +31,21 @@ function MapClickHandler({ onLocationSelect }: { onLocationSelect: (lat: number,
   return null;
 }
 
+// Pans and zooms the map to show the marker when lat/lng change (e.g. after address geocode)
+function MapViewUpdater({ lat, lng, zoom }: { lat: number | null; lng: number | null; zoom: number }) {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { useMap } = require("react-leaflet");
+  const map = useMap();
+
+  useEffect(() => {
+    if (lat != null && lng != null) {
+      map.flyTo([lat, lng], zoom, { duration: 0.5 });
+    }
+  }, [lat, lng, zoom, map]);
+
+  return null;
+}
+
 // Dynamically import Leaflet components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false });
 const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false });
@@ -135,6 +150,7 @@ export function VenueMapSelector({
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <MapViewUpdater lat={lat} lng={lng} zoom={lat && lng ? 15 : 10} />
             {markerPosition && iconReady && (
               <Marker
                 position={markerPosition}

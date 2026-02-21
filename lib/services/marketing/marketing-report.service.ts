@@ -17,14 +17,22 @@ import { UserRole } from "@/lib/types/roles";
 
 const MARKETING_VISIBLE_STATUSES = ["approved_scheduled", "completed_awaiting_report", "completed_archived"];
 
+export interface SubmitMarketingReportInput {
+  notes: string | null;
+  marketing_flyers?: { url: string; name?: string }[];
+  marketing_videos?: { url: string; name?: string }[];
+  marketing_budget?: number | null;
+}
+
 /**
  * Submit a marketing report for an event.
  * Only marketing_manager can submit. Event must be approved or past. No approved report yet; if last was rejected, can resubmit.
+ * Each report carries its own flyers, videos, and budget (stored on marketing_reports table).
  */
 export async function submitMarketingReport(
   userId: string,
   eventId: string,
-  notes: string | null
+  data: SubmitMarketingReportInput
 ): Promise<MarketingReport> {
   const supabase = await createClient();
 
@@ -60,11 +68,24 @@ export async function submitMarketingReport(
     );
   }
 
+  const flyers = Array.isArray(data.marketing_flyers) ? data.marketing_flyers : [];
+  const videos = Array.isArray(data.marketing_videos) ? data.marketing_videos : [];
+  const budget =
+    data.marketing_budget !== undefined && data.marketing_budget !== null && data.marketing_budget !== ""
+      ? Number(data.marketing_budget)
+      : null;
+  if (budget !== null && (Number.isNaN(budget) || budget < 0)) {
+    throw new ValidationError("Marketing budget must be a non-negative number");
+  }
+
   const report = await marketingReportsDAL.insert({
     event_id: eventId,
     submitted_by: userId,
     status: "pending",
-    notes: notes?.trim() || null,
+    notes: data.notes?.trim() || null,
+    marketing_flyers: flyers,
+    marketing_videos: videos,
+    marketing_budget: budget,
   });
 
   const gdIds = await buildMarketingReportApprovalChain();

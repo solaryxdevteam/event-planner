@@ -73,16 +73,12 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
   const approveMutation = useApproveEvent();
   const rejectMutation = useRejectEvent();
 
-  // Check if the current user has a pending approval for this report
+  // Check if the current user has a pending approval for this report (their turn – no bypass for Global Director)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hasPendingApproval = (_reportEventId: string) => {
     if (!profile?.id || !approvals) return false;
     return approvals.some((a: { approval_type?: string; approver_id?: string; status?: string }) => {
-      return (
-        a.approval_type === "report" &&
-        a.approver_id === profile.id &&
-        (a.status === "pending" || (a.status === "waiting" && isGlobalDirector))
-      );
+      return a.approval_type === "report" && a.approver_id === profile.id && a.status === "pending";
     });
   };
 
@@ -323,8 +319,8 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
                 {isGlobalDirector ? (
                   <>
                     <span className="block mb-2">
-                      As a <strong>Global Director</strong>, your approval will immediately finalize this report and
-                      archive the event, bypassing any remaining approvers in the chain.
+                      As a <strong>Global Director</strong>, when it is your turn your approval will finalize this
+                      report and archive the event. You cannot bypass the approval chain.
                     </span>
                     <span>
                       Please provide a comment for your approval decision. This will be recorded in the audit log.

@@ -63,10 +63,13 @@ export function ReportsTable({
   const approveMutation = useApproveEvent();
   const rejectMutation = useRejectEvent();
 
-  // Check if a report has a pending approval for the current user
+  // Check if the current user has a pending approval for this report (their turn – no bypass for Global Director)
   const hasPendingApproval = (eventId: string) => {
     if (!isGlobalDirector) return false;
-    return pendingReportApprovals.some((approval: { event_id: string | null }) => approval.event_id === eventId);
+    return pendingReportApprovals.some(
+      (approval: { event_id: string | null; status?: string }) =>
+        approval.event_id === eventId && approval.status === "pending"
+    );
   };
 
   const handleApprove = async (report: ApprovedReportRow) => {
@@ -305,8 +308,8 @@ export function ReportsTable({
               {isGlobalDirector ? (
                 <>
                   <span className="block mb-2">
-                    As a <strong>Global Director</strong>, your approval will immediately finalize this report and
-                    archive the event, bypassing any remaining approvers in the chain.
+                    As a <strong>Global Director</strong>, when it is your turn your approval will finalize this report
+                    and archive the event. You cannot bypass the approval chain.
                   </span>
                   <span>
                     Please provide a comment for your approval decision. This will be recorded in the audit log.

@@ -13,15 +13,17 @@ import { DeleteVenueDialog } from "./DeleteVenueDialog";
 import { BanVenueDialog } from "./BanVenueDialog";
 import { UnbanVenueDialog } from "./UnbanVenueDialog";
 import { UserRole } from "@/lib/types/roles";
+import { cn } from "@/lib/utils";
 
 interface VenueCardProps {
   venue: VenueWithCreator;
   onDelete: (venueId: string) => void;
   onBan?: (venueId: string) => void;
   userRole: string;
+  compact?: boolean;
 }
 
-export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) {
+export function VenueCard({ venue, onDelete, onBan, userRole, compact = false }: VenueCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [banDialogOpen, setBanDialogOpen] = useState(false);
   const [unbanDialogOpen, setUnbanDialogOpen] = useState(false);
@@ -46,7 +48,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
   const contactVerified = venue.contact_email_verified === true;
 
   return (
-    <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow p-0">
+    <Card className="overflow-hidden shadow-sm hover:shadow-md transition-shadow p-0 !min-h-[250px]">
       {/* Cover image as thumbnail */}
       <div className="relative flex h-32 shrink-0 items-center justify-center bg-muted overflow-hidden">
         {firstImage ? (
@@ -86,7 +88,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
         </div>
       </div>
 
-      <CardHeader>
+      <CardHeader className={cn(compact ? "pb-4" : "")}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <CardTitle className="line-clamp-2">{venue.name}</CardTitle>
@@ -115,7 +117,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
           {venue.street && <span className="text-xs">{venue.street}</span>}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={cn("space-y-3", compact ? "hidden" : "")}>
         {/* Number of tables */}
         {venue.number_of_tables != null && (
           <div className="flex flex-col gap-1">
@@ -144,7 +146,7 @@ export function VenueCard({ venue, onDelete, onBan, userRole }: VenueCardProps) 
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-col gap-3 mt-auto pb-4">
+      <CardFooter className={cn("flex flex-col gap-3 mt-auto pb-4", compact ? "hidden" : "")}>
         {/* Short ID at bottom of card */}
         {shortId && (
           <div className="flex items-center justify-between w-full">

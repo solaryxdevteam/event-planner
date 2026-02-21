@@ -158,34 +158,26 @@ export async function fetchMarketingReports(
   );
 }
 
-/**
- * Submit a marketing report for an event (marketing_manager only)
- */
-export async function submitMarketingReport(
-  eventId: string,
-  notes: string | null
-): Promise<import("@/lib/types/database.types").MarketingReport> {
-  return apiClient.post<import("@/lib/types/database.types").MarketingReport>(
-    `/api/events/${eventId}/marketing-reports`,
-    { notes }
-  );
-}
-
-/** Event marketing assets payload */
-export interface EventMarketingAssetsPayload {
+/** Payload to submit a marketing report (each report carries its own assets) */
+export interface SubmitMarketingReportPayload {
+  notes: string | null;
   marketing_flyers?: { url: string; name?: string }[];
   marketing_videos?: { url: string; name?: string }[];
   marketing_budget?: number | null;
 }
 
 /**
- * Update event marketing assets (flyers, videos, budget). Marketing manager only.
+ * Submit a marketing report for an event (marketing_manager only).
+ * Report includes notes and marketing assets (flyers, videos, budget) stored on marketing_reports table.
  */
-export async function updateEventMarketingAssets(
+export async function submitMarketingReport(
   eventId: string,
-  payload: EventMarketingAssetsPayload
-): Promise<EventWithRelations> {
-  return apiClient.patch<EventWithRelations>(`/api/events/${eventId}/marketing-assets`, payload);
+  payload: SubmitMarketingReportPayload
+): Promise<import("@/lib/types/database.types").MarketingReport> {
+  return apiClient.post<import("@/lib/types/database.types").MarketingReport>(
+    `/api/events/${eventId}/marketing-reports`,
+    payload
+  );
 }
 
 /**

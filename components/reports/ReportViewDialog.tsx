@@ -370,8 +370,8 @@ export function ReportViewDialog({
               {isGlobalDirector ? (
                 <>
                   <span className="block mb-2">
-                    As a <strong>Global Director</strong>, your approval will immediately finalize this report and
-                    archive the event, bypassing any remaining approvers in the chain.
+                    As a <strong>Global Director</strong>, when it is your turn your approval will finalize this report
+                    and archive the event. You cannot bypass the approval chain.
                   </span>
                   <span>
                     Please provide a comment for your approval decision. This will be recorded in the audit log.

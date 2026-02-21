@@ -323,7 +323,15 @@ export function VenueImageUpload({
                     className="aspect-video rounded-md border border-input overflow-hidden bg-muted relative cursor-pointer"
                     onClick={() => !isUploadingThis && !isUploading && setSelectedImageIndex(index)}
                   >
-                    <Image src={url} alt={`Venue image ${index + 1}`} fill className="object-cover" unoptimized />
+                    <Image
+                      src={url}
+                      alt={`Venue image ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized
+                      width={100}
+                      height={100}
+                    />
                     {isUploadingThis && (
                       <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center">
                         <div className="text-white text-sm font-medium mb-2">{progress}%</div>

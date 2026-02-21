@@ -18,7 +18,7 @@ import { FileUploader } from "@/components/ui/file-uploader";
 import { MediaPreviewDialog } from "@/components/ui/media-preview-dialog";
 import { Loader2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { useSubmitMarketingReport, useUpdateEventMarketingAssets } from "@/lib/hooks/use-marketing-reports";
+import { useSubmitMarketingReport } from "@/lib/hooks/use-marketing-reports";
 import * as eventsClientService from "@/lib/services/client/events.client.service";
 import { toast } from "sonner";
 import type { EventMarketingFile } from "@/lib/types/database.types";
@@ -102,17 +102,18 @@ export function AddMarketingReportDialog({
   } | null>(null);
 
   const submitMutation = useSubmitMarketingReport();
-  const updateAssetsMutation = useUpdateEventMarketingAssets();
 
-  // Sync from event when dialog opens; in view mode also sync notes from viewReport
+  // Sync when dialog opens: view mode from viewReport; add mode from event (approved report assets or last report)
   useEffect(() => {
-    if (open && event) {
+    if (open && viewReport) {
+      setNotes(viewReport.notes ?? "");
+      setFlyers(Array.isArray(viewReport.marketing_flyers) ? [...viewReport.marketing_flyers] : []);
+      setVideos(Array.isArray(viewReport.marketing_videos) ? [...viewReport.marketing_videos] : []);
+      setBudgetValue(viewReport.marketing_budget ?? null);
+    } else if (open && event) {
       setFlyers(Array.isArray(event.marketing_flyers) ? [...event.marketing_flyers] : []);
       setVideos(Array.isArray(event.marketing_videos) ? [...event.marketing_videos] : []);
       setBudgetValue(event.marketing_budget ?? null);
-    }
-    if (open && viewReport) {
-      setNotes(viewReport.notes ?? "");
     }
     if (!open) {
       setNotes("");
@@ -137,50 +138,24 @@ export function AddMarketingReportDialog({
           added.push({ url: result.url, name: result.name });
         }
         const next: MarketingFileItem[] = [...current, ...added];
-        // const payloadKey = type === "flyer" ? "marketing_flyers" : "marketing_videos";
-        const payloadValue = normalizeForPayload(next);
-        if (type === "flyer") {
-          setFlyers(next);
-          await updateAssetsMutation.mutateAsync({
-            eventId,
-            payload: { marketing_flyers: payloadValue },
-          });
-        } else {
-          setVideos(next);
-          await updateAssetsMutation.mutateAsync({
-            eventId,
-            payload: { marketing_videos: payloadValue },
-          });
-        }
+        if (type === "flyer") setFlyers(next);
+        else setVideos(next);
       } catch (e) {
         toast.error("Upload failed", { description: e instanceof Error ? e.message : "Unknown error" });
       } finally {
         setBusy(false);
       }
     },
-    [eventId, flyers, videos, updateAssetsMutation, normalizeForPayload]
+    [eventId, flyers, videos]
   );
 
-  const removeFile = useCallback(
-    async (type: "flyer" | "video", index: number) => {
-      const current = type === "flyer" ? flyers : videos;
-      const next = current.filter((_, i) => i !== index);
-      if (type === "flyer") {
-        setFlyers(next);
-        await updateAssetsMutation.mutateAsync({
-          eventId,
-          payload: { marketing_flyers: normalizeForPayload(next) },
-        });
-      } else {
-        setVideos(next);
-        await updateAssetsMutation.mutateAsync({
-          eventId,
-          payload: { marketing_videos: normalizeForPayload(next) },
-        });
-      }
-    },
-    [eventId, flyers, videos, updateAssetsMutation, normalizeForPayload]
-  );
+  const removeFile = useCallback((type: "flyer" | "video", index: number) => {
+    if (type === "flyer") {
+      setFlyers((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      setVideos((prev) => prev.filter((_, i) => i !== index));
+    }
+  }, []);
 
   const handleSubmit = async () => {
     try {
@@ -188,23 +163,23 @@ export function AddMarketingReportDialog({
         toast.error("Please enter a valid budget (number ≥ 0)");
         return;
       }
-      await updateAssetsMutation.mutateAsync({
+      await submitMutation.mutateAsync({
         eventId,
         payload: {
+          notes: notes.trim() || null,
           marketing_flyers: normalizeForPayload(flyers),
           marketing_videos: normalizeForPayload(videos),
           marketing_budget: budgetValue,
         },
       });
-      await submitMutation.mutateAsync({ eventId, notes: notes.trim() || null });
       onOpenChange(false);
       onSuccess?.();
     } catch {
-      // Error handled by mutations
+      // Error handled by mutation
     }
   };
 
-  const isPending = submitMutation.isPending || updateAssetsMutation.isPending;
+  const isPending = submitMutation.isPending;
 
   return (
     <>

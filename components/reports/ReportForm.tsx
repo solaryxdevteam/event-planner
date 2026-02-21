@@ -196,7 +196,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
             type="number"
             min={0}
             {...form.register("attendance_count", { valueAsNumber: true })}
-            className={`text-lg h-12 max-w-xs ${form.formState.errors.attendance_count ? "border-destructive" : ""}`}
+            className={`text-lg h-12 max-w-full ${form.formState.errors.attendance_count ? "border-destructive" : ""}`}
             placeholder="0"
           />
           {form.formState.errors.attendance_count && (

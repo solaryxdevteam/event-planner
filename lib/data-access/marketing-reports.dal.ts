@@ -52,6 +52,28 @@ export async function findPendingByEventId(eventId: string): Promise<MarketingRe
   return data as MarketingReport | null;
 }
 
+/**
+ * Get the approved marketing report for an event (if any). Used to attach marketing assets to event for display.
+ */
+export async function findApprovedByEventId(eventId: string): Promise<MarketingReport | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("marketing_reports")
+    .select("*")
+    .eq("event_id", eventId)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to fetch approved marketing report: ${error.message}`);
+  }
+
+  return data as MarketingReport | null;
+}
+
 export async function insert(row: MarketingReportInsert): Promise<MarketingReport> {
   const supabase = await createClient();
 

@@ -26,6 +26,7 @@ import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import type { VenueWithCreator } from "@/lib/data-access/venues.dal";
 
 const LIMIT = 6;
+const PENDING_APPROVALS_LIMIT = 3;
 
 const statusLabels: Record<string, string> = {
   approved_scheduled: "Confirmed",
@@ -221,7 +222,7 @@ export function DashboardClient() {
       const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return dateB - dateA;
     });
-    return combined.slice(0, LIMIT);
+    return combined.slice(0, PENDING_APPROVALS_LIMIT);
   }, [eventApprovals, modificationApprovals, cancellationApprovals, reportApprovals, venueApprovals]);
 
   const { data: venuesResponse, isLoading: venuesLoading } = useVenues({ status: "active", pageSize: LIMIT });

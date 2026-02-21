@@ -49,8 +49,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = await request.json().catch(() => ({}));
     const notes = typeof body.notes === "string" ? body.notes : null;
+    const marketing_flyers = Array.isArray(body.marketing_flyers) ? body.marketing_flyers : undefined;
+    const marketing_videos = Array.isArray(body.marketing_videos) ? body.marketing_videos : undefined;
+    const marketing_budget =
+      body.marketing_budget !== undefined
+        ? body.marketing_budget === null || body.marketing_budget === ""
+          ? null
+          : Number(body.marketing_budget)
+        : undefined;
 
-    const report = await marketingReportService.submitMarketingReport(authUser.id, eventId, notes);
+    const report = await marketingReportService.submitMarketingReport(authUser.id, eventId, {
+      notes,
+      marketing_flyers,
+      marketing_videos,
+      marketing_budget,
+    });
 
     return NextResponse.json(
       {

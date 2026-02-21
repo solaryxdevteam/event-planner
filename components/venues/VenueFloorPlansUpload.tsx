@@ -159,7 +159,7 @@ export function VenueFloorPlansUpload({ floorPlans, onFloorPlansChange, error }:
                       className="relative w-14 h-14 shrink-0 bg-muted"
                       onClick={() => openImagePreview(url)}
                     >
-                      <Image src={url} alt="" className="w-full h-full object-cover" />
+                      <Image src={url} alt="" className="w-full h-full object-cover" width={100} height={100} />
                     </button>
                   ) : (
                     <div className="w-14 h-14 shrink-0 flex items-center justify-center bg-muted">

@@ -22,51 +22,22 @@ import type { CreateEventInput } from "@/lib/validation/events.schema";
 import { createClient } from "@/lib/supabase/server";
 import { UserRole } from "@/lib/types/roles";
 
-const MARKETING_ASSETS_STATUSES = ["approved_scheduled", "completed_awaiting_report", "completed_archived"];
-
-export interface UpdateEventMarketingAssetsInput {
-  marketing_flyers?: { url: string; name?: string }[];
-  marketing_videos?: { url: string; name?: string }[];
-  marketing_budget?: number | null;
-}
-
 /**
- * Update event marketing assets (flyers, videos, budget). Only marketing_manager, only for approved/past events.
+ * Attach marketing assets from the approved marketing report to an event (for display).
+ * Marketing assets are stored on marketing_reports; events table no longer has these columns.
  */
-export async function updateEventMarketingAssets(
-  userId: string,
+async function attachMarketingAssetsFromApprovedReport(
   eventId: string,
-  data: UpdateEventMarketingAssetsInput
+  event: EventWithRelations
 ): Promise<EventWithRelations> {
-  const supabase = await createClient();
-  const { data: userRow } = await supabase.from("users").select("role").eq("id", userId).single();
-  const role = (userRow as { role?: string } | null)?.role;
-
-  if (role !== "marketing_manager") {
-    throw new ForbiddenError("Only Marketing Managers can update event marketing assets");
-  }
-
-  const event = await eventDAL.findByIdForMarketing(eventId);
-  if (!event) {
-    throw new NotFoundError("Event", eventId);
-  }
-
-  if (!MARKETING_ASSETS_STATUSES.includes(event.status)) {
-    throw new ForbiddenError("Marketing assets can only be updated for approved or past events");
-  }
-
-  const updates: Parameters<typeof eventDAL.update>[1] = {};
-  if (data.marketing_flyers !== undefined) updates.marketing_flyers = data.marketing_flyers;
-  if (data.marketing_videos !== undefined) updates.marketing_videos = data.marketing_videos;
-  if (data.marketing_budget !== undefined) updates.marketing_budget = data.marketing_budget;
-
-  await eventDAL.update(eventId, updates);
-
-  const updated = await eventDAL.findByIdForMarketing(eventId);
-  if (!updated) {
-    throw new NotFoundError("Event", eventId);
-  }
-  return updated;
+  const approved = await marketingReportsDAL.findApprovedByEventId(eventId);
+  if (!approved) return event;
+  return {
+    ...event,
+    marketing_flyers: approved.marketing_flyers ?? null,
+    marketing_videos: approved.marketing_videos ?? null,
+    marketing_budget: approved.marketing_budget ?? null,
+  };
 }
 
 /**
@@ -109,7 +80,7 @@ export async function getEventById(userId: string, eventId: string): Promise<Eve
     if (!event) {
       throw new NotFoundError("Event", eventId);
     }
-    return event;
+    return attachMarketingAssetsFromApprovedReport(eventId, event);
   }
 
   const subordinateIds = await getSubordinateUserIds(userId);
@@ -117,7 +88,7 @@ export async function getEventById(userId: string, eventId: string): Promise<Eve
   if (!event) {
     throw new NotFoundError("Event", eventId);
   }
-  return event;
+  return attachMarketingAssetsFromApprovedReport(eventId, event);
 }
 
 /**
@@ -134,7 +105,7 @@ export async function getEventByShortId(userId: string, shortId: string): Promis
     if (!event) {
       throw new NotFoundError("Event", shortId);
     }
-    return event;
+    return attachMarketingAssetsFromApprovedReport(event.id, event);
   }
 
   const subordinateIds = await getSubordinateUserIds(userId);
@@ -142,7 +113,7 @@ export async function getEventByShortId(userId: string, shortId: string): Promis
   if (!event) {
     throw new NotFoundError("Event", shortId);
   }
-  return event;
+  return attachMarketingAssetsFromApprovedReport(event.id, event);
 }
 
 /** Statuses that marketing_manager can see (approved + past only) */

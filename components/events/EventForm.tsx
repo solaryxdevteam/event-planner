@@ -75,11 +75,10 @@ function VenueSelectionDisplay({
   if (selectedVenue) {
     return (
       <div className="space-y-3">
-        <div className="border rounded-lg overflow-hidden bg-card">
-          <VenueCard venue={selectedVenue} onDelete={() => {}} userRole="EVENT_PLANNER" />
+        <div className="rounded-lg overflow-hidden bg-card">
+          <VenueCard venue={selectedVenue} onDelete={() => {}} userRole="EVENT_PLANNER" compact={true} />
         </div>
         <Button type="button" variant="outline" className="w-full" onClick={onSelect}>
-          <MapPinIcon className="mr-2 h-4 w-4" />
           Change Venue
         </Button>
       </div>
@@ -532,7 +531,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
           </Label>
           {selectedDj ? (
             <div className="space-y-3">
-              <div className="border rounded-lg bg-card flex flex-wrap overflow-hidden items-center justify-between gap-2">
+              <div className="border rounded-lg bg-card flex flex-wrap overflow-hidden items-center justify-between">
                 <div className="relative h-48 w-full">
                   <Image
                     src={selectedDj.picture_url!}
@@ -545,25 +544,9 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
                 <div className="p-4">
                   <p className="font-medium">{selectedDj.name}</p>
                   {selectedDj.music_style && <p className="text-sm text-muted-foreground">{selectedDj.music_style}</p>}
-                  {selectedDj.price != null && (
-                    <p className="text-sm font-medium mt-1">
-                      {new Intl.NumberFormat("en-US", {
-                        style: "currency",
-                        currency: "USD",
-                        minimumFractionDigits: 0,
-                        maximumFractionDigits: 2,
-                      }).format(Number(selectedDj.price))}
-                    </p>
-                  )}
                 </div>
               </div>
-              <Button
-                className="w-full"
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDjDialog(true)}
-              >
+              <Button className="w-full" type="button" variant="outline" onClick={() => setShowDjDialog(true)}>
                 Change DJ
               </Button>
             </div>

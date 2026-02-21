@@ -222,7 +222,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   }, [showMarketingTab, isMarketingManager, activeTab]);
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-1 sm:px-0 mt-4">
+    <div className="space-y-4 sm:space-y-6 px-1 sm:px-0 my-4">
       {/* Header */}
       <div className="flex items-start gap-2 sm:gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -271,7 +271,9 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
           <TabsTrigger value="information">Information</TabsTrigger>
-          {hasVersions && <TabsTrigger value="modification-versions">Modification Versions</TabsTrigger>}
+          {hasVersions && !isMarketingManager && (
+            <TabsTrigger value="modification-versions">Modification Versions</TabsTrigger>
+          )}
           {(event.status === "completed_awaiting_report" || event.status === "completed_archived") && (
             <TabsTrigger value="reports">Reports</TabsTrigger>
           )}
@@ -376,8 +378,8 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           </div>
         </TabsContent>
 
-        {/* Modification Versions Tab */}
-        {hasVersions && (
+        {/* Modification Versions Tab - hidden from marketing manager */}
+        {hasVersions && !isMarketingManager && (
           <TabsContent value="modification-versions" className="space-y-6">
             <ModificationVersionsList
               versions={versions}

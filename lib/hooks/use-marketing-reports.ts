@@ -19,8 +19,13 @@ export function useSubmitMarketingReport() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ eventId, notes }: { eventId: string; notes: string | null }) =>
-      eventsClientService.submitMarketingReport(eventId, notes),
+    mutationFn: ({
+      eventId,
+      payload,
+    }: {
+      eventId: string;
+      payload: eventsClientService.SubmitMarketingReportPayload;
+    }) => eventsClientService.submitMarketingReport(eventId, payload),
     onSuccess: (data: MarketingReport, variables) => {
       queryClient.invalidateQueries({ queryKey: ["marketing-reports"] });
       queryClient.invalidateQueries({ queryKey: ["marketing-reports", variables.eventId] });
@@ -31,25 +36,6 @@ export function useSubmitMarketingReport() {
     },
     onError: (error: Error) => {
       toast.error("Failed to submit marketing report", {
-        description: error.message,
-      });
-    },
-  });
-}
-
-export function useUpdateEventMarketingAssets() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: ({ eventId, payload }: { eventId: string; payload: eventsClientService.EventMarketingAssetsPayload }) =>
-      eventsClientService.updateEventMarketingAssets(eventId, payload),
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["events"] });
-      queryClient.invalidateQueries({ queryKey: ["events", variables.eventId] });
-      toast.success("Marketing assets updated");
-    },
-    onError: (error: Error) => {
-      toast.error("Failed to update marketing assets", {
         description: error.message,
       });
     },

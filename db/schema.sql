@@ -276,9 +276,6 @@ CREATE TABLE events (
   minimum_ticket_price DECIMAL(10, 2),
   minimum_table_price DECIMAL(10, 2),
   notes TEXT,
-  marketing_flyers JSONB NOT NULL DEFAULT '[]'::jsonb,
-  marketing_videos JSONB NOT NULL DEFAULT '[]'::jsonb,
-  marketing_budget NUMERIC(12, 2),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT valid_expected_attendance CHECK (expected_attendance IS NULL OR expected_attendance > 0),
@@ -392,6 +389,9 @@ CREATE TABLE marketing_reports (
   submitted_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status approval_status NOT NULL DEFAULT 'pending',
   notes TEXT,
+  marketing_flyers JSONB NOT NULL DEFAULT '[]'::jsonb,
+  marketing_videos JSONB NOT NULL DEFAULT '[]'::jsonb,
+  marketing_budget NUMERIC(12, 2),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

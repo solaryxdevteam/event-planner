@@ -108,12 +108,12 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
                 </div>
               </CardHeader>
               <CardContent className="space-y-5">
-                {/* Flyers - same as AddMarketingReportDialog view mode */}
+                {/* Flyers - from this report */}
                 <div className="space-y-2">
                   <Label className="text-muted-foreground">Flyers</Label>
-                  {(event.marketing_flyers?.length ?? 0) > 0 ? (
+                  {(lastReport.marketing_flyers?.length ?? 0) > 0 ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                      {(event.marketing_flyers ?? []).map((item, index) => {
+                      {(lastReport.marketing_flyers ?? []).map((item, index) => {
                         const url = getItemUrl(item);
                         const name = getItemName(item, index, "Flyer");
                         const type = getPreviewType(url, name);
@@ -178,12 +178,12 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
                   )}
                 </div>
 
-                {/* Videos */}
+                {/* Videos - from this report */}
                 <div className="space-y-2">
                   <Label className="text-muted-foreground">Videos</Label>
-                  {(event.marketing_videos?.length ?? 0) > 0 ? (
+                  {(lastReport.marketing_videos?.length ?? 0) > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {(event.marketing_videos ?? []).map((item, index) => {
+                      {(lastReport.marketing_videos ?? []).map((item, index) => {
                         const url = getItemUrl(item);
                         const name = getItemName(item, index, "Video");
                         if (!url) return null;
@@ -218,13 +218,13 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
                   </p>
                 </div>
 
-                {/* Budget */}
+                {/* Budget - from this report */}
                 <div className="space-y-2">
                   <Label className="text-muted-foreground">Budget (price)</Label>
                   <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
-                    {event.marketing_budget != null
+                    {lastReport.marketing_budget != null
                       ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-                          Number(event.marketing_budget)
+                          Number(lastReport.marketing_budget)
                         )
                       : "—"}
                   </p>
@@ -357,9 +357,9 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
         }}
         eventId={eventId}
         event={{
-          marketing_flyers: event.marketing_flyers ?? null,
-          marketing_videos: event.marketing_videos ?? null,
-          marketing_budget: event.marketing_budget ?? null,
+          marketing_flyers: lastReport?.marketing_flyers ?? event.marketing_flyers ?? null,
+          marketing_videos: lastReport?.marketing_videos ?? event.marketing_videos ?? null,
+          marketing_budget: lastReport?.marketing_budget ?? event.marketing_budget ?? null,
         }}
         viewReport={viewReport}
       />

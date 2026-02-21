@@ -204,9 +204,6 @@ export interface Event {
   minimum_ticket_price: number | null;
   minimum_table_price: number | null;
   notes: string | null;
-  marketing_flyers?: EventMarketingFile[];
-  marketing_videos?: EventMarketingFile[];
-  marketing_budget?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -217,6 +214,9 @@ export interface MarketingReport {
   submitted_by: string;
   status: ApprovalStatus;
   notes: string | null;
+  marketing_flyers: EventMarketingFile[];
+  marketing_videos: EventMarketingFile[];
+  marketing_budget: number | null;
   created_at: string;
   updated_at: string;
 }
