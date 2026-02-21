@@ -71,9 +71,7 @@ export async function submitMarketingReport(
   const flyers = Array.isArray(data.marketing_flyers) ? data.marketing_flyers : [];
   const videos = Array.isArray(data.marketing_videos) ? data.marketing_videos : [];
   const budget =
-    data.marketing_budget !== undefined && data.marketing_budget !== null && data.marketing_budget !== ""
-      ? Number(data.marketing_budget)
-      : null;
+    data.marketing_budget !== undefined && data.marketing_budget !== null ? Number(data.marketing_budget) : null;
   if (budget !== null && (Number.isNaN(budget) || budget < 0)) {
     throw new ValidationError("Marketing budget must be a non-negative number");
   }
