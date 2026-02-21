@@ -97,11 +97,14 @@ export default function EditVenuePage({ params }: EditVenuePageProps) {
   const isApprovalActionPending =
     isSubmittingApproval || approveVenueMutation.isPending || rejectVenueMutation.isPending;
 
-  // Current user has a pending approval for this venue (can show Approve/Reject)
+  // Current user can approve only when it is their turn (their approval row has status "pending", not "waiting").
+  // Global Directors must not bypass the chain—they only see Approve when their step is pending.
   const canApproveThisVenue =
     venue &&
     venue.approval_status === "pending" &&
-    (venueApprovals as { venue_id: string }[]).some((a) => a.venue_id === venue.id);
+    (venueApprovals as { venue_id: string; status: string }[]).some(
+      (a) => a.venue_id === venue.id && a.status === "pending"
+    );
 
   const handleApproveClick = () => {
     if (!comment.trim() || !venue) return;
