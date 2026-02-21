@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
  * Root Page
  * Middleware handles all redirects for the root path.
  * This
- *  is a client-side fallback redirect in case middleware doesn't run.
+ *  is  a client-side fallback redirect in case middleware doesn't run.
  */
 export default function Home() {
   const router = useRouter();
