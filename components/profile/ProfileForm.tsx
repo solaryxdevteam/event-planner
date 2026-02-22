@@ -13,12 +13,11 @@ import { Label } from "@/components/ui/label";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { InputPasswordStrength } from "@/components/ui/input-password-strength";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 import { updateProfile } from "@/lib/actions/profile";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
 import { signOut } from "@/lib/auth/client";
-import type { User, UserStatus } from "@/lib/types/database.types";
-import { UserRole } from "@/lib/types/roles";
+import type { User } from "@/lib/types/database.types";
 
 interface ProfileFormProps {
   user: User;
@@ -28,12 +27,12 @@ export function ProfileForm({ user }: ProfileFormProps) {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [passwordChangeOtpOpen, setPasswordChangeOtpOpen] = useState(false);
+  /** When user submits with new password, we show OTP first; after verify we submit this data with the token */
+  const [pendingSubmitData, setPendingSubmitData] = useState<UpdateProfileInput | null>(null);
 
   // Check if user is pending - if so, disable all fields
   const isPending = user.status === "pending";
-
-  // Check if user is Global Director (can edit role, email, status)
-  const isGlobalDirector = user.role === UserRole.GLOBAL_DIRECTOR;
 
   const form = useForm<UpdateProfileInput>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,10 +44,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
       phone: user.phone ?? undefined,
       password: undefined,
       password_confirmation: undefined,
-      // Global Director fields
-      email: isGlobalDirector ? user.email : undefined,
-      role: isGlobalDirector ? user.role : undefined,
-      status: isGlobalDirector ? user.status : undefined,
     },
   });
 
@@ -56,10 +51,17 @@ export function ProfileForm({ user }: ProfileFormProps) {
     mutationFn: updateProfile,
     onSuccess: async (response) => {
       if (response.success && response.data) {
-        // Invalidate profile queries
+        // If password was changed, sign out and redirect immediately without invalidating queries
+        // (invalidation would trigger refetches that run after sign-out and cause 401)
+        if ("passwordChanged" in response.data && response.data.passwordChanged) {
+          toast.success("Password updated. Please sign in with your new password.");
+          await signOut();
+          router.push("/auth/login");
+          return;
+        }
+        // Normal profile update: invalidate and reset form
         queryClient.invalidateQueries({ queryKey: ["profile"] });
         queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-        // Update the form with new data
         form.reset({
           first_name: response.data.first_name,
           last_name: response.data.last_name ?? undefined,
@@ -67,21 +69,11 @@ export function ProfileForm({ user }: ProfileFormProps) {
           phone: response.data.phone ?? undefined,
           password: undefined,
           password_confirmation: undefined,
-          email: isGlobalDirector ? response.data.email : undefined,
-          role: isGlobalDirector ? response.data.role : undefined,
-          status: isGlobalDirector ? response.data.status : undefined,
         });
-        // If password was changed, sign out and redirect to login
-        if ("passwordChanged" in response.data && response.data.passwordChanged) {
-          toast.success("Password updated. Please sign in with your new password.");
-          await signOut();
-          router.push("/auth/login");
-          return;
-        }
         toast.success("Profile updated successfully");
-        // Reset password fields after successful update
         if (showPasswordFields) {
           setShowPasswordFields(false);
+          setPendingSubmitData(null);
         }
       } else if (!response.success) {
         toast.error(response.error || "Failed to update profile");
@@ -93,7 +85,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
   });
 
   const onSubmit = (data: UpdateProfileInput) => {
-    // Only include password if it was provided and not empty
     const submitData: UpdateProfileInput = {
       first_name: data.first_name,
       last_name: data.last_name || undefined,
@@ -101,19 +92,41 @@ export function ProfileForm({ user }: ProfileFormProps) {
       phone: data.phone && data.phone.trim() !== "" ? data.phone : undefined,
     };
 
-    if (data.password && data.password.trim() !== "") {
+    const hasPassword = data.password && data.password.trim() !== "";
+    if (hasPassword) {
       submitData.password = data.password;
       submitData.password_confirmation = data.password_confirmation || "";
     }
 
-    // Only include admin fields if user is Global Director
-    if (isGlobalDirector) {
-      if (data.email !== undefined) submitData.email = data.email;
-      if (data.role !== undefined) submitData.role = data.role;
-      if (data.status !== undefined) submitData.status = data.status;
+    // If user is changing password, require OTP verification after submit: open OTP dialog and submit after they verify
+    if (hasPassword) {
+      setPendingSubmitData(submitData);
+      setPasswordChangeOtpOpen(true);
+      return;
     }
 
     updateProfileMutation.mutate(submitData);
+  };
+
+  const handlePasswordOtpVerified = (verificationToken: string) => {
+    if (!pendingSubmitData) {
+      setPasswordChangeOtpOpen(false);
+      return;
+    }
+    const submitData: UpdateProfileInput = {
+      ...pendingSubmitData,
+      password_change_verification_token: verificationToken,
+    };
+    setPendingSubmitData(null);
+    setPasswordChangeOtpOpen(false);
+    updateProfileMutation.mutate(submitData);
+  };
+
+  const handleCancelPasswordChange = () => {
+    setShowPasswordFields(false);
+    setPendingSubmitData(null);
+    form.setValue("password", undefined);
+    form.setValue("password_confirmation", undefined);
   };
 
   if (isPending) {
@@ -132,18 +145,20 @@ export function ProfileForm({ user }: ProfileFormProps) {
                 <Label>First Name</Label>
                 <Input value={user.first_name} disabled />
               </div>
+
               <div>
                 <Label>Last Name</Label>
                 <Input value={user.last_name || ""} disabled />
               </div>
-            </div>
-            <div>
-              <Label>City</Label>
-              <Input value={user.city || "N/A"} disabled />
-            </div>
-            <div>
-              <Label>Phone</Label>
-              <Input value={user.phone || ""} disabled />
+
+              <div>
+                <Label>City</Label>
+                <Input value={user.city || "N/A"} disabled />
+              </div>
+              <div>
+                <Label>Phone</Label>
+                <Input value={user.phone || ""} disabled />
+              </div>
             </div>
           </div>
         </div>
@@ -173,36 +188,38 @@ export function ProfileForm({ user }: ProfileFormProps) {
             <p className="text-sm text-destructive">{form.formState.errors.last_name.message}</p>
           )}
         </div>
-      </div>
 
-      {/* City - Text Field */}
-      <div className="space-y-2">
-        <Label htmlFor="city">City</Label>
-        <Input
-          id="city"
-          {...form.register("city")}
-          placeholder="Enter city name"
-          disabled={updateProfileMutation.isPending}
-        />
-        {form.formState.errors.city && <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>}
-      </div>
+        {/* City - Text Field */}
+        <div className="space-y-2">
+          <Label htmlFor="city">City</Label>
+          <Input
+            id="city"
+            {...form.register("city")}
+            placeholder="Enter city name"
+            disabled={updateProfileMutation.isPending}
+          />
+          {form.formState.errors.city && (
+            <p className="text-sm text-destructive">{form.formState.errors.city.message}</p>
+          )}
+        </div>
 
-      {/* Phone */}
-      <div className="space-y-2">
-        <Label>Phone</Label>
-        <PhoneInput
-          value={form.watch("phone") || undefined}
-          onChange={(value) => {
-            // Convert empty string to undefined for validation
-            const phoneValue = value && value.trim() !== "" ? value : undefined;
-            form.setValue("phone", phoneValue || "", { shouldValidate: true });
-          }}
-          disabled={updateProfileMutation.isPending}
-          defaultCountry="US"
-        />
-        {form.formState.errors.phone && (
-          <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
-        )}
+        {/* Phone */}
+        <div className="space-y-2">
+          <Label>Phone</Label>
+          <PhoneInput
+            value={form.watch("phone") || undefined}
+            onChange={(value) => {
+              // Convert empty string to undefined for validation
+              const phoneValue = value && value.trim() !== "" ? value : undefined;
+              form.setValue("phone", phoneValue || "", { shouldValidate: true });
+            }}
+            disabled={updateProfileMutation.isPending}
+            defaultCountry="US"
+          />
+          {form.formState.errors.phone && (
+            <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
+          )}
+        </div>
       </div>
 
       {/* Password Section */}
@@ -210,17 +227,20 @@ export function ProfileForm({ user }: ProfileFormProps) {
         <div className="flex items-center justify-between">
           <div>
             <Label>Password</Label>
-            <p className="text-sm text-muted-foreground">Leave blank to keep your current password</p>
+            <p className="text-sm text-muted-foreground">
+              Leave blank to keep your current password. When you save with a new password, we will send a verification
+              code to your email.
+            </p>
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => {
-              setShowPasswordFields(!showPasswordFields);
               if (showPasswordFields) {
-                form.setValue("password", undefined);
-                form.setValue("password_confirmation", undefined);
+                handleCancelPasswordChange();
+              } else {
+                setShowPasswordFields(true);
               }
             }}
             disabled={updateProfileMutation.isPending}
@@ -261,81 +281,6 @@ export function ProfileForm({ user }: ProfileFormProps) {
         )}
       </div>
 
-      {/* Global Director Only Fields */}
-      {isGlobalDirector && (
-        <div className="space-y-4 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/20 p-4">
-          <div>
-            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">Administrator Settings</h3>
-            <p className="text-xs text-blue-700 dark:text-blue-300 mb-4">
-              These fields can only be edited by Global Directors
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {/* Email */}
-            <div className="space-y-2">
-              <Label htmlFor="email">
-                Email <span className="text-destructive">*</span>
-              </Label>
-              <Input id="email" type="email" {...form.register("email")} disabled={updateProfileMutation.isPending} />
-              {form.formState.errors.email && (
-                <p className="text-sm text-destructive">{form.formState.errors.email.message}</p>
-              )}
-            </div>
-
-            {/* Role */}
-            <div className="space-y-2">
-              <Label htmlFor="role">
-                Role <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.watch("role")}
-                onValueChange={(value) => form.setValue("role", value as UserRole)}
-                disabled={updateProfileMutation.isPending}
-              >
-                <SelectTrigger id="role">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UserRole.EVENT_PLANNER}>Event Planner</SelectItem>
-                  <SelectItem value={UserRole.CITY_CURATOR}>City Curator</SelectItem>
-                  <SelectItem value={UserRole.REGIONAL_CURATOR}>Regional Curator</SelectItem>
-                  <SelectItem value={UserRole.LEAD_CURATOR}>Lead Curator</SelectItem>
-                  <SelectItem value={UserRole.GLOBAL_DIRECTOR}>Global Director</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.formState.errors.role && (
-                <p className="text-sm text-destructive">{form.formState.errors.role.message}</p>
-              )}
-            </div>
-
-            {/* Status */}
-            <div className="space-y-2">
-              <Label htmlFor="status">
-                Status <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={form.watch("status")}
-                onValueChange={(value) => form.setValue("status", value as UserStatus)}
-                disabled={updateProfileMutation.isPending}
-              >
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-              {form.formState.errors.status && (
-                <p className="text-sm text-destructive">{form.formState.errors.status.message}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Submit Button */}
       <div className="flex justify-end">
         <Button type="submit" disabled={updateProfileMutation.isPending}>
@@ -343,6 +288,20 @@ export function ProfileForm({ user }: ProfileFormProps) {
           Save Changes
         </Button>
       </div>
+
+      <OtpVerificationDialog
+        open={passwordChangeOtpOpen}
+        onOpenChange={(open) => {
+          setPasswordChangeOtpOpen(open);
+          if (!open) setPendingSubmitData(null);
+        }}
+        onVerified={handlePasswordOtpVerified}
+        contextType="password_change"
+        contextId={user.id}
+        action="change"
+        title="Verify to change password"
+        description="We sent a 4-digit code to your email. Enter it below to confirm the password change."
+      />
     </form>
   );
 }

@@ -151,15 +151,16 @@ export function ModificationRequestDialog({ open, onOpenChange, event }: Modific
 
   const onSubmit = async (data: ModificationFormData) => {
     try {
-      const { changeReason, ...modificationData } = data;
+      // changeReason is not in createEventSchema so Zod strips it from validated data; read from form state
+      const changeReason = form.getValues("changeReason")?.trim() || undefined;
 
       await requestModificationMutation.mutateAsync({
         id: event.id,
         modificationData: {
-          ...modificationData,
+          ...data,
           starts_at: startsAtDate ? startsAtDate.toISOString() : null,
         },
-        changeReason: changeReason || undefined,
+        changeReason,
       });
 
       onOpenChange(false);

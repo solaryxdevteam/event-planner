@@ -1,7 +1,6 @@
-import { requireAuth } from "@/lib/auth/server";
+import { getServerUser } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper";
-import { UnauthorizedError } from "@/lib/utils/errors";
 
 export const dynamic = "force-dynamic";
 
@@ -9,19 +8,12 @@ export const dynamic = "force-dynamic";
  * Dashboard Layout
  * Protected route - requires authentication
  * Allows pending users to access (for pending page)
+ * Uses getServerUser + redirect to avoid throwing (prevents error overlay after sign-out redirect)
  */
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Require authentication - allow pending users for pending page
-  let user;
-  try {
-    user = await requireAuth(true);
-  } catch (error) {
-    // If user is not authenticated, redirect to login instead of showing error
-    if (error instanceof UnauthorizedError) {
-      redirect("/auth/login");
-    }
-    // Re-throw other errors
-    throw error;
+  const user = await getServerUser();
+  if (!user) {
+    redirect("/auth/login");
   }
 
   // If user is inactive, redirect to login

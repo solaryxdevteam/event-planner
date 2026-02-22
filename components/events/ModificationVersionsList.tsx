@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, Eye, FileEdit, Plus, XCircle, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { ModificationVersionDialog } from "@/components/events/ModificationVersionDialog";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 import type { EventVersion } from "@/lib/types/database.types";
 import { useApproveEvent, useRejectEvent, useEventApprovals } from "@/lib/hooks/use-approvals";
 import { useProfile } from "@/lib/hooks/use-profile";
@@ -72,6 +73,9 @@ export function ModificationVersionsList({
   const [viewingVersion, setViewingVersion] = useState<EventVersion | null>(null);
   const [showApproveDialog, setShowApproveDialog] = useState<EventVersion | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState<EventVersion | null>(null);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
+  const [pendingActionVersion, setPendingActionVersion] = useState<EventVersion | null>(null);
   const [comment, setComment] = useState("");
 
   const { data: profile } = useProfile();
@@ -92,27 +96,44 @@ export function ModificationVersionsList({
     );
   };
 
-  const handleApprove = async (version: EventVersion) => {
+  const handleApproveContinueToOtp = (version: EventVersion) => {
     if (!comment.trim() || !version.event_id) return;
-    try {
-      await approveMutation.mutateAsync({ eventId: version.event_id, comment });
-      setShowApproveDialog(null);
-      setComment("");
-      router.refresh();
-    } catch (error) {
-      console.error("Error approving modification:", error);
-    }
+    setOtpAction("approve");
+    setPendingActionVersion(version);
+    setShowApproveDialog(null);
+    setShowOtpDialog(true);
   };
 
-  const handleReject = async (version: EventVersion) => {
+  const handleRejectContinueToOtp = (version: EventVersion) => {
     if (!comment.trim() || !version.event_id) return;
+    setOtpAction("reject");
+    setPendingActionVersion(version);
+    setShowRejectDialog(null);
+    setShowOtpDialog(true);
+  };
+
+  const handleOtpVerified = async (verificationToken: string) => {
+    if (!pendingActionVersion?.event_id) return;
     try {
-      await rejectMutation.mutateAsync({ eventId: version.event_id, comment });
-      setShowRejectDialog(null);
+      if (otpAction === "approve") {
+        await approveMutation.mutateAsync({
+          eventId: pendingActionVersion.event_id,
+          comment,
+          verificationToken,
+        });
+      } else {
+        await rejectMutation.mutateAsync({
+          eventId: pendingActionVersion.event_id,
+          comment,
+          verificationToken,
+        });
+      }
+      setShowOtpDialog(false);
+      setPendingActionVersion(null);
       setComment("");
       router.refresh();
     } catch (error) {
-      console.error("Error rejecting modification:", error);
+      console.error(otpAction === "approve" ? "Error approving modification:" : "Error rejecting modification:", error);
     }
   };
 
@@ -282,7 +303,7 @@ export function ModificationVersionsList({
               Cancel
             </Button>
             <Button
-              onClick={() => showApproveDialog && handleApprove(showApproveDialog)}
+              onClick={() => showApproveDialog && handleApproveContinueToOtp(showApproveDialog)}
               disabled={!comment.trim() || isSubmitting}
             >
               {isSubmitting ? (
@@ -291,7 +312,7 @@ export function ModificationVersionsList({
                   Approving...
                 </>
               ) : (
-                "Approve"
+                "Continue to verification"
               )}
             </Button>
           </DialogFooter>
@@ -333,7 +354,7 @@ export function ModificationVersionsList({
             </Button>
             <Button
               variant="destructive"
-              onClick={() => showRejectDialog && handleReject(showRejectDialog)}
+              onClick={() => showRejectDialog && handleRejectContinueToOtp(showRejectDialog)}
               disabled={!comment.trim() || isSubmitting}
             >
               {isSubmitting ? (
@@ -342,12 +363,26 @@ export function ModificationVersionsList({
                   Rejecting...
                 </>
               ) : (
-                "Reject"
+                "Continue to verification"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OtpVerificationDialog
+        open={showOtpDialog}
+        onOpenChange={(open) => {
+          setShowOtpDialog(open);
+          if (!open) setPendingActionVersion(null);
+        }}
+        onVerified={handleOtpVerified}
+        contextType="event_approval"
+        contextId={pendingActionVersion?.event_id ?? eventId}
+        action={otpAction}
+        title="Verify with OTP"
+        description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+      />
     </>
   );
 }

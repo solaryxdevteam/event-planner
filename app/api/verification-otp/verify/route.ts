@@ -15,8 +15,9 @@ const CONTEXT_TYPES: VerificationOtpContextType[] = [
   "venue_approval",
   "venue_create",
   "event_create",
+  "password_change",
 ];
-const ACTIONS: VerificationOtpAction[] = ["approve", "reject", "create"];
+const ACTIONS: VerificationOtpAction[] = ["approve", "reject", "create", "change"];
 
 export async function POST(request: Request) {
   try {

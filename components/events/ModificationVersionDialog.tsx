@@ -28,6 +28,7 @@ import { useProfile } from "@/lib/hooks/use-profile";
 import { UserRole } from "@/lib/types/roles";
 import type { EventVersion } from "@/lib/types/database.types";
 import type { EventApprovalWithApprover } from "@/lib/data-access/event-approvals.dal";
+import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 import { Loader2 } from "lucide-react";
 
 interface ModificationVersionDialogProps {
@@ -71,6 +72,8 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
   const router = useRouter();
   const [showApproveDialog, setShowApproveDialog] = useState(false);
   const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [showOtpDialog, setShowOtpDialog] = useState(false);
+  const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
   const [comment, setComment] = useState("");
 
   const { data: profile } = useProfile();
@@ -89,33 +92,33 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
   const versionData = version.version_data as VersionData;
   const startsAt = versionData.starts_at ? new Date(versionData.starts_at) : null;
 
-  const handleApprove = async () => {
-    if (!comment.trim()) {
-      return;
-    }
-    try {
-      await approveMutation.mutateAsync({ eventId, comment });
-      setShowApproveDialog(false);
-      setComment("");
-      onOpenChange(false);
-      router.refresh();
-    } catch (error) {
-      console.error("Error approving:", error);
-    }
+  const handleApproveContinueToOtp = () => {
+    if (!comment.trim()) return;
+    setOtpAction("approve");
+    setShowApproveDialog(false);
+    setShowOtpDialog(true);
   };
 
-  const handleReject = async () => {
-    if (!comment.trim()) {
-      return;
-    }
+  const handleRejectContinueToOtp = () => {
+    if (!comment.trim()) return;
+    setOtpAction("reject");
+    setShowRejectDialog(false);
+    setShowOtpDialog(true);
+  };
+
+  const handleOtpVerified = async (verificationToken: string) => {
     try {
-      await rejectMutation.mutateAsync({ eventId, comment });
-      setShowRejectDialog(false);
+      if (otpAction === "approve") {
+        await approveMutation.mutateAsync({ eventId, comment, verificationToken });
+      } else {
+        await rejectMutation.mutateAsync({ eventId, comment, verificationToken });
+      }
+      setShowOtpDialog(false);
       setComment("");
       onOpenChange(false);
       router.refresh();
     } catch (error) {
-      console.error("Error rejecting:", error);
+      console.error(otpAction === "approve" ? "Error approving:" : "Error rejecting:", error);
     }
   };
 
@@ -292,14 +295,14 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
             >
               Cancel
             </Button>
-            <Button onClick={handleApprove} disabled={!comment.trim() || isSubmitting}>
+            <Button onClick={handleApproveContinueToOtp} disabled={!comment.trim() || isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Approving...
                 </>
               ) : (
-                "Approve"
+                "Continue to verification"
               )}
             </Button>
           </DialogFooter>
@@ -339,19 +342,34 @@ export function ModificationVersionDialog({ open, onOpenChange, version, eventId
             >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleReject} disabled={!comment.trim() || isSubmitting}>
+            <Button
+              variant="destructive"
+              onClick={handleRejectContinueToOtp}
+              disabled={!comment.trim() || isSubmitting}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Rejecting...
                 </>
               ) : (
-                "Reject"
+                "Continue to verification"
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <OtpVerificationDialog
+        open={showOtpDialog}
+        onOpenChange={setShowOtpDialog}
+        onVerified={handleOtpVerified}
+        contextType="event_approval"
+        contextId={eventId}
+        action={otpAction}
+        title="Verify with OTP"
+        description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+      />
     </>
   );
 }

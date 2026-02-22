@@ -78,7 +78,7 @@ export async function submitReport(
   const pendingReport = allReports.find((r) => r.status === "pending");
   if (pendingReport) {
     throw new ForbiddenError(
-      "A report is currently pending approval. Please wait for the Global Director to approve or reject it before submitting a new report."
+      "A report is currently pending approval. Please wait for the approval process to complete before submitting a new report."
     );
   }
 

@@ -57,6 +57,27 @@ export async function findLatestByEmail(email: string): Promise<UserEmailVerific
   return data as UserEmailVerificationOtpRow | null;
 }
 
+/**
+ * Find latest OTP for a specific user and email (e.g. for change-email flow).
+ */
+export async function findLatestByUserAndEmail(
+  userId: string,
+  email: string
+): Promise<UserEmailVerificationOtpRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .eq("user_id", userId)
+    .eq("email", email.toLowerCase().trim())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`Failed to find verification OTP: ${error.message}`);
+  return data as UserEmailVerificationOtpRow | null;
+}
+
 export async function markVerified(id: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase

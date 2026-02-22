@@ -15,8 +15,9 @@ const CONTEXT_TYPES: VerificationOtpContextType[] = [
   "venue_approval",
   "venue_create",
   "event_create",
+  "password_change",
 ];
-const ACTIONS: VerificationOtpAction[] = ["approve", "reject", "create"];
+const ACTIONS: VerificationOtpAction[] = ["approve", "reject", "create", "change"];
 
 export async function POST(request: Request) {
   try {
@@ -42,10 +43,18 @@ export async function POST(request: Request) {
       success: true,
       expiresAt: result.expiresAt.toISOString(),
       message: "Verification code sent to your email.",
+      ...(result.otpCode != null && { otpCode: result.otpCode }),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to send verification code.";
+    const err = error as { message?: string };
+    const message =
+      (error instanceof Error ? error.message : null) ||
+      (typeof err?.message === "string" ? err.message : null) ||
+      "Failed to send verification code.";
     const status = message.includes("wait") ? 429 : 500;
+    if (status === 500 && process.env.NODE_ENV === "development") {
+      console.error("[verification-otp/request]", error);
+    }
     return NextResponse.json({ message }, { status });
   }
 }

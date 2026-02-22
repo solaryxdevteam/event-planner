@@ -89,7 +89,7 @@ export function EventCard({
             )}
             {/* {event.description && <CardDescription className="line-clamp-2 mt-1">{event.description}</CardDescription>} */}
           </div>
-          <div className="flex flex-col gap-1.5 items-end shrink-0">
+          <div className="flex flex-col gap-1.5 items-start shrink-0">
             <Badge variant="outline" className={`${statusColors[event.status] || "bg-gray-500"} text-white border-0`}>
               {statusLabels[event.status] || event.status}
             </Badge>

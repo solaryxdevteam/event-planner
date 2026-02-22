@@ -26,6 +26,17 @@ If you see **"null value in column \"action_type\" of relation \"audit_logs\" vi
 
 Audit logging is done in application code (`audit.service.ts`) with the correct `action_type`.
 
+### Verification OTP "change" action (password change)
+
+If **password change** OTP fails with a check constraint or "invalid input value for enum" error, the `verification_otps` table may still only allow `action IN ('approve', 'reject', 'create')`. Run:
+
+```bash
+# In Supabase SQL editor or psql:
+# Paste contents of db/migrations/add_verification_otp_change_action.sql
+```
+
+Or run the migration file with `psql -d your_database -f db/migrations/add_verification_otp_change_action.sql`.
+
 ### Schema changes (existing databases)
 
 If you already have the schema applied and add new columns later, run the corresponding SQL. For example, after adding `deleted_at` for venue soft delete:

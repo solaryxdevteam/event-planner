@@ -500,7 +500,7 @@ CREATE TABLE verification_otps (
   code_hash TEXT NOT NULL,
   context_type TEXT NOT NULL,
   context_id UUID NOT NULL,
-  action TEXT NOT NULL CHECK (action IN ('approve', 'reject', 'create')),
+  action TEXT NOT NULL CHECK (action IN ('approve', 'reject', 'create', 'change')),
   expires_at TIMESTAMPTZ NOT NULL,
   used_at TIMESTAMPTZ,
   one_time_token TEXT,

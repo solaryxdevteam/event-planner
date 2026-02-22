@@ -18,6 +18,7 @@ import type { Database } from "@/lib/types/database.types";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
 import { ForbiddenError } from "@/lib/utils/errors";
 import { z } from "zod";
+import * as verificationOtpService from "@/lib/services/verification-otp/verification-otp.service";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 type UserUpdate = Database["public"]["Tables"]["users"]["Update"];
@@ -59,10 +60,11 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
     // Check if user is Global Director for admin fields
     const isGlobalDirector = await roles.isGlobalDirector(userId);
 
-    // Handle password update separately if provided
+    // Handle password update separately if provided (requires OTP verification token)
     const {
       password,
       password_confirmation: _unusedPasswordConfirmation,
+      password_change_verification_token,
       email,
       role,
       status,
@@ -73,6 +75,18 @@ export async function updateProfile(data: UpdateProfileInput): Promise<ActionRes
 
     let passwordChanged = false;
     if (password && password.trim() !== "") {
+      if (!password_change_verification_token?.trim()) {
+        throw new ForbiddenError(
+          "Please verify your identity with the code sent to your email before changing password."
+        );
+      }
+      await verificationOtpService.consumeVerificationToken(
+        userId,
+        "password_change",
+        userId,
+        "change",
+        password_change_verification_token.trim()
+      );
       await passwordService.updatePassword(userId, password);
       passwordChanged = true;
     }

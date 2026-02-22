@@ -37,6 +37,8 @@ export const updateProfileSchema = z
       ])
       .optional(),
     status: z.enum(["pending", "active", "inactive"]).optional(),
+    /** Required when changing password; from OTP verification before password change */
+    password_change_verification_token: z.string().optional(),
   })
   .refine(
     (data) => {

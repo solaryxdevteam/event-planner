@@ -320,9 +320,14 @@ export interface Invitation {
   created_at: string;
 }
 
-export type VerificationOtpContextType = "event_approval" | "venue_approval" | "venue_create" | "event_create";
+export type VerificationOtpContextType =
+  | "event_approval"
+  | "venue_approval"
+  | "venue_create"
+  | "event_create"
+  | "password_change";
 
-export type VerificationOtpAction = "approve" | "reject" | "create";
+export type VerificationOtpAction = "approve" | "reject" | "create" | "change";
 
 export interface VerificationOtp {
   id: string;

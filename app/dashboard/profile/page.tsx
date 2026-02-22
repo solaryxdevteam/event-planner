@@ -2,6 +2,7 @@ import { getCurrentUserProfile } from "@/lib/actions/profile";
 import { redirect } from "next/navigation";
 import { PendingActivationCard } from "@/components/profile/PendingActivationCard";
 import { ProfileAccountSection } from "@/components/profile/ProfileAccountSection";
+import { ProfileChangeEmail } from "@/components/profile/ProfileChangeEmail";
 import { ProfileNotificationPreferences } from "@/components/profile/ProfileNotificationPreferences";
 import { ProfilePersonalInfo } from "@/components/profile/ProfilePersonalInfo";
 
@@ -29,6 +30,7 @@ export default async function ProfilePage() {
       <div className="space-y-6">
         <ProfileAccountSection user={user} />
         <ProfilePersonalInfo user={user} />
+        <ProfileChangeEmail user={user} />
         <ProfileNotificationPreferences user={user} />
       </div>
     </div>

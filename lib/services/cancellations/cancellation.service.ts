@@ -91,6 +91,9 @@ export async function requestCancellation(
     throw new ValidationError("No approvers found in the approval chain. Please contact your system administrator.");
   }
 
+  // Remove any existing cancellation chain (e.g. from a previous rejected request) so we can create a fresh one
+  await approvalDAL.deleteByEventIdAndType(eventId, "cancellation");
+
   // Create approval chain for cancellation
   await approvalDAL.createChain(eventId, approverIds, "cancellation");
 

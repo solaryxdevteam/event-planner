@@ -223,6 +223,18 @@ export async function updateStatus(id: string, status: "pending" | "active" | "i
 }
 
 /**
+ * Find user by email (returns first match). Used for uniqueness checks e.g. change-email.
+ */
+export async function findByEmail(email: string): Promise<User | null> {
+  const supabase = await createClient();
+  const normalized = email.trim().toLowerCase();
+  const { data, error } = await supabase.from("users").select("*").eq("email", normalized).limit(1).maybeSingle();
+
+  if (error) throw new Error(`Failed to find user by email: ${error.message}`);
+  return data as User | null;
+}
+
+/**
  * Search users by name or email (filtered by subordinate user IDs)
  *
  * @param searchQuery - Search term for name or email

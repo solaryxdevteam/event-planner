@@ -269,11 +269,12 @@ export async function approveEvent(
 }
 
 /**
- * Reject an event
- * - Marks current approval as rejected
- * - Sets event status to rejected
- * - Notifies creator
- * - Logs audit
+ * Reject an event (or modification/cancellation/report).
+ * - If the current approver is NOT the last in the chain (e.g. regional rejects):
+ *   records their rejection, advances the chain to the next approver, and returns.
+ *   The request is only finally rejected when the Global Director rejects.
+ * - If the current approver IS the last (Global Director): marks current approval
+ *   as rejected, sets event/version/report status to rejected, notifies creator, logs audit.
  */
 export async function rejectEvent(userId: string, eventId: string, comment: string): Promise<EventWithRelations> {
   if (!comment || comment.trim().length === 0) {
@@ -308,40 +309,70 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
 
   const supabase = await createClient();
 
-  // Update approval status
+  // Update approval status (record this approver's rejection)
   await approvalDAL.updateStatus(currentApproval.id, "rejected", comment);
 
-  // Handle rejection based on approval type
+  // Only the last approver (Global Director) can finalize rejection.
+  // For event, modification, cancellation, and report: if not last, record rejection and advance chain.
+  const isLast = await isLastApprover(eventId, currentApproval.sequence_order, approvalType);
+
+  if (!isLast) {
+    // Not last in chain: advance to next approver. Chain continues until Global Director decides.
+    // Applies to cancellation as well as event, modification, and report.
+    const nextApproverId = await getNextApprover(eventId, currentApproval.sequence_order, approvalType);
+    if (nextApproverId) {
+      const nextApproval = approvals.find((a) => a.approver_id === nextApproverId && a.approval_type === approvalType);
+      if (nextApproval) {
+        await approvalDAL.updateStatus(nextApproval.id, "pending", undefined);
+      }
+    }
+
+    const logAction =
+      approvalType === "modification"
+        ? "reject_modification"
+        : approvalType === "cancellation"
+          ? "reject_cancellation"
+          : approvalType === "report" || approvalType === "marketing_report"
+            ? "reject_report"
+            : "reject";
+    await auditService.log(logAction, userId, eventId, {
+      event_title: event.title,
+      comment,
+      forwarded: true,
+      message: "Rejection recorded; approval chain continues to next level.",
+    });
+
+    const updatedEvent = await eventDAL.findById(eventId, subordinateIds, true);
+    if (!updatedEvent) throw new NotFoundError("Event", eventId);
+    return updatedEvent;
+  }
+
+  // Last approver (Global Director): finalize rejection
   if (approvalType === "modification") {
-    // For modifications: mark version as rejected, original event stays unchanged
     const pendingVersion = await eventVersionDAL.findPendingVersion(eventId);
     if (pendingVersion) {
-      // Update version status to rejected
       await eventVersionDAL.update(pendingVersion.id, {
         status: "rejected",
       });
     }
 
-    // Log audit trail
     await auditService.log("reject_modification", userId, eventId, {
       event_title: event.title,
       comment,
     });
   } else if (approvalType === "cancellation") {
-    // For cancellations: event stays approved_scheduled, cancellation is rejected
-    // Log audit trail
     await auditService.log("reject_cancellation", userId, eventId, {
       event_title: event.title,
       comment,
     });
+    // Remove cancellation chain so the event planner can request cancellation again
+    await approvalDAL.deleteByEventIdAndType(eventId, "cancellation");
   } else if (approvalType === "report") {
-    // For reports: event stays completed_awaiting_report, report is rejected
     const report = await reportService.getReportByEventId(eventId);
     if (report) {
       await reportService.rejectReport(report.id);
     }
 
-    // Log audit trail
     await auditService.log("reject_report", userId, eventId, {
       event_title: event.title,
       comment,
@@ -358,12 +389,10 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
       marketing_report: true,
     });
   } else {
-    // For regular events: set event status to rejected
     await eventDAL.update(eventId, {
       status: "rejected",
     });
 
-    // Notify event creator (respect notification preferences)
     try {
       const { data: creator } = await supabase
         .from("users")
@@ -381,7 +410,6 @@ export async function rejectEvent(userId: string, eventId: string, comment: stri
       console.error("Failed to send event rejected email:", err);
     }
 
-    // Log audit trail
     await auditService.log("reject", userId, eventId, {
       event_title: event.title,
       comment,

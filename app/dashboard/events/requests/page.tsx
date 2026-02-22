@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -27,17 +27,25 @@ const tabCountBadgeClass =
 export default function EventRequestsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const defaultTab = searchParams.get("tab") || "drafts";
+  const tabFromUrl = searchParams.get("tab") || "drafts";
+  // Local tab state so switching is instant; URL updates in background
+  const [selectedTab, setSelectedTab] = useState(tabFromUrl);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventWithRelations | null>(null);
 
+  // Sync selected tab from URL (e.g. back/forward, bookmark)
+  useEffect(() => {
+    setSelectedTab(tabFromUrl);
+  }, [tabFromUrl]);
+
   const handleTabChange = (value: string) => {
+    setSelectedTab(value); // Switch tab immediately, don't wait for URL/navigation
     const params = new URLSearchParams(searchParams.toString());
     params.set("tab", value);
-    router.push(`/dashboard/events/requests?${params.toString()}`);
+    router.push(`/dashboard/events/requests?${params.toString()}`); // Update URL in background
   };
 
   // Fetch events by status
@@ -124,7 +132,7 @@ export default function EventRequestsPage() {
         </Button>
       </div>
 
-      <Tabs value={defaultTab} onValueChange={handleTabChange} className="space-y-4">
+      <Tabs value={selectedTab} onValueChange={handleTabChange} className="space-y-4">
         <TabsList className="h-12 p-1.5 border border-input/50 gap-1 overflow-x-auto scrollbar-hide w-full sm:w-fit inline-flex rounded-xl bg-muted/60">
           <TabsTrigger
             value="drafts"
@@ -181,14 +189,10 @@ export default function EventRequestsPage() {
 
         <TabsContent value="rejected" className="space-y-4">
           {loadingRejected ? (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-64" />
               ))}
-            </div>
-          ) : rejected.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-muted-foreground">No rejected events</p>
             </div>
           ) : (
             <EventList

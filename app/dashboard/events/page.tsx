@@ -21,7 +21,9 @@ export default function EventsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: profile } = useProfile();
-  const defaultTab = searchParams.get("tab") || "current";
+  const tabFromUrl = searchParams.get("tab") || "current";
+  // Local tab state so switching is instant; URL updates in background
+  const [selectedTab, setSelectedTab] = useState(tabFromUrl);
   const [currentPage, setCurrentPage] = useState(1);
   const isMarketingManager = profile?.role === UserRole.MARKETING_MANAGER;
   const [pageSize] = useState(12);
@@ -42,6 +44,11 @@ export default function EventsPage() {
       state: "all",
     };
   });
+
+  // Sync selected tab from URL (e.g. back/forward, bookmark)
+  useEffect(() => {
+    setSelectedTab(tabFromUrl);
+  }, [tabFromUrl]);
 
   // Update filters when URL params change
   useEffect(() => {
@@ -111,7 +118,7 @@ export default function EventsPage() {
       }
 
       // Default status filters based on tab
-      switch (defaultTab) {
+      switch (selectedTab) {
         case "current":
           return "approved_scheduled";
         case "past":
@@ -142,7 +149,7 @@ export default function EventsPage() {
     }
 
     return baseFilters;
-  }, [filters, currentPage, pageSize, defaultTab]);
+  }, [filters, currentPage, pageSize, selectedTab]);
 
   // Fetch filtered events
   const { data: events = [], isLoading } = useEvents(eventFilters);
@@ -155,7 +162,7 @@ export default function EventsPage() {
     } else {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [filters, currentPage, defaultTab]);
+  }, [filters, currentPage, selectedTab]);
 
   const handleView = (eventShortId: string) => {
     router.push(`/dashboard/events/${eventShortId}`);
@@ -184,8 +191,9 @@ export default function EventsPage() {
     "bg-red-500 text-white rounded-full w-6.5 h-6 px-1 justify-center text-xs font-semibold border-0";
 
   const handleTabChange = (value: string) => {
-    router.push(`/dashboard/events?tab=${value}`);
-    setFilters({ ...filters, status: "all", state: "all" });
+    setSelectedTab(value); // Switch tab immediately, don't wait for URL/navigation
+    setFilters((prev) => ({ ...prev, status: "all", state: "all" }));
+    router.push(`/dashboard/events?tab=${value}`); // Update URL in background
   };
 
   const filtersContent = (
@@ -237,8 +245,8 @@ export default function EventsPage() {
             )}
           </div>
 
-          {/* Tabs for Quick Status Filter */}
-          <Tabs value={defaultTab} onValueChange={handleTabChange} className="mb-6">
+          {/* Tabs for Quick Status Filter - selectedTab updates instantly on click */}
+          <Tabs value={selectedTab} onValueChange={handleTabChange} className="mb-6">
             <TabsList className="h-12 p-1.5 border border-input/50 gap-1 overflow-x-auto scrollbar-hide w-full sm:w-fit inline-flex rounded-xl bg-muted/60">
               <TabsTrigger
                 value="current"
@@ -277,9 +285,9 @@ export default function EventsPage() {
               onView={handleView}
               showActions={false}
               emptyMessage={
-                defaultTab === "current"
+                selectedTab === "current"
                   ? "No current events"
-                  : defaultTab === "past"
+                  : selectedTab === "past"
                     ? "No past events"
                     : "No cancelled or rejected events"
               }
