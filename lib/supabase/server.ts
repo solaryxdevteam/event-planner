@@ -58,7 +58,8 @@ export async function createClient() {
  * - Admin operations that need to access all data
  * - Background jobs and maintenance tasks
  *
- * Note: This application does NOT use RLS. Authorization is handled in the Service Layer.
+ * Note: RLS is enabled on public tables; the service role bypasses RLS. User-facing
+ * access uses createClient() (anon + JWT) and is constrained by RLS and the Service Layer.
  */
 export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

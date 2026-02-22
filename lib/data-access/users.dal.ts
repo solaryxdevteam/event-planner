@@ -10,6 +10,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
 type UserInsert = Database["public"]["Tables"]["users"]["Insert"];
@@ -128,12 +129,14 @@ export async function findChildren(parentId: string): Promise<User[]> {
 }
 
 /**
- * Create a new user
+ * Create a new user.
+ * Pass admin client for public flows (e.g. register with invitation) where no session exists.
  *
  * @param user - User data to insert
+ * @param client - Optional Supabase client (e.g. admin for unauthenticated registration)
  */
-export async function insert(user: UserInsert): Promise<User> {
-  const supabase = await createClient();
+export async function insert(user: UserInsert, client?: SupabaseClient<Database>): Promise<User> {
+  const supabase = client ?? (await createClient());
 
   // @ts-expect-error - Supabase type inference issue with Database types
   const { data, error } = await supabase.from("users").insert(user).select().single();

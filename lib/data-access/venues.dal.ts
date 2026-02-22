@@ -10,6 +10,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { customAlphabet } from "nanoid";
 
 type Venue = Database["public"]["Tables"]["venues"]["Row"];
@@ -224,13 +225,15 @@ export async function findByShortId(
  * @param id - Venue UUID
  * @param subordinateUserIds - Array of user IDs that the current user can see (includes self + subordinates), or null for global directors (see all venues)
  * @param includeCreator - Whether to include creator information
+ * @param client - Optional Supabase client; pass admin for public flows (e.g. verify-venue) where no session exists
  */
 export async function findById(
   id: string,
   subordinateUserIds: string[] | null,
-  includeCreator: boolean = true
+  includeCreator: boolean = true,
+  client?: SupabaseClient<Database>
 ): Promise<VenueWithCreator | null> {
-  const supabase = await createClient();
+  const supabase = client ?? (await createClient());
 
   let query = supabase
     .from("venues")
@@ -377,10 +380,11 @@ export async function insert(venue: VenueInsert): Promise<Venue> {
 }
 
 /**
- * Update an existing venue
+ * Update an existing venue.
+ * Pass admin client for public flows (e.g. verify-venue mark verified).
  */
-export async function update(id: string, venue: VenueUpdate): Promise<Venue> {
-  const supabase = await createClient();
+export async function update(id: string, venue: VenueUpdate, client?: SupabaseClient<Database>): Promise<Venue> {
+  const supabase = client ?? (await createClient());
 
   const { data, error } = await supabase
     .from("venues")

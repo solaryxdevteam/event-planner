@@ -7,6 +7,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database.types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { customAlphabet } from "nanoid";
 
 type DJ = Database["public"]["Tables"]["djs"]["Row"];
@@ -107,9 +108,10 @@ export async function findAllActive(search?: string): Promise<DJ[]> {
 
 /**
  * Get a single DJ by ID (UUID).
+ * Pass admin client for public flows (e.g. verify-dj) where no session exists.
  */
-export async function findById(id: string): Promise<DJ | null> {
-  const supabase = await createClient();
+export async function findById(id: string, client?: SupabaseClient<Database>): Promise<DJ | null> {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase.from("djs").select("*").eq("id", id).maybeSingle();
   if (error) {
     throw new Error(`Failed to fetch DJ: ${error.message}`);
@@ -166,9 +168,10 @@ export async function insert(dj: DJInsert): Promise<DJ> {
 
 /**
  * Update an existing DJ.
+ * Pass admin client for public flows (e.g. verify-dj mark verified).
  */
-export async function update(id: string, updates: DJUpdate): Promise<DJ> {
-  const supabase = await createClient();
+export async function update(id: string, updates: DJUpdate, client?: SupabaseClient<Database>): Promise<DJ> {
+  const supabase = client ?? (await createClient());
   const { data, error } = await supabase
     .from("djs")
     // @ts-expect-error - Supabase type inference

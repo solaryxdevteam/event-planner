@@ -46,8 +46,20 @@ ALTER TABLE venues ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_venues_deleted_at ON venues(deleted_at) WHERE deleted_at IS NULL;
 ```
 
+### Row Level Security (RLS)
+
+To satisfy Supabase Security Advisor (RLS disabled in public / sensitive columns exposed), run once:
+
+```bash
+# In Supabase SQL editor or psql, run:
+# db/enable_rls_policies.sql
+```
+
+- **Most tables:** RLS enabled with a policy allowing **authenticated** users full access. Unauthenticated API access is blocked.
+- **Token tables** (`invitations`, `dj_contact_verifications`, `venue_contact_verifications`): RLS enabled but **no** anon/authenticated policies, so the `token` column is never exposed via the API. The app accesses these tables only via the **service role** (e.g. public verify-venue/verify-dj and register flows, plus dashboard create/list).
+
 ### Notes
 
-- Application tables do not use Row Level Security; authorization is handled in the backend.
+- Application tables use RLS with permissive policies for authenticated users; fine-grained authorization is still enforced in the backend (service layer).
 - Reports no longer have `summary` or `net_profit`; use `db/drop_reports_summary_net_profit.sql` on existing DBs to drop those columns.
 - Events, venues, and DJs require a unique `short_id` on insert; the app generates these when creating records.

@@ -1,9 +1,10 @@
 /**
  * Invitations Data Access Layer
- * Pure database operations for invitation management
+ * Uses service role so public validate/register (unauthenticated) and dashboard
+ * create/list work despite RLS on invitations (no anon/authenticated policies).
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import type { Invitation } from "@/lib/types/database.types";
 
 export interface InvitationInsert {
@@ -18,7 +19,7 @@ export interface InvitationInsert {
  * Find invitation by id
  */
 export async function findById(id: string): Promise<Invitation | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("invitations").select("*").eq("id", id).single();
   if (error || !data) return null;
   return data as Invitation;
@@ -28,7 +29,7 @@ export async function findById(id: string): Promise<Invitation | null> {
  * Find invitation by token
  */
 export async function findByToken(token: string): Promise<Invitation | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase.from("invitations").select("*").eq("token", token).single();
 
@@ -43,7 +44,7 @@ export async function findByToken(token: string): Promise<Invitation | null> {
  * Find pending invitations for an email address
  */
 export async function findByEmail(email: string): Promise<Invitation[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("invitations")
@@ -64,7 +65,7 @@ export async function findByEmail(email: string): Promise<Invitation[]> {
  * Create a new invitation
  */
 export async function insert(invitation: InvitationInsert): Promise<Invitation> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // @ts-expect-error - Supabase type inference issue with Database types
   const { data, error } = await supabase.from("invitations").insert(invitation).select().single();
@@ -80,7 +81,7 @@ export async function insert(invitation: InvitationInsert): Promise<Invitation> 
  * Mark invitation as used
  */
 export async function markAsUsed(token: string, usedAt: string = new Date().toISOString()): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // @ts-expect-error - Supabase type inference issue with Database types
   const { error } = await supabase.from("invitations").update({ used_at: usedAt }).eq("token", token);
@@ -94,7 +95,7 @@ export async function markAsUsed(token: string, usedAt: string = new Date().toIS
  * Delete expired invitations (cleanup)
  */
 export async function deleteExpired(): Promise<number> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const now = new Date().toISOString();
 
@@ -116,7 +117,7 @@ export async function deleteExpired(): Promise<number> {
  * Revoke an invitation (delete it)
  */
 export async function revoke(invitationId: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { error } = await supabase.from("invitations").delete().eq("id", invitationId);
 
@@ -133,7 +134,7 @@ export interface InvitationWithCountry extends Invitation {
  * List all invitations (for admin)
  */
 export async function listAll(): Promise<Invitation[]> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase.from("invitations").select("*").order("created_at", { ascending: false });
 
@@ -149,7 +150,7 @@ export async function listAll(): Promise<Invitation[]> {
  */
 export async function getLocationNamesByIds(ids: string[]): Promise<Map<string, string>> {
   if (ids.length === 0) return new Map();
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase.from("locations").select("id, name").in("id", ids);
   if (error) return new Map();
   const map = new Map<string, string>();

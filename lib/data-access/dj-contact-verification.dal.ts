@@ -1,8 +1,10 @@
 /**
  * DJ contact verification DAL
+ * Uses service role so public verify-dj flow (unauthenticated) and dashboard
+ * send-verification work despite RLS on this table (no anon/authenticated policies).
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 const TABLE = "dj_contact_verifications";
 
@@ -24,7 +26,7 @@ export async function create(
   otpHash: string,
   otpExpiresAt: Date
 ): Promise<DjContactVerificationRow> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from(TABLE)
     // @ts-expect-error - Supabase type inference
@@ -42,7 +44,7 @@ export async function create(
 }
 
 export async function findByToken(token: string): Promise<(DjContactVerificationRow & { dj_id: string }) | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -54,7 +56,7 @@ export async function findByToken(token: string): Promise<(DjContactVerification
 }
 
 export async function markVerified(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from(TABLE)
     // @ts-expect-error - Supabase type inference

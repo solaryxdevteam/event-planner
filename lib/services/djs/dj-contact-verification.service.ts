@@ -3,6 +3,7 @@
  */
 
 import { createHash, randomBytes } from "crypto";
+import { createAdminClient } from "@/lib/supabase/server";
 import * as djContactVerificationDal from "@/lib/data-access/dj-contact-verification.dal";
 import * as djDAL from "@/lib/data-access/djs.dal";
 import * as emailService from "@/lib/services/email/email.service";
@@ -67,6 +68,7 @@ export interface VerifyDjInfo {
 
 /**
  * Get DJ by verification token (for public verify-dj page).
+ * Uses admin client so unauthenticated users can load the page (RLS blocks anon/authenticated on djs).
  */
 export async function getDjByToken(token: string): Promise<VerifyDjInfo | null> {
   const row = await djContactVerificationDal.findByToken(token);
@@ -74,7 +76,8 @@ export async function getDjByToken(token: string): Promise<VerifyDjInfo | null> 
   const tokenExpires = new Date(row.token_expires_at);
   if (tokenExpires < new Date()) return null;
 
-  const dj = await djDAL.findById(row.dj_id);
+  const admin = createAdminClient();
+  const dj = await djDAL.findById(row.dj_id, admin);
   if (!dj || dj.deleted_at) return null;
   return {
     id: dj.id,
@@ -110,8 +113,9 @@ export async function verifyOtpAndMarkDj(token: string, code: string): Promise<{
     return { success: false, error: "Incorrect code. Please check and try again." };
   }
 
+  const admin = createAdminClient();
   await djContactVerificationDal.markVerified(row.id);
-  await djDAL.update(row.dj_id, { email_verified: true });
+  await djDAL.update(row.dj_id, { email_verified: true }, admin);
 
   return { success: true };
 }

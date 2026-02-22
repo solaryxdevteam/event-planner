@@ -3,6 +3,7 @@
  */
 
 import { createHash, randomBytes } from "crypto";
+import { createAdminClient } from "@/lib/supabase/server";
 import * as venueContactVerificationDal from "@/lib/data-access/venue-contact-verification.dal";
 import * as venueDAL from "@/lib/data-access/venues.dal";
 import * as emailService from "@/lib/services/email/email.service";
@@ -83,6 +84,7 @@ export interface VerifyVenueInfo {
 
 /**
  * Get venue by verification token (for public verify-venue page).
+ * Uses admin client so unauthenticated users can load the page (RLS blocks anon/authenticated on venues).
  */
 export async function getVenueByToken(token: string): Promise<VerifyVenueInfo | null> {
   const row = await venueContactVerificationDal.findByToken(token);
@@ -90,7 +92,8 @@ export async function getVenueByToken(token: string): Promise<VerifyVenueInfo | 
   const tokenExpires = new Date(row.token_expires_at);
   if (tokenExpires < new Date()) return null;
 
-  const venue = await venueDAL.findById(row.venue_id, null, false);
+  const admin = createAdminClient();
+  const venue = await venueDAL.findById(row.venue_id, null, false, admin);
   if (!venue) return null;
   const hasCoverImage = venue.media?.find((m) => m.isCover) ?? false;
   const coverImage = hasCoverImage ? venue.media?.find((m) => m.isCover)?.url : venue.media?.[0]?.url;
@@ -139,8 +142,9 @@ export async function verifyOtpAndMarkVenue(
     return { success: false, error: "Incorrect code. Please check and try again." };
   }
 
+  const admin = createAdminClient();
   await venueContactVerificationDal.markVerified(row.id);
-  await venueDAL.update(row.venue_id, { contact_email_verified: true });
+  await venueDAL.update(row.venue_id, { contact_email_verified: true }, admin);
 
   return { success: true };
 }

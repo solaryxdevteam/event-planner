@@ -4,7 +4,7 @@
  * Business logic for user management operations
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import * as usersDal from "@/lib/data-access/users.dal";
 import * as hierarchyService from "./hierarchy.service";
 import * as invitationsDal from "@/lib/data-access/invitations.dal";
@@ -618,9 +618,11 @@ export async function registerWithInvitation(
     throw new Error("Email does not match invitation");
   }
 
+  // Use admin client for DB access (no session yet; RLS would block anon/authenticated)
+  const admin = createAdminClient();
+
   // Check if user already exists
-  const supabase = await createClient();
-  const { data: existingUser } = await supabase
+  const { data: existingUser } = await admin
     .from("users")
     .select("id")
     .eq("email", registrationData.email)
@@ -639,20 +641,23 @@ export async function registerWithInvitation(
   });
 
   // Create user record in database (status: pending, country from invitation)
-  const newUser = await usersDal.insert({
-    id: authUserId,
-    email: registrationData.email,
-    first_name: registrationData.first_name,
-    last_name: registrationData.last_name || null,
-    role: UserRole.EVENT_PLANNER, // Default role, can be changed on activation
-    parent_id: null, // Will be assigned on activation
-    country_id: invitation.country_id, // From invitation
-    city: registrationData.city || null,
-    phone: registrationData.phone || null,
-    status: "pending",
-    is_active: false, // Inactive until activated
-    avatar_url: null,
-  });
+  const newUser = await usersDal.insert(
+    {
+      id: authUserId,
+      email: registrationData.email,
+      first_name: registrationData.first_name,
+      last_name: registrationData.last_name || null,
+      role: UserRole.EVENT_PLANNER, // Default role, can be changed on activation
+      parent_id: null, // Will be assigned on activation
+      country_id: invitation.country_id, // From invitation
+      city: registrationData.city || null,
+      phone: registrationData.phone || null,
+      status: "pending",
+      is_active: false, // Inactive until activated
+      avatar_url: null,
+    },
+    admin
+  );
 
   // Mark invitation as used
   await invitationsDal.markAsUsed(token);
