@@ -39,7 +39,7 @@ export async function requestOtp(
   contextType: VerificationOtpContextType,
   contextId: string,
   action: VerificationOtpAction
-): Promise<{ expiresAt: Date }> {
+): Promise<{ expiresAt: Date; otpCode?: string }> {
   const latest = await verificationOtpDal.findLatestByUserAndContext(userId, contextType, contextId, action);
   if (latest) {
     const created = new Date(latest.created_at).getTime();
@@ -61,7 +61,10 @@ export async function requestOtp(
   await verificationOtpDal.createVerificationOtp(userId, codeHash, contextType, contextId, action, expiresAt);
   await emailService.sendVerificationOtpEmail(userEmail, code, OTP_EXPIRY_MINUTES);
 
-  return { expiresAt };
+  return {
+    expiresAt,
+    ...(process.env.NODE_ENV === "development" && { otpCode: code }),
+  };
 }
 
 /**
