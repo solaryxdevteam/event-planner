@@ -4,8 +4,29 @@
  */
 
 import { createServerClient } from "@supabase/ssr";
+import { config as dotenvConfig } from "dotenv";
 import { cookies } from "next/headers";
+import path from "path";
 import type { Database } from "@/lib/types/database.types";
+
+/**
+ * Service role key is server-only by design (never use NEXT_PUBLIC_* — that would expose it to the browser).
+ * Hosts typically inject env vars into the Node process at runtime, so process.env.SUPABASE_SERVICE_ROLE_KEY
+ * should be set. When it isn't (e.g. some Next.js deploy setups), we fall back to .env / .env.production.
+ */
+export function resolveServiceRoleKey(): string | undefined {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (key) return key;
+
+  try {
+    const cwd = process.cwd();
+    dotenvConfig({ path: path.join(cwd, ".env.production") });
+    dotenvConfig({ path: path.join(cwd, ".env") });
+    return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Creates a Supabase client for server-side operations
@@ -62,11 +83,13 @@ export async function createClient() {
  * access uses createClient() (anon + JWT) and is constrained by RLS and the Service Layer.
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseServiceRoleKey = resolveServiceRoleKey();
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error("Missing Supabase service role key. Please check SUPABASE_SERVICE_ROLE_KEY in .env.local");
+    throw new Error(
+      "Missing SUPABASE_SERVICE_ROLE_KEY. Set it in your host's env vars (and redeploy) or in a .env file in the app root."
+    );
   }
 
   return createServerClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
