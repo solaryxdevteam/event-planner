@@ -143,8 +143,9 @@ export function DashboardReportsCard() {
         },
         tooltip: {
           callbacks: {
-            afterLabel: (context) => {
-              const i = context.dataIndex;
+            afterBody: (context) => {
+              if (context.length === 0) return "";
+              const i = context[0].dataIndex;
               const point = weeklyData[i];
               if (point) return `Events: ${point.event_count}`;
               return "";
