@@ -49,7 +49,8 @@ export async function sendVerificationEmail(venueId: string): Promise<void> {
 
   await venueContactVerificationDal.create(venueId, token, tokenExpiresAt, otpHash, otpExpiresAt);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const verifyUrl = `${baseUrl}/verify-venue?token=${token}`;
 
   await emailService.sendVenueContactVerificationEmail(

@@ -130,7 +130,8 @@ export function renderRegistrationCongratulation(user: User): string {
  * Sent when Global Director creates user directly (status: active)
  */
 export function renderUserCreatedCongratulation(user: User, creatorName: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const loginUrl = `${baseUrl}/auth/login`;
   const fullName = getFullName(user);
 
@@ -153,7 +154,8 @@ export function renderUserCreatedCongratulation(user: User, creatorName: string)
  * Sent when event receives final approval (e.g. by Global Director)
  */
 export function renderEventApprovedEmail(eventTitle: string, eventId: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
 
   const content = `
@@ -174,7 +176,8 @@ export function renderEventApprovedEmail(eventTitle: string, eventId: string): s
  * Sent to event planner, DJs, subordinates, and marketing manager after global approval.
  */
 export function renderEventCalendarInviteEmail(eventTitle: string, eventShortId: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const eventUrl = `${baseUrl}/dashboard/events/${eventShortId}`;
 
   const content = `
@@ -204,7 +207,8 @@ function escapeHtml(text: string): string {
 }
 
 export function renderEventRejectedEmail(eventTitle: string, eventId: string, comment: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
 
   const commentBlock = comment?.trim()
@@ -231,7 +235,8 @@ export function renderEventRejectedEmail(eventTitle: string, eventId: string, co
  * Sent to event planner when event transitions to awaiting report
  */
 export function renderReportDueReminderEmail(eventTitle: string, eventId: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
 
   const content = `
@@ -252,7 +257,8 @@ export function renderReportDueReminderEmail(eventTitle: string, eventId: string
  * Sent to Global Director(s) when reports are awaiting approval
  */
 export function renderReportsPendingApprovalReminderEmail(pendingCount: number): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const approvalsUrl = `${baseUrl}/dashboard/approvals`;
 
   const content = `

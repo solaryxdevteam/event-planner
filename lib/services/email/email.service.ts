@@ -47,7 +47,8 @@ const getEffectiveToEmail = (originalTo: string): string => {
 export async function sendInvitationEmail(invitation: Invitation, countryName: string): Promise<void> {
   try {
     // Generate invitation link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
     const invitationLink = `${baseUrl}/auth/register?token=${invitation.token}`;
 
     // Render email template

@@ -48,7 +48,8 @@ export async function sendVerificationEmail(djId: string): Promise<void> {
 
   await djContactVerificationDal.create(djId, token, tokenExpiresAt, otpHash, otpExpiresAt);
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
   const verifyUrl = `${baseUrl}/verify-dj?token=${token}`;
 
   await emailService.sendDjContactVerificationEmail(dj.email, djName, verifyUrl, otpCode, OTP_VALID_MINUTES);
