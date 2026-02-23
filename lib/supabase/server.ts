@@ -85,7 +85,8 @@ export async function createClient() {
  */
 export function createAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const supabaseServiceRoleKey = resolveServiceRoleKey();
+  // const supabaseServiceRoleKey = resolveServiceRoleKey();
+  const supabaseServiceRoleKey = process.env.DB_PUB_KEY?.trim();
 
   if (!supabaseUrl || !supabaseServiceRoleKey) {
     throw new Error(
