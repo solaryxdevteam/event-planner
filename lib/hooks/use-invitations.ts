@@ -1,16 +1,15 @@
 /**
  * React Query hooks for Invitations API
  *
- * Uses client services and server actions
+ * Uses client services only (no server actions)
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as invitationClientService from "@/lib/services/client/invitations.client.service";
-import { listInvitations } from "@/lib/actions/invitations";
 import { toast } from "sonner";
 
 // Re-export types from client service
-export type { CreateInvitationInput } from "@/lib/services/client/invitations.client.service";
+export type { CreateInvitationInput, InvitationWithCountry } from "@/lib/services/client/invitations.client.service";
 
 /**
  * React Query hook: List all invitations (Global Director only)
@@ -18,16 +17,7 @@ export type { CreateInvitationInput } from "@/lib/services/client/invitations.cl
 export function useInvitationsList(enabled: boolean) {
   return useQuery({
     queryKey: ["invitations", "list"],
-    queryFn: async () => {
-      const result = await listInvitations();
-      if (!result.success) {
-        throw new Error(result.error);
-      }
-      if (result.data === undefined) {
-        throw new Error("Failed to load invitations");
-      }
-      return result.data;
-    },
+    queryFn: () => invitationClientService.listInvitations(),
     enabled,
   });
 }

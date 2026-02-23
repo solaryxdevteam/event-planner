@@ -19,8 +19,9 @@ import { Plus, Mail } from "lucide-react";
 import { useUsers, type UserFilters } from "@/lib/hooks/use-users";
 import { useInvitationsList } from "@/lib/hooks/use-invitations";
 import * as usersClientService from "@/lib/services/client/users.client.service";
+import * as invitationClientService from "@/lib/services/client/invitations.client.service";
 import { useQueryClient } from "@tanstack/react-query";
-import { resendInvitation, revokeInvitation } from "@/lib/actions/invitations";
+import { ApiError } from "@/lib/services/client/api-client";
 import { toast } from "sonner";
 
 type User = Database["public"]["Tables"]["users"]["Row"];
@@ -139,24 +140,26 @@ export function UserManagementClient({ initialUsers, isGlobalDirector = true }: 
   };
 
   const handleResendInvitation = async (invitationId: string) => {
-    const result = await resendInvitation(invitationId);
-    if (result?.success !== false) {
+    try {
+      await invitationClientService.resendInvitation(invitationId);
       toast.success("Invitation resent");
       queryClient.invalidateQueries({ queryKey: ["invitations", "list"] });
-    } else {
-      toast.error(result?.error ?? "Failed to resend invitation");
-      throw new Error(result?.error);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to resend invitation";
+      toast.error(message);
+      throw error;
     }
   };
 
   const handleRevokeInvitation = async (invitationId: string) => {
-    const result = await revokeInvitation(invitationId);
-    if (result?.success !== false) {
+    try {
+      await invitationClientService.revokeInvitation(invitationId);
       toast.success("Invitation deleted");
       queryClient.invalidateQueries({ queryKey: ["invitations", "list"] });
-    } else {
-      toast.error(result?.error ?? "Failed to delete invitation");
-      throw new Error(result?.error);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : "Failed to delete invitation";
+      toast.error(message);
+      throw error;
     }
   };
 

@@ -11,8 +11,7 @@ import type { Database } from "@/lib/types/database.types";
 
 /**
  * Service role key is server-only by design (never use NEXT_PUBLIC_* — that would expose it to the browser).
- * Hosts typically inject env vars into the Node process at runtime, so process.env.SUPABASE_SERVICE_ROLE_KEY
- * should be set. When it isn't (e.g. some Next.js deploy setups), we fall back to .env / .env.production.
+ * Hosts typically inject env vars at runtime. When not set, we load from .env files (local + production).
  */
 export function resolveServiceRoleKey(): string | undefined {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -20,8 +19,10 @@ export function resolveServiceRoleKey(): string | undefined {
 
   try {
     const cwd = process.cwd();
-    dotenvConfig({ path: path.join(cwd, ".env.production") });
-    dotenvConfig({ path: path.join(cwd, ".env") });
+    const envFiles = [".env", ".env.production", ".env.local"];
+    for (const file of envFiles) {
+      dotenvConfig({ path: path.join(cwd, file), override: true });
+    }
     return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   } catch {
     return undefined;

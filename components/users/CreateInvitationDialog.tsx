@@ -11,8 +11,9 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createInvitationSchema, type CreateInvitationInput } from "@/lib/validation/invitations.schema";
-import { createInvitation } from "@/lib/actions/invitations";
 import { useCountries } from "@/lib/hooks/use-locations";
+import * as invitationClientService from "@/lib/services/client/invitations.client.service";
+import { ApiError } from "@/lib/services/client/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,25 +76,24 @@ export function CreateInvitationDialog({ open, onOpenChange }: CreateInvitationD
     setIsSubmitting(true);
 
     try {
-      const result = await createInvitation(submissionData);
+      const invitation = await invitationClientService.createInvitation(submissionData);
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
+      const invitationLink = `${baseUrl}/auth/register?token=${invitation.token}`;
 
-      if (result.success && result.data) {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
-        const invitationLink = `${baseUrl}/auth/register?token=${result.data.token}`;
+      setCreatedInvitation({
+        token: invitation.token,
+        link: invitationLink,
+      });
 
-        setCreatedInvitation({
-          token: result.data.token,
-          link: invitationLink,
-        });
-
-        toast.success("Invitation created successfully!");
-        form.reset();
-      } else {
-        toast.error(result.success === false ? result.error : "Failed to create invitation");
-      }
+      toast.success("Invitation created successfully!");
+      form.reset();
     } catch (error) {
-      toast.error("An unexpected error occurred");
-      console.error("Create invitation error:", error);
+      if (error instanceof ApiError) {
+        toast.error(error.message);
+      } else {
+        toast.error("An unexpected error occurred");
+        console.error("Create invitation error:", error);
+      }
     } finally {
       setIsSubmitting(false);
     }

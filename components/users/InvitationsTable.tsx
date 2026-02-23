@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { InvitationWithCountry } from "@/lib/data-access/invitations.dal";
+import type { InvitationWithCountry } from "@/lib/services/client/invitations.client.service";
 import { Mail, Trash2 } from "lucide-react";
 import {
   AlertDialog,

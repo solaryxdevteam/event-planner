@@ -1,6 +1,7 @@
 /**
  * Invitations API Route
  *
+ * GET  /api/invitations - List invitations (Global Director only)
  * POST /api/invitations - Create an invitation (Global Director only)
  */
 
@@ -13,6 +14,30 @@ import { UserRole } from "@/lib/types/roles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/invitations
+ * List all invitations (Global Director only)
+ */
+export async function GET() {
+  try {
+    await requireRole([UserRole.GLOBAL_DIRECTOR]);
+    const invitations = await invitationService.listInvitations();
+    return NextResponse.json({ success: true, data: invitations });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 401 });
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 403 });
+    }
+    console.error("Failed to list invitations:", error);
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : "Failed to list invitations" },
+      { status: 500 }
+    );
+  }
+}
 
 /**
  * POST /api/invitations
