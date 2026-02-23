@@ -6,8 +6,9 @@ import { toast } from "sonner";
 import { Upload, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { uploadAvatar, removeAvatar } from "@/lib/actions/profile";
+import * as profileClientService from "@/lib/services/client/profile.client.service";
 import type { User } from "@/lib/types/database.types";
+import { ApiError } from "@/lib/services/client/api-client";
 
 interface AvatarUploadProps {
   user: User;
@@ -22,43 +23,28 @@ export function AvatarUpload({ user }: AvatarUploadProps) {
   const isPending = user.status === "pending";
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("avatar", file);
-      return uploadAvatar(formData);
-    },
-    onSuccess: (response) => {
-      if (response.success) {
-        // Invalidate profile queries
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-        toast.success("Avatar uploaded successfully");
-        setPreview(null);
-      } else {
-        toast.error(response.error || "Failed to upload avatar");
-        setPreview(null);
-      }
+    mutationFn: (file: File) => profileClientService.uploadAvatar(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      toast.success("Avatar uploaded successfully");
+      setPreview(null);
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to upload avatar");
+      toast.error(error instanceof ApiError ? error.message : "Failed to upload avatar");
       setPreview(null);
     },
   });
 
   const removeMutation = useMutation({
-    mutationFn: removeAvatar,
-    onSuccess: (response) => {
-      if (response.success) {
-        // Invalidate profile queries
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-        toast.success("Avatar removed successfully");
-      } else {
-        toast.error(response.error || "Failed to remove avatar");
-      }
+    mutationFn: () => profileClientService.removeAvatar(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      toast.success("Avatar removed successfully");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to remove avatar");
+      toast.error(error instanceof ApiError ? error.message : "Failed to remove avatar");
     },
   });
 

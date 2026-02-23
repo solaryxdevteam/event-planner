@@ -8,8 +8,10 @@ import { useVenues } from "@/lib/hooks/use-venues";
 import { useActiveDjs } from "@/lib/hooks/use-djs";
 import { apiClient } from "@/lib/services/client/api-client";
 import { ReportsFilters, type ReportsFiltersState, type UserOption } from "./ReportsFilters";
-import { ReportsSummaryCards } from "./ReportsSummaryCards";
-import { ReportsChart } from "./ReportsChart";
+import { computeReportsPageSummary } from "./reports-page-utils";
+import { ReportsPageKPIRow } from "./ReportsPageKPIRow";
+import { ReportsMultiLineChart } from "./ReportsMultiLineChart";
+import { ReportsPageRevenueBreakdown } from "./ReportsPageRevenueBreakdown";
 import { ReportsTable } from "./ReportsTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, FileText, Filter } from "lucide-react";
@@ -69,13 +71,7 @@ export function ReportsPageClient() {
   };
   const chartData = listData?.chartData;
 
-  const summary = useMemo(() => {
-    const data = chartData ?? [];
-    const totalEvents = data.reduce((s, d) => s + d.event_count, 0);
-    const totalSales = data.reduce((s, d) => s + d.table_sales + d.ticket_sales + d.bar_sales, 0);
-    const avgSalesPerEvent = totalEvents > 0 ? totalSales / totalEvents : null;
-    return { totalEvents, totalSales, avgSalesPerEvent };
-  }, [chartData]);
+  const summary = useMemo(() => computeReportsPageSummary(chartData), [chartData]);
 
   const { data: eventsData, isLoading: isLoadingEvents } = useEvents({
     status: "completed_archived",
@@ -166,18 +162,20 @@ export function ReportsPageClient() {
       {/* Desktop Filters */}
       {!isMobile && filtersContent}
 
-      {/* Summary stats */}
-      <ReportsSummaryCards
-        totalEvents={summary.totalEvents}
-        totalSales={summary.totalSales}
-        avgSalesPerEvent={summary.avgSalesPerEvent}
-        isLoading={isLoadingReports}
-      />
+      {/* KPI row: Total Revenue, Total Events, Avg Revenue per Event, Revenue per Guest, Best Month */}
+      <ReportsPageKPIRow summary={summary} isLoading={isLoadingReports} />
 
-      {/* Chart */}
-      <ReportsChart data={chartData} isLoading={isLoadingReports} />
+      {/* Charts: multi-line 2/3 width, donut 1/3 width */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <ReportsMultiLineChart data={chartData} isLoading={isLoadingReports} />
+        </div>
+        <div className="lg:col-span-1">
+          <ReportsPageRevenueBreakdown data={chartData} isLoading={isLoadingReports} />
+        </div>
+      </div>
 
-      {/* 3. Table (includes empty state when no reports) */}
+      {/* Detailed sortable table */}
       <ReportsTable
         reports={reports}
         isLoading={isLoadingReports}

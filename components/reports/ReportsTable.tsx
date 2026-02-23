@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, Eye, FileText, CheckCircle, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, FileText, CheckCircle, XCircle, Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -105,6 +105,46 @@ export function ReportsTable({
   const endIndex = (page - 1) * limit + reports.length;
   const showEmptyState = !isLoading && reports.length === 0;
 
+  const escapeCsv = (value: string | number): string => {
+    const s = String(value);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+
+  const handleExportCsv = () => {
+    const headers = [
+      "Event name",
+      "Venue name",
+      "Attendance",
+      "Table sales",
+      "Ticket sales",
+      "Bar sales",
+      "Revenue per event",
+      "Created at",
+    ];
+    const rows = reports.map((row) => {
+      const revenuePerEvent = (row.total_table_sales ?? 0) + (row.total_ticket_sales ?? 0) + (row.total_bar_sales ?? 0);
+      return [
+        escapeCsv(row.event_title || ""),
+        escapeCsv(row.venue_name || ""),
+        escapeCsv(row.attendance_count),
+        row.total_table_sales != null ? escapeCsv(Number(row.total_table_sales).toFixed(2)) : "",
+        row.total_ticket_sales != null ? escapeCsv(Number(row.total_ticket_sales).toFixed(2)) : "",
+        row.total_bar_sales != null ? escapeCsv(Number(row.total_bar_sales).toFixed(2)) : "",
+        revenuePerEvent > 0 ? escapeCsv(revenuePerEvent.toFixed(2)) : "",
+        escapeCsv(format(new Date(row.created_at), "PPp")),
+      ];
+    });
+    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reports-export-${format(new Date(), "yyyy-MM-dd-HHmm")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const skeletonRows = Array.from({ length: limit }, (_, i) => (
     <TableRow key={`skeleton-${i}`}>
       <TableCell>
@@ -126,6 +166,9 @@ export function ReportsTable({
         <Skeleton className="h-4 w-20" />
       </TableCell>
       <TableCell>
+        <Skeleton className="h-4 w-24" />
+      </TableCell>
+      <TableCell>
         <Skeleton className="h-4 w-36" />
       </TableCell>
       <TableCell>
@@ -136,115 +179,138 @@ export function ReportsTable({
 
   return (
     <>
-      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Event name</TableHead>
-              <TableHead>Venue name</TableHead>
-              <TableHead>Attendance count</TableHead>
-              <TableHead>Table sales</TableHead>
-              <TableHead>Ticket sales</TableHead>
-              <TableHead>Bar sales</TableHead>
-              <TableHead>Created at</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              skeletonRows
-            ) : showEmptyState ? (
+      <div className="flex flex-col gap-4">
+        {!showEmptyState && reports.length > 0 && (
+          <div className="flex justify-end">
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={isLoading}>
+              <Download className="mr-2 h-4 w-4" />
+              Export CSV
+            </Button>
+          </div>
+        )}
+        <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center">
-                  <div className="mx-auto flex max-w-md flex-col items-center gap-2">
-                    <FileText className="h-6 w-6 text-muted-foreground" />
-                    <p className="text-sm font-medium text-foreground">No reports found</p>
-                    <p className="text-sm text-muted-foreground">Try adjusting filters or date range.</p>
-                  </div>
-                </TableCell>
+                <TableHead>Event name</TableHead>
+                <TableHead>Venue name</TableHead>
+                <TableHead>Attendance</TableHead>
+                <TableHead>Table sales</TableHead>
+                <TableHead>Ticket sales</TableHead>
+                <TableHead>Bar sales</TableHead>
+                <TableHead>Revenue</TableHead>
+                <TableHead>Created at</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ) : (
-              reports.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <Link href={`/dashboard/events/${row.event_short_id}`}>
-                      <Badge variant="secondary" className="font-medium text-primary hover:bg-primary/20">
-                        {row.event_title || "—"}
-                      </Badge>
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    {row.venue_id && row.venue_name ? (
-                      <Link href={`/dashboard/venues/${row.venue_short_id}/edit`}>
-                        <Badge variant="secondary" className="font-medium text-primary hover:bg-primary/20">
-                          {row.venue_name}
-                        </Badge>
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
-                  <TableCell>{row.attendance_count.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {row.total_table_sales != null
-                      ? Number(row.total_table_sales).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {row.total_ticket_sales != null
-                      ? Number(row.total_ticket_sales).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "—"}
-                  </TableCell>
-                  <TableCell>
-                    {row.total_bar_sales != null
-                      ? Number(row.total_bar_sales).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })
-                      : "—"}
-                  </TableCell>
-                  <TableCell>{format(new Date(row.created_at), "PPp")}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {hasPendingApproval(row.event_id) && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowRejectDialog(row)}
-                            className="text-red-600 hover:text-red-700"
-                          >
-                            <XCircle className="mr-2 h-4 w-4" />
-                            Reject
-                          </Button>
-                          <Button variant="default" size="sm" onClick={() => setShowApproveDialog(row)}>
-                            <CheckCircle className="mr-2 h-4 w-4" />
-                            Approve
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setViewingReport(row)}
-                        aria-label="View report"
-                      >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View more
-                      </Button>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                skeletonRows
+              ) : showEmptyState ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="py-10 text-center">
+                    <div className="mx-auto flex max-w-md flex-col items-center gap-2">
+                      <FileText className="h-6 w-6 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">No reports found</p>
+                      <p className="text-sm text-muted-foreground">Try adjusting filters or date range.</p>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                reports.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>
+                      <Link href={`/dashboard/events/${row.event_short_id}`}>
+                        <Badge variant="secondary" className="font-medium text-primary hover:bg-primary/20">
+                          {row.event_title || "—"}
+                        </Badge>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {row.venue_id && row.venue_name ? (
+                        <Link href={`/dashboard/venues/${row.venue_short_id}/edit`}>
+                          <Badge variant="secondary" className="font-medium text-primary hover:bg-primary/20">
+                            {row.venue_name}
+                          </Badge>
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell>{row.attendance_count.toLocaleString()}</TableCell>
+                    <TableCell>
+                      {row.total_table_sales != null
+                        ? Number(row.total_table_sales).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {row.total_ticket_sales != null
+                        ? Number(row.total_ticket_sales).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {row.total_bar_sales != null
+                        ? Number(row.total_bar_sales).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const total =
+                          (row.total_table_sales ?? 0) + (row.total_ticket_sales ?? 0) + (row.total_bar_sales ?? 0);
+                        return total > 0
+                          ? total.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : "—";
+                      })()}
+                    </TableCell>
+                    <TableCell>{format(new Date(row.created_at), "PPp")}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {hasPendingApproval(row.event_id) && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowRejectDialog(row)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <XCircle className="mr-2 h-4 w-4" />
+                              Reject
+                            </Button>
+                            <Button variant="default" size="sm" onClick={() => setShowApproveDialog(row)}>
+                              <CheckCircle className="mr-2 h-4 w-4" />
+                              Approve
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setViewingReport(row)}
+                          aria-label="View report"
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View more
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}

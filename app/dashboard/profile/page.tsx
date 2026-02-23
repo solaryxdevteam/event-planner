@@ -1,4 +1,4 @@
-import { getCurrentUserProfile } from "@/lib/actions/profile";
+import { getCurrentUserProfile } from "@/lib/services/profile/profile.service";
 import { redirect } from "next/navigation";
 import { PendingActivationCard } from "@/components/profile/PendingActivationCard";
 import { ProfileAccountSection } from "@/components/profile/ProfileAccountSection";
@@ -9,13 +9,15 @@ import { ProfilePersonalInfo } from "@/components/profile/ProfilePersonalInfo";
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const profileResponse = await getCurrentUserProfile();
-
-  if (!profileResponse.success || !profileResponse.data) {
+  let user;
+  try {
+    user = await getCurrentUserProfile();
+  } catch {
     redirect("/auth/login");
   }
-
-  const user = profileResponse.data;
+  if (!user) {
+    redirect("/auth/login");
+  }
   const isPending = user.status === "pending";
 
   return (

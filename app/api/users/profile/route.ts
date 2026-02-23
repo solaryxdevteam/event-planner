@@ -6,9 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/auth/server";
 import { UnauthorizedError, ForbiddenError } from "@/lib/utils/errors";
-import * as profileService from "@/lib/actions/profile";
+import * as profileService from "@/lib/services/profile/profile.service";
 import { updateProfileSchema } from "@/lib/validation/profile.schema";
 
 export const runtime = "nodejs";
@@ -20,26 +19,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    // Require authentication (allows pending users)
-    try {
-      await requireAuth(true); // Allow pending users
-    } catch (error) {
-      if (error instanceof UnauthorizedError) {
-        return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
-      }
-      throw error;
-    }
-
-    const result = await profileService.getCurrentUserProfile();
-
-    if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-    });
+    const user = await profileService.getCurrentUserProfile();
+    return NextResponse.json({ success: true, data: user });
   } catch (error) {
     console.error("Failed to fetch user profile:", error);
 
@@ -65,32 +46,10 @@ export async function GET() {
  */
 export async function PUT(request: NextRequest) {
   try {
-    // Require authentication
-    try {
-      await requireAuth();
-    } catch (error) {
-      if (error instanceof UnauthorizedError) {
-        return NextResponse.json({ success: false, error: "Authentication required" }, { status: 401 });
-      }
-      throw error;
-    }
-
     const body = await request.json();
-
-    // Validate input
     const validatedInput = updateProfileSchema.parse(body);
-
-    // Update profile
-    const result = await profileService.updateProfile(validatedInput);
-
-    if (!result.success) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: result.data,
-    });
+    const data = await profileService.updateProfile(validatedInput);
+    return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("Failed to update user profile:", error);
 

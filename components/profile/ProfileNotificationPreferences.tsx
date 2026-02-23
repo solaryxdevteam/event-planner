@@ -8,8 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { updateNotificationPreferences } from "@/lib/actions/profile";
+import * as profileClientService from "@/lib/services/client/profile.client.service";
 import type { User } from "@/lib/types/database.types";
+import { ApiError } from "@/lib/services/client/api-client";
 import { UserRole } from "@/lib/types/roles";
 
 interface ProfileNotificationPreferencesProps {
@@ -37,18 +38,14 @@ export function ProfileNotificationPreferences({ user }: ProfileNotificationPref
   const isGlobalDirector = user.role === UserRole.GLOBAL_DIRECTOR;
 
   const updateMutation = useMutation({
-    mutationFn: updateNotificationPreferences,
-    onSuccess: (response) => {
-      if (response.success && response.data) {
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-        toast.success("Notification preferences updated");
-      } else if (!response.success) {
-        toast.error(response.error || "Failed to update notification preferences");
-      }
+    mutationFn: profileClientService.updateNotificationPreferences,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      toast.success("Notification preferences updated");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to update notification preferences");
+      toast.error(error instanceof ApiError ? error.message : "Failed to update notification preferences");
     },
   });
 

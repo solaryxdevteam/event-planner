@@ -46,7 +46,7 @@ export function ProfileChangeEmail({ user }: ProfileChangeEmailProps) {
       if (isRequesting) return;
       setIsRequesting(true);
       try {
-        const res = await fetch("/api/profile/change-email/request", {
+        const res = await fetch("/api/otp/change-email/request", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ newEmail: email.trim() }),
@@ -94,7 +94,7 @@ export function ProfileChangeEmail({ user }: ProfileChangeEmailProps) {
       if (code.length !== OTP_LENGTH || !pendingNewEmail) return;
       setIsVerifying(true);
       try {
-        const res = await fetch("/api/profile/change-email/verify", {
+        const res = await fetch("/api/otp/change-email/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ newEmail: pendingNewEmail, code }),

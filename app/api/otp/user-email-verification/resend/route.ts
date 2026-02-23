@@ -1,7 +1,8 @@
 /**
- * Resend verification OTP
+ * POST /api/otp/user-email-verification/resend
+ * Resend verification OTP (2-minute cooldown).
  *
- * POST /api/auth/verify-email/resend - Send a new OTP (2-minute cooldown)
+ * Body: { email: string }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -10,10 +11,6 @@ import * as userEmailVerificationService from "@/lib/services/user-email-verific
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * POST /api/auth/verify-email/resend
- * Body: { email: string }
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

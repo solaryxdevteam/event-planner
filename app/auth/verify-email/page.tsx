@@ -54,7 +54,7 @@ function VerifyEmailContent() {
     if (!canResend || isResending) return;
     setIsResending(true);
     try {
-      const response = await fetch("/api/auth/verify-email/resend", {
+      const response = await fetch("/api/otp/user-email-verification/resend", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim() }),
@@ -92,7 +92,7 @@ function VerifyEmailContent() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/auth/verify-email", {
+      const response = await fetch("/api/otp/user-email-verification/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), otp }),

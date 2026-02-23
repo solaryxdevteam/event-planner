@@ -87,63 +87,23 @@ export function ReportsFilters({
   };
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg sm:border bg-card p-1 sm:p-3 sm:p-4 sm:shadow-sm">
+    <div className="flex flex-col gap-4 rounded-lg border bg-card p-3 shadow-sm sm:p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold tracking-tight">Filters</h2>
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={handleClear} className="h-8 px-2 text-xs">
+              <XIcon className="mr-1 h-3 w-3" />
+              Clear
+            </Button>
+          )}
         </div>
-        {hasActiveFilters && (
-          <Button variant="ghost" size="sm" onClick={handleClear} className="h-8 px-2 text-xs">
-            <XIcon className="mr-1 h-3 w-3" />
-            Clear
-          </Button>
-        )}
+        <Button onClick={onApply}>Apply</Button>
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-6">
-        <EventCombobox
-          label="Event"
-          value={filters.eventId}
-          onValueChange={(v) => onFiltersChange({ ...filters, eventId: v })}
-          options={eventOptions.map((e) => ({ id: e.id, title: e.title }))}
-          placeholder="All events"
-          loading={isLoadingEvents}
-        />
-
-        <VenueCombobox
-          label="Venue"
-          value={filters.venueId}
-          onValueChange={(v) => onFiltersChange({ ...filters, venueId: v })}
-          options={venueOptions.map((v) => ({ id: v.id, name: v.name }))}
-          placeholder="All venues"
-          loading={isLoadingVenues}
-        />
-
-        <UserCombobox
-          label="User"
-          value={filters.userId}
-          onValueChange={(v) => onFiltersChange({ ...filters, userId: v })}
-          options={userOptions}
-          placeholder="All users"
-          loading={isLoadingUsers}
-        />
-
-        <DjCombobox
-          label="DJ"
-          value={filters.djId}
-          onValueChange={(v) => onFiltersChange({ ...filters, djId: v })}
-          options={djOptions.map((dj) => ({
-            id: dj.id,
-            name: dj.name,
-            email: dj.email,
-            music_style: dj.music_style,
-          }))}
-          placeholder="All DJs"
-          loading={isLoadingDjs}
-        />
-
-        <div className="space-y-2">
+      <div className="flex w-full flex-wrap gap-4">
+        <div className="min-w-full space-y-2 sm:min-w-[calc(50%-0.5rem)] sm:flex-1 sm:basis-0 lg:min-w-[calc(20%-0.8rem)]">
           <DateRangePicker
             value={dateRange}
             onChange={handleDateRangeChange}
@@ -152,10 +112,53 @@ export function ReportsFilters({
           />
         </div>
 
-        <div className="flex items-end">
-          <Button onClick={onApply} className="w-full sm:w-auto">
-            Apply
-          </Button>
+        <div className="min-w-full sm:min-w-[calc(50%-0.5rem)] sm:flex-1 sm:basis-0 lg:min-w-[calc(20%-0.8rem)]">
+          <EventCombobox
+            label="Event"
+            value={filters.eventId}
+            onValueChange={(v) => onFiltersChange({ ...filters, eventId: v })}
+            options={eventOptions.map((e) => ({ id: e.id, title: e.title }))}
+            placeholder="All events"
+            loading={isLoadingEvents}
+          />
+        </div>
+
+        <div className="min-w-full sm:min-w-[calc(50%-0.5rem)] sm:flex-1 sm:basis-0 lg:min-w-[calc(20%-0.8rem)]">
+          <VenueCombobox
+            label="Venue"
+            value={filters.venueId}
+            onValueChange={(v) => onFiltersChange({ ...filters, venueId: v })}
+            options={venueOptions.map((v) => ({ id: v.id, name: v.name }))}
+            placeholder="All venues"
+            loading={isLoadingVenues}
+          />
+        </div>
+
+        <div className="min-w-full sm:min-w-[calc(50%-0.5rem)] sm:flex-1 sm:basis-0 lg:min-w-[calc(20%-0.8rem)]">
+          <UserCombobox
+            label="User"
+            value={filters.userId}
+            onValueChange={(v) => onFiltersChange({ ...filters, userId: v })}
+            options={userOptions}
+            placeholder="All users"
+            loading={isLoadingUsers}
+          />
+        </div>
+
+        <div className="min-w-full sm:min-w-[calc(50%-0.5rem)] sm:flex-1 sm:basis-0 lg:min-w-[calc(20%-0.8rem)]">
+          <DjCombobox
+            label="DJ"
+            value={filters.djId}
+            onValueChange={(v) => onFiltersChange({ ...filters, djId: v })}
+            options={djOptions.map((dj) => ({
+              id: dj.id,
+              name: dj.name,
+              email: dj.email,
+              music_style: dj.music_style,
+            }))}
+            placeholder="All DJs"
+            loading={isLoadingDjs}
+          />
         </div>
       </div>
     </div>

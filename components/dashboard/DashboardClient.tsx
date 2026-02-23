@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getEventsForCalendar } from "@/lib/actions/dashboard";
+import * as dashboardClientService from "@/lib/services/client/dashboard.client.service";
 import { useEvents } from "@/lib/hooks/use-events";
 import { useApprovals, useVenueApprovals } from "@/lib/hooks/use-approvals";
 import { useVenues } from "@/lib/hooks/use-venues";
@@ -128,7 +128,7 @@ export function DashboardClient() {
 
   const { data: calendarEvents = [], isLoading: calendarLoading } = useQuery({
     queryKey: ["dashboard", "calendar", monthStart.toISOString()],
-    queryFn: () => getEventsForCalendar(monthStart, monthEnd),
+    queryFn: () => dashboardClientService.getEventsForCalendar(monthStart, monthEnd),
   });
 
   const { data: eventApprovals = [], isLoading: eventApprovalsLoading } = useApprovals({

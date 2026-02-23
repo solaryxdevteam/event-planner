@@ -18,7 +18,7 @@ export default async function ReportsPage() {
     redirect("/dashboard");
   }
   return (
-    <div className="space-y-4 p-2 sm:p-0">
+    <div className="space-y-4 p-2 sm:px-2 sm:py-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Reports</h1>
         <p className="text-muted-foreground">

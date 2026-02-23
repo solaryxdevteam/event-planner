@@ -53,6 +53,13 @@ export async function deactivateUser(id: string): Promise<void> {
 }
 
 /**
+ * Check Global Director password (for confirmation when creating/assigning Global Director)
+ */
+export async function checkGlobalDirectorPassword(password: string): Promise<boolean> {
+  return apiClient.post<boolean>("/api/users/check-global-director-password", { password });
+}
+
+/**
  * Activate a user
  */
 export async function activateUser(

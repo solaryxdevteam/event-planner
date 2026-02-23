@@ -73,7 +73,7 @@ export function UserCombobox({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[300px] p-0" align="start">
           <Command>
             <CommandInput placeholder="Search by name or email..." className="h-9" />
             <CommandList className="!max-h-none !overflow-visible p-0">
@@ -87,7 +87,7 @@ export function UserCombobox({
                 ) : (
                   <CommandGroup>
                     {safeOptions.map((option) => {
-                      const optionText = `${option.first_name} ${option.last_name} (${option.email})`;
+                      const optionText = `${option.first_name} ${option.last_name} (${option.role.replace(/_/g, " ")})`;
                       return (
                         <CommandItem
                           key={option.id}
@@ -97,10 +97,10 @@ export function UserCombobox({
                             setOpen(false);
                           }}
                         >
-                          <Check className={cn("mr-2 h-4 w-4", value === option.id ? "opacity-100" : "opacity-0")} />
+                          <Check className={cn("h-4 w-4", value === option.id ? "opacity-100" : "opacity-0")} />
                           <div className="flex flex-col">
-                            <span className="truncate">{optionText}</span>
-                            <span className="text-sm text-muted-foreground">{option.role.replace(/_/g, " ")}</span>
+                            <span className="text-sm truncate">{optionText}</span>
+                            <span className="text-sm text-muted-foreground">{option.email}</span>
                           </div>
                         </CommandItem>
                       );

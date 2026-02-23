@@ -17,8 +17,7 @@ import {
   type UpdateUserInput,
   type UserFormInput,
 } from "@/lib/validation/users.schema";
-import { updateUser, checkGlobalDirectorPassword } from "@/lib/actions/users";
-import { createUser } from "@/lib/services/client/users.client.service";
+import * as usersClientService from "@/lib/services/client/users.client.service";
 import { ApiError } from "@/lib/services/client/api-client";
 import { useCountries, useDefaultCountry } from "@/lib/hooks/use-locations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -156,8 +155,8 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
 
         // If creating Global Director, verify password confirmation first
         if (data.role === UserRole.GLOBAL_DIRECTOR) {
-          const passwordCheck = await checkGlobalDirectorPassword(password);
-          if (!passwordCheck.success || !passwordCheck.data) {
+          const valid = await usersClientService.checkGlobalDirectorPassword(password);
+          if (!valid) {
             toast.error("Incorrect Global Director password");
             setIsSubmitting(false);
             return;
@@ -165,7 +164,7 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
         }
 
         // Create user via client service (calls POST /api/users)
-        await createUser({
+        await usersClientService.createUser({
           ...data,
           password: userPassword,
         } as CreateUserInput & { password: string });
@@ -210,26 +209,21 @@ export function UserFormDialog({ open, onOpenChange, mode, user }: UserFormDialo
             setIsSubmitting(false);
             return;
           }
-          const passwordCheck = await checkGlobalDirectorPassword(password);
-          if (!passwordCheck.success || !passwordCheck.data) {
+          const valid = await usersClientService.checkGlobalDirectorPassword(password);
+          if (!valid) {
             toast.error("Incorrect Global Director password");
             setIsSubmitting(false);
             return;
           }
         }
 
-        const response = await updateUser(user.id, updateData as UpdateUserInput);
-
-        if (response.success) {
-          const fullName = data.last_name ? `${data.first_name} ${data.last_name}` : data.first_name;
-          toast.success(`User ${fullName} updated successfully`);
-          onOpenChange(false);
-          form.reset();
-          setPassword("");
-          router.refresh();
-        } else {
-          toast.error(response.error || "Failed to update user");
-        }
+        await usersClientService.updateUser(user.id, updateData as UpdateUserInput);
+        const fullName = data.last_name ? `${data.first_name} ${data.last_name}` : data.first_name;
+        toast.success(`User ${fullName} updated successfully`);
+        onOpenChange(false);
+        form.reset();
+        setPassword("");
+        router.refresh();
       }
     } catch (error) {
       if (error instanceof ApiError) {

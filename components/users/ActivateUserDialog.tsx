@@ -11,9 +11,9 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { activateUserSchema, type ActivateUserInput } from "@/lib/validation/users.schema";
-import { activateUser } from "@/lib/actions/auth.actions";
-import { getPotentialParents } from "@/lib/actions/users";
+import * as usersClientService from "@/lib/services/client/users.client.service";
 import { useLocationById } from "@/lib/hooks/use-locations";
+import { ApiError } from "@/lib/services/client/api-client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -72,10 +72,8 @@ export function ActivateUserDialog({ open, onOpenChange, user }: ActivateUserDia
   const loadPotentialParents = async (role: string) => {
     setIsLoadingParents(true);
     try {
-      const response = await getPotentialParents(role);
-      if (response.success && response.data) {
-        setPotentialParents(response.data);
-      }
+      const result = await usersClientService.fetchPotentialParentsPaginated(role, { limit: 100 });
+      setPotentialParents(result.data);
     } finally {
       setIsLoadingParents(false);
     }
@@ -83,21 +81,18 @@ export function ActivateUserDialog({ open, onOpenChange, user }: ActivateUserDia
 
   const onSubmit = async (data: ActivateUserInput) => {
     setIsSubmitting(true);
-
     try {
-      const response = await activateUser(data);
-
-      if (response.success) {
-        const fullName = user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name;
-        toast.success(`User ${fullName} activated successfully`);
-        onOpenChange(false);
-        form.reset();
-        window.location.reload();
-      } else {
-        toast.error(response.error || "Failed to activate user");
-      }
+      await usersClientService.activateUser(data.userId, {
+        role: data.role,
+        parent_id: data.parent_id,
+      });
+      const fullName = user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name;
+      toast.success(`User ${fullName} activated successfully`);
+      onOpenChange(false);
+      form.reset();
+      window.location.reload();
     } catch (error) {
-      toast.error("An unexpected error occurred");
+      toast.error(error instanceof ApiError ? error.message : "Failed to activate user");
       console.error("Activate user error:", error);
     } finally {
       setIsSubmitting(false);

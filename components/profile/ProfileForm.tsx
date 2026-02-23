@@ -14,8 +14,9 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { InputPasswordStrength } from "@/components/ui/input-password-strength";
 import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
-import { updateProfile } from "@/lib/actions/profile";
+import * as profileClientService from "@/lib/services/client/profile.client.service";
 import { updateProfileSchema, type UpdateProfileInput } from "@/lib/validation/profile.schema";
+import { ApiError } from "@/lib/services/client/api-client";
 import { signOut } from "@/lib/auth/client";
 import type { User } from "@/lib/types/database.types";
 
@@ -48,39 +49,33 @@ export function ProfileForm({ user }: ProfileFormProps) {
   });
 
   const updateProfileMutation = useMutation({
-    mutationFn: updateProfile,
-    onSuccess: async (response) => {
-      if (response.success && response.data) {
-        // If password was changed, sign out and redirect immediately without invalidating queries
-        // (invalidation would trigger refetches that run after sign-out and cause 401)
-        if ("passwordChanged" in response.data && response.data.passwordChanged) {
-          toast.success("Password updated. Please sign in with your new password.");
-          await signOut();
-          router.push("/auth/login");
-          return;
-        }
-        // Normal profile update: invalidate and reset form
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-        form.reset({
-          first_name: response.data.first_name,
-          last_name: response.data.last_name ?? undefined,
-          city: response.data.city ?? undefined,
-          phone: response.data.phone ?? undefined,
-          password: undefined,
-          password_confirmation: undefined,
-        });
-        toast.success("Profile updated successfully");
-        if (showPasswordFields) {
-          setShowPasswordFields(false);
-          setPendingSubmitData(null);
-        }
-      } else if (!response.success) {
-        toast.error(response.error || "Failed to update profile");
+    mutationFn: profileClientService.updateProfile,
+    onSuccess: async (data) => {
+      // If password was changed, sign out and redirect immediately without invalidating queries
+      if ("passwordChanged" in data && data.passwordChanged) {
+        toast.success("Password updated. Please sign in with your new password.");
+        await signOut();
+        router.push("/auth/login");
+        return;
+      }
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      form.reset({
+        first_name: data.first_name,
+        last_name: data.last_name ?? undefined,
+        city: data.city ?? undefined,
+        phone: data.phone ?? undefined,
+        password: undefined,
+        password_confirmation: undefined,
+      });
+      toast.success("Profile updated successfully");
+      if (showPasswordFields) {
+        setShowPasswordFields(false);
+        setPendingSubmitData(null);
       }
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to update profile");
+      toast.error(error instanceof ApiError ? error.message : "Failed to update profile");
     },
   });
 

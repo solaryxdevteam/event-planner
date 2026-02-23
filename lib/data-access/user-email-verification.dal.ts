@@ -1,8 +1,13 @@
 /**
  * User Email Verification OTP Data Access Layer
+ *
+ * Uses admin client because the flow runs unauthenticated: registration creates
+ * the OTP before the user is logged in, and resend/verify are called from the
+ * verify-email page with no session. RLS on this table only allows authenticated;
+ * admin bypasses RLS so these operations succeed.
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/types/database.types";
 
 const TABLE = "user_email_verification_otps";
@@ -25,7 +30,7 @@ export async function create(
   otpHash: string,
   expiresAt: Date
 ): Promise<UserEmailVerificationOtpRow> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const insertRow: InsertOtp = {
     user_id: userId,
     email: email.toLowerCase().trim(),
@@ -44,7 +49,7 @@ export async function create(
 }
 
 export async function findLatestByEmail(email: string): Promise<UserEmailVerificationOtpRow | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -64,7 +69,7 @@ export async function findLatestByUserAndEmail(
   userId: string,
   email: string
 ): Promise<UserEmailVerificationOtpRow | null> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from(TABLE)
     .select("*")
@@ -79,7 +84,7 @@ export async function findLatestByUserAndEmail(
 }
 
 export async function markVerified(id: string): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { error } = await supabase
     .from(TABLE)
     .update({ verified_at: new Date().toISOString() } as never)

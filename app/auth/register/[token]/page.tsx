@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getLocationById } from "@/lib/actions/locations";
+import { useLocationById } from "@/lib/hooks/use-locations";
 import { signInWithPassword } from "@/lib/auth/client";
 import { encryptPassword } from "@/lib/utils/password-encryption.client";
 import { useValidateInvitation } from "@/lib/hooks/use-invitations";
@@ -29,6 +29,7 @@ export default function RegisterPage() {
   const token = (params?.token as string) ?? "";
 
   const { data: invitationData, isLoading, error: validationError } = useValidateInvitation(token || null);
+  const { data: countryData } = useLocationById(invitationData?.country_id ?? null);
 
   const [invitation, setInvitation] = useState<{ email: string; country_id: string; country_name?: string } | null>(
     null
@@ -45,21 +46,17 @@ export default function RegisterPage() {
     confirmPassword: "",
   });
 
-  // When invitation is validated, set email and load country name + states (cached by React Query)
+  // When invitation is validated and country loaded, set email and invitation with country name
   useEffect(() => {
     if (!invitationData?.country_id || !invitationData?.email) return;
 
     setFormData((prev) => ({ ...prev, email: invitationData.email }));
-
-    getLocationById(invitationData.country_id).then((countryResult) => {
-      const countryName = countryResult.success && countryResult.data ? countryResult.data.name : "Country";
-      setInvitation({
-        email: invitationData.email,
-        country_id: invitationData.country_id,
-        country_name: countryName,
-      });
+    setInvitation({
+      email: invitationData.email,
+      country_id: invitationData.country_id,
+      country_name: countryData?.name ?? "Country",
     });
-  }, [invitationData?.country_id, invitationData?.email]);
+  }, [invitationData?.country_id, invitationData?.email, countryData?.name]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

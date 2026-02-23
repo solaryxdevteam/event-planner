@@ -1,7 +1,9 @@
 /**
- * Verify Email API Route
+ * POST /api/otp/user-email-verification/verify
+ * Verify OTP after registration, activate user, and return magic link for auto-login.
  *
- * POST /api/auth/verify-email - Verify OTP, activate user, and return magic link for auto-login
+ * Body: { email: string, otp: string }
+ * Returns: { success: true, loginUrl?: string }
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,11 +15,6 @@ export const dynamic = "force-dynamic";
 
 const PROFILE_REDIRECT = "/dashboard/profile";
 
-/**
- * POST /api/auth/verify-email
- * Body: { email: string, otp: string }
- * On success returns { success: true, loginUrl: string } for auto-login redirect to profile.
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -62,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, loginUrl });
   } catch (error) {
-    console.error("Verify email error:", error);
+    console.error("Verify email OTP error:", error);
     return NextResponse.json(
       {
         success: false,

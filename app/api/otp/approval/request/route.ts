@@ -1,8 +1,9 @@
 /**
- * POST /api/verification-otp/request - Request OTP for approval verification
- *
- * Body: { contextType: "event_approval" | "venue_approval", contextId: string, action: "approve" | "reject" }
+ * POST /api/otp/approval/request
+ * Request OTP for approval verification (approve/reject actions).
  * Sends OTP to current user's email. Resend allowed after 2 minutes.
+ *
+ * Body: { contextType, contextId, action }
  */
 
 import { NextResponse } from "next/server";
@@ -18,6 +19,9 @@ const CONTEXT_TYPES: VerificationOtpContextType[] = [
   "password_change",
 ];
 const ACTIONS: VerificationOtpAction[] = ["approve", "reject", "create", "change"];
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
@@ -53,7 +57,7 @@ export async function POST(request: Request) {
       "Failed to send verification code.";
     const status = message.includes("wait") ? 429 : 500;
     if (status === 500 && process.env.NODE_ENV === "development") {
-      console.error("[verification-otp/request]", error);
+      console.error("[otp/approval/request]", error);
     }
     return NextResponse.json({ message }, { status });
   }

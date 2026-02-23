@@ -1,8 +1,9 @@
 /**
- * POST /api/verification-otp/verify - Verify OTP and get one-time token
+ * POST /api/otp/approval/verify
+ * Verify OTP and get one-time token for approve/reject API.
  *
  * Body: { contextType, contextId, action, code: string }
- * Returns { verificationToken } to be sent with approve/reject API.
+ * Returns: { success: true, verificationToken: string }
  */
 
 import { NextResponse } from "next/server";
@@ -18,6 +19,9 @@ const CONTEXT_TYPES: VerificationOtpContextType[] = [
   "password_change",
 ];
 const ACTIONS: VerificationOtpAction[] = ["approve", "reject", "create", "change"];
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {

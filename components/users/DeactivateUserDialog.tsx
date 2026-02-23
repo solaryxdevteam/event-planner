@@ -8,7 +8,8 @@
 "use client";
 
 import { useState } from "react";
-import { deactivateUser } from "@/lib/actions/users";
+import * as usersClientService from "@/lib/services/client/users.client.service";
+import { ApiError } from "@/lib/services/client/api-client";
 import {
   Dialog,
   DialogContent,
@@ -37,21 +38,17 @@ export function DeactivateUserDialog({ open, onOpenChange, user, onSuccess }: De
   const handleDeactivate = async () => {
     setIsDeactivating(true);
     try {
-      const response = await deactivateUser(user.id);
-      if (response.success) {
-        const fullName = user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name;
-        toast.success(`${fullName} has been deactivated`);
-        onOpenChange(false);
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          window.location.reload();
-        }
+      await usersClientService.deactivateUser(user.id);
+      const fullName = user.last_name ? `${user.first_name} ${user.last_name}` : user.first_name;
+      toast.success(`${fullName} has been deactivated`);
+      onOpenChange(false);
+      if (onSuccess) {
+        onSuccess();
       } else {
-        toast.error(response.error || "Failed to deactivate user");
+        window.location.reload();
       }
     } catch (error) {
-      toast.error("An unexpected error occurred");
+      toast.error(error instanceof ApiError ? error.message : "Failed to deactivate user");
       console.error(error);
     } finally {
       setIsDeactivating(false);

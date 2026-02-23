@@ -1,11 +1,17 @@
 /**
- * POST /api/profile/change-email/verify
- * Verify OTP and apply email change (Supabase Auth + users table). Non–Global Director only.
+ * POST /api/otp/change-email/verify
+ * Verify OTP and apply email change (Supabase Auth + users table).
+ * Non–Global Director only.
+ *
+ * Body: { newEmail: string, code: string }
  */
 
 import { NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth/server";
 import * as changeEmailService from "@/lib/services/profile/change-email.service";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {

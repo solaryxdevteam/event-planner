@@ -73,14 +73,14 @@ export function DateRangePicker({
             type="button"
             disabled={disabled}
             className={cn(
-              "w-full justify-start text-left font-normal",
+              "w-full min-w-0 justify-start overflow-hidden text-left font-normal",
               !value?.from && "text-muted-foreground",
               error && "border-destructive focus-visible:ring-destructive"
             )}
             aria-invalid={!!error}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {displayValue}
+            <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+            <span className="truncate">{displayValue}</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

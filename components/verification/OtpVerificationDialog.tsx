@@ -50,7 +50,7 @@ export function OtpVerificationDialog({
     if (isRequesting) return;
     setIsRequesting(true);
     try {
-      const res = await fetch("/api/verification-otp/request", {
+      const res = await fetch("/api/otp/approval/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contextType, contextId, action }),
@@ -96,7 +96,7 @@ export function OtpVerificationDialog({
       }
       setIsVerifying(true);
       try {
-        const res = await fetch("/api/verification-otp/verify", {
+        const res = await fetch("/api/otp/approval/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contextType, contextId, action, code: value }),

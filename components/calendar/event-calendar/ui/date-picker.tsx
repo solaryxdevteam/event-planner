@@ -43,7 +43,7 @@ export function DatePicker({ date, onDateChange, locale = id }: DatePickerProps)
           initialFocus
           locale={locale}
           weekStartsOn={1} // Week starts on Monday
-          disabled={(date) => false} // Semua tanggal aktif
+          disabled={() => false} // Semua tanggal aktif
           className="rounded-md border"
           classNames={{
             day_selected: "bg-primary text-primary-foreground",

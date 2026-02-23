@@ -1,11 +1,17 @@
 /**
- * POST /api/profile/change-email/request
- * Request OTP to change email (non–Global Director only). Sends OTP to the new email.
+ * POST /api/otp/change-email/request
+ * Request OTP to change email (non–Global Director only).
+ * Sends OTP to the new email address.
+ *
+ * Body: { newEmail: string }
  */
 
 import { NextResponse } from "next/server";
 import { requireActiveUser } from "@/lib/auth/server";
 import * as changeEmailService from "@/lib/services/profile/change-email.service";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
