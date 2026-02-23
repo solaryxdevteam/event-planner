@@ -14,8 +14,9 @@ import type { User } from "@/lib/types/database.types";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const origin = requestUrl.origin;
   const redirectTo = requestUrl.searchParams.get("redirect_to") || "/dashboard";
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || requestUrl.origin;
+  const origin = baseUrl.replace(/\/$/, "");
 
   if (code) {
     const supabase = await createClient();

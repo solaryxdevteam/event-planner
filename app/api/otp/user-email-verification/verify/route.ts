@@ -31,10 +31,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
 
-    const origin = request.headers.get("x-forwarded-host")
-      ? `${request.headers.get("x-forwarded-proto") || "https"}://${request.headers.get("x-forwarded-host")}`
-      : new URL(request.url).origin;
-    const redirectTo = `${origin}/auth/callback?redirect_to=${encodeURIComponent(PROFILE_REDIRECT)}`;
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+    const redirectTo = `${baseUrl.replace(/\/$/, "")}/auth/callback?redirect_to=${encodeURIComponent(PROFILE_REDIRECT)}`;
 
     const supabase = createAdminClient();
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
