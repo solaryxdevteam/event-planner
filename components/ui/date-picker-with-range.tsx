@@ -67,6 +67,7 @@ export function DatePickerWithRange({
             selected={selected}
             onSelect={(range) => onChange(range ? { from: range.from, to: range.to } : undefined)}
             numberOfMonths={2}
+            captionLayout="dropdown"
           />
         </PopoverContent>
       </Popover>
