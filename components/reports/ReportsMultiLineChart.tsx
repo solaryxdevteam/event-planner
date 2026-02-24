@@ -235,7 +235,7 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>Reports – Last 12 Monthsdddd</CardTitle>
+        <CardTitle>Reports – Last 12 Months</CardTitle>
         <ReportsPeriodToggle value={period} onChange={setPeriod} />
       </CardHeader>
       <CardContent>
