@@ -38,7 +38,11 @@ export function ReportsInsightsCard({ insights }: ReportsInsightsCardProps) {
           {insights.topCategoryPct.toFixed(0)}%)
         </li>
         <li className={`flex items-center justify-between ${growthClass}`}>
-          <span className="text-foreground">Growth:</span> {growthText} avg
+          <div className="flex flex-col items-start gap-0">
+            <span className="text-foreground">Monthly Growth:</span>
+            <span className="text-foreground/60 text-[10px]">(vs same month last year)</span>
+          </div>
+          {growthText}
         </li>
         <li className="flex items-center justify-between">
           <span className="text-foreground">Attendance:</span> {insights.attendance.toLocaleString()} total

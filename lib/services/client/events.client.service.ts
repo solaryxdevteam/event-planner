@@ -31,9 +31,27 @@ export interface EventFilters {
 }
 
 /**
+ * Pagination info returned by GET /api/events
+ */
+export interface EventsPagination {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/**
+ * Paginated response from GET /api/events
+ */
+export interface FetchEventsResponse {
+  events: EventWithRelations[];
+  pagination: EventsPagination;
+}
+
+/**
  * Fetch events with filters
  */
-export async function fetchEvents(filters: EventFilters): Promise<EventWithRelations[]> {
+export async function fetchEvents(filters: EventFilters): Promise<FetchEventsResponse> {
   const params: Record<string, string | number> = {};
 
   if (filters.status) {
@@ -55,7 +73,7 @@ export async function fetchEvents(filters: EventFilters): Promise<EventWithRelat
   if (filters.pageSize) params.pageSize = filters.pageSize;
   if (filters.needsMarketingReport === true) params.needsMarketingReport = "true";
 
-  return apiClient.get<EventWithRelations[]>("/api/events", { params });
+  return apiClient.get<FetchEventsResponse>("/api/events", { params });
 }
 
 /**

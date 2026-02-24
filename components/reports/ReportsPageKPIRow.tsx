@@ -11,9 +11,9 @@ interface ReportsPageKPIRowProps {
 }
 
 function formatGrowthSub(pct: number): string {
-  if (pct > 0) return `↑${pct.toFixed(1)}% vs prior`;
-  if (pct < 0) return `↓${Math.abs(pct).toFixed(1)}% vs prior`;
-  return "0% vs prior";
+  if (pct > 0) return `↑${pct.toFixed(1)}% vs same period last year`;
+  if (pct < 0) return `↓${Math.abs(pct).toFixed(1)}% vs same period last year`;
+  return "0% vs same period last year";
 }
 
 function KPICard({

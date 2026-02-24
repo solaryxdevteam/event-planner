@@ -113,18 +113,20 @@ export function ReportsTable({
 
   const handleExportCsv = () => {
     const headers = [
-      "Event name",
-      "Venue name",
+      "Date",
+      "Event",
+      "Venue",
       "Attendance",
       "Table sales",
       "Ticket sales",
       "Bar sales",
       "Revenue per event",
-      "Created at",
     ];
     const rows = reports.map((row) => {
       const revenuePerEvent = (row.total_table_sales ?? 0) + (row.total_ticket_sales ?? 0) + (row.total_bar_sales ?? 0);
+      const dateStr = row.event_starts_at ? format(new Date(row.event_starts_at), "PPp") : "";
       return [
+        escapeCsv(dateStr),
         escapeCsv(row.event_title || ""),
         escapeCsv(row.venue_name || ""),
         escapeCsv(row.attendance_count),
@@ -132,7 +134,6 @@ export function ReportsTable({
         row.total_ticket_sales != null ? escapeCsv(Number(row.total_ticket_sales).toFixed(2)) : "",
         row.total_bar_sales != null ? escapeCsv(Number(row.total_bar_sales).toFixed(2)) : "",
         revenuePerEvent > 0 ? escapeCsv(revenuePerEvent.toFixed(2)) : "",
-        escapeCsv(format(new Date(row.created_at), "PPp")),
       ];
     });
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
@@ -147,6 +148,9 @@ export function ReportsTable({
 
   const skeletonRows = Array.from({ length: limit }, (_, i) => (
     <TableRow key={`skeleton-${i}`}>
+      <TableCell>
+        <Skeleton className="h-4 w-28" />
+      </TableCell>
       <TableCell>
         <Skeleton className="h-4 w-32" />
       </TableCell>
@@ -169,9 +173,6 @@ export function ReportsTable({
         <Skeleton className="h-4 w-24" />
       </TableCell>
       <TableCell>
-        <Skeleton className="h-4 w-36" />
-      </TableCell>
-      <TableCell>
         <Skeleton className="h-4 w-24" />
       </TableCell>
     </TableRow>
@@ -192,14 +193,14 @@ export function ReportsTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Event name</TableHead>
-                <TableHead>Venue name</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Event</TableHead>
+                <TableHead>Venue</TableHead>
                 <TableHead>Attendance</TableHead>
                 <TableHead>Table sales</TableHead>
                 <TableHead>Ticket sales</TableHead>
                 <TableHead>Bar sales</TableHead>
                 <TableHead>Revenue</TableHead>
-                <TableHead>Created at</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -219,6 +220,7 @@ export function ReportsTable({
               ) : (
                 reports.map((row) => (
                   <TableRow key={row.id}>
+                    <TableCell>{row.event_starts_at ? format(new Date(row.event_starts_at), "PPp") : "—"}</TableCell>
                     <TableCell>
                       <Link href={`/dashboard/events/${row.event_short_id}`}>
                         <Badge variant="secondary" className="font-medium text-primary hover:bg-primary/20">
@@ -274,7 +276,6 @@ export function ReportsTable({
                           : "—";
                       })()}
                     </TableCell>
-                    <TableCell>{format(new Date(row.created_at), "PPp")}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         {hasPendingApproval(row.event_id) && (

@@ -112,14 +112,29 @@ export type ReportsPageSummary = {
   bestMonthGrowthPct: number;
 };
 
-export function computeReportsPageSummary(chartData: ReportChartDataPoint[] | undefined): ReportsPageSummary {
+/**
+ * Compute KPI summary for the reports page.
+ * Growth percentages compare current date range vs same date range last year (priorYearChartData).
+ */
+export function computeReportsPageSummary(
+  chartData: ReportChartDataPoint[] | undefined,
+  priorYearChartData?: ReportChartDataPoint[] | undefined
+): ReportsPageSummary {
   const data = chartData ?? [];
+  const priorData = priorYearChartData ?? [];
+
   const totalEvents = data.reduce((s, d) => s + d.event_count, 0);
   const totalSales = data.reduce((s, d) => s + d.table_sales + d.ticket_sales + d.bar_sales, 0);
   const avgSalesPerEvent = totalEvents > 0 ? totalSales / totalEvents : null;
   const revenuePerGuest = totalEvents > 0 ? totalSales / totalEvents : null;
 
+  const priorTotalEvents = priorData.reduce((s, d) => s + d.event_count, 0);
+  const priorTotalSales = priorData.reduce((s, d) => s + d.table_sales + d.ticket_sales + d.bar_sales, 0);
+  const priorAvgSalesPerEvent = priorTotalEvents > 0 ? priorTotalSales / priorTotalEvents : 0;
+
   const byMonth = aggregateByMonth(data);
+  const byMonthPrior = aggregateByMonth(priorData);
+
   const bestMonth =
     byMonth.length > 0
       ? (() => {
@@ -134,23 +149,26 @@ export function computeReportsPageSummary(chartData: ReportChartDataPoint[] | un
   let revenuePerGuestGrowthPct = 0;
   let bestMonthGrowthPct = 0;
 
-  if (byMonth.length >= 2) {
-    const recent = byMonth.slice(-2);
-    const prev = recent[0];
-    const curr = recent[1];
-    if (prev.total > 0) growthPct = ((curr.total - prev.total) / prev.total) * 100;
-    if (prev.event_count > 0) eventsGrowthPct = ((curr.event_count - prev.event_count) / prev.event_count) * 100;
-    const prevAvg = prev.event_count > 0 ? prev.total / prev.event_count : 0;
-    const currAvg = curr.event_count > 0 ? curr.total / curr.event_count : 0;
-    if (prevAvg > 0) {
-      avgRevenueGrowthPct = ((currAvg - prevAvg) / prevAvg) * 100;
-      revenuePerGuestGrowthPct = avgRevenueGrowthPct;
-    }
-    if (bestMonth) {
-      const bestIdx = byMonth.findIndex((m) => m.label === bestMonth.label);
-      if (bestIdx > 0) {
-        const prevBest = byMonth[bestIdx - 1];
-        if (prevBest.total > 0) bestMonthGrowthPct = ((bestMonth.total - prevBest.total) / prevBest.total) * 100;
+  // Compare current period vs same period last year
+  if (priorTotalSales > 0) {
+    growthPct = ((totalSales - priorTotalSales) / priorTotalSales) * 100;
+  }
+  if (priorTotalEvents > 0) {
+    eventsGrowthPct = ((totalEvents - priorTotalEvents) / priorTotalEvents) * 100;
+  }
+  if (priorAvgSalesPerEvent > 0 && avgSalesPerEvent != null) {
+    avgRevenueGrowthPct = ((avgSalesPerEvent - priorAvgSalesPerEvent) / priorAvgSalesPerEvent) * 100;
+    revenuePerGuestGrowthPct = avgRevenueGrowthPct;
+  }
+  // Best month: compare same calendar month last year (e.g. Mar '25 vs Mar '24)
+  if (bestMonth && byMonth.length > 0 && byMonthPrior.length > 0) {
+    const bestEntry = byMonth.find((m) => m.label === bestMonth.label && m.total === bestMonth.total);
+    if (bestEntry) {
+      const [y] = bestEntry.key.split("-").map(Number);
+      const priorYearKey = `${y - 1}-${bestEntry.key.slice(5)}`;
+      const priorSameMonth = byMonthPrior.find((m) => m.key === priorYearKey);
+      if (priorSameMonth && priorSameMonth.total > 0) {
+        bestMonthGrowthPct = ((bestMonth.total - priorSameMonth.total) / priorSameMonth.total) * 100;
       }
     }
   }

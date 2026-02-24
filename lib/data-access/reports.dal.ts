@@ -154,6 +154,7 @@ export async function deleteReport(id: string): Promise<void> {
 export interface ApprovedReportRow extends Report {
   event_title: string;
   event_short_id: string;
+  event_starts_at: string | null;
   venue_id: string | null;
   venue_name: string | null;
   venue_short_id: string | null;
@@ -190,7 +191,7 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
   const { subordinateUserIds, eventId, venueId, dateFrom, dateTo, userId, djId, page, limit } = params;
 
   // Get event IDs the user can see (creator in subordinateUserIds, optional filters)
-  let eventsQuery = supabase.from("events").select("id").in("creator_id", subordinateUserIds);
+  let eventsQuery = supabase.from("events").select("id, starts_at").in("creator_id", subordinateUserIds);
   if (venueId) {
     eventsQuery = eventsQuery.eq("venue_id", venueId);
   }
@@ -204,7 +205,21 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
     eventsQuery = eventsQuery.eq("dj_id", djId);
   }
   const { data: eventRows } = await eventsQuery;
-  const allowedEventIds = (eventRows || []).map((r: { id: string }) => r.id);
+  let allowedEventIds = (eventRows || []).map((r: { id: string }) => r.id);
+  // Filter by event starts_at (event date) when date range is provided
+  if (dateFrom || dateTo) {
+    const from = dateFrom ? `${dateFrom}T00:00:00.000Z` : null;
+    const to = dateTo ? `${dateTo}T23:59:59.999Z` : null;
+    allowedEventIds = (eventRows || [])
+      .filter((r: { id: string; starts_at: string | null }) => {
+        const s = r.starts_at;
+        if (!s) return false;
+        if (from && s < from) return false;
+        if (to && s > to) return false;
+        return true;
+      })
+      .map((r: { id: string }) => r.id);
+  }
   if (allowedEventIds.length === 0) {
     return {
       reports: [],
@@ -221,6 +236,7 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
         id,
         short_id,
         title,
+        starts_at,
         venue_id,
         venue:venues!events_venue_id_fkey (
           id,
@@ -233,13 +249,6 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
     )
     .eq("status", "approved")
     .in("event_id", allowedEventIds);
-
-  if (dateFrom) {
-    query = query.gte("created_at", `${dateFrom}T00:00:00.000Z`);
-  }
-  if (dateTo) {
-    query = query.lte("created_at", `${dateTo}T23:59:59.999Z`);
-  }
 
   query = query.order("created_at", { ascending: false });
 
@@ -258,6 +267,7 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
         id: string;
         short_id: string;
         title: string;
+        starts_at: string | null;
         venue_id: string | null;
         venue: { id: string; short_id: string | null; name: string } | null;
       } | null;
@@ -268,6 +278,7 @@ export async function listApproved(params: ListApprovedReportsParams): Promise<L
     ...row,
     event_title: row.event?.title ?? "",
     event_short_id: row.event?.short_id ?? "",
+    event_starts_at: row.event?.starts_at ?? null,
     venue_id: row.event?.venue_id ?? null,
     venue_name: row.event?.venue?.name ?? null,
     venue_short_id: row.event?.venue?.short_id ?? null,
@@ -312,7 +323,6 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
     .from("reports")
     .select(
       `
-      created_at,
       total_table_sales,
       total_ticket_sales,
       total_bar_sales,
@@ -321,7 +331,8 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
       event:events!reports_event_id_fkey (
         creator_id,
         venue_id,
-        dj_id
+        dj_id,
+        starts_at
       )
     `
     )
@@ -329,12 +340,6 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
 
   if (eventId) {
     query = query.eq("event_id", eventId);
-  }
-  if (dateFrom) {
-    query = query.gte("created_at", `${dateFrom}T00:00:00.000Z`);
-  }
-  if (dateTo) {
-    query = query.lte("created_at", `${dateTo}T23:59:59.999Z`);
   }
 
   const { data, error } = await query;
@@ -344,13 +349,12 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
   }
 
   const rows = (data || []) as Array<{
-    created_at: string;
     total_table_sales: number | null;
     total_ticket_sales: number | null;
     total_bar_sales: number | null;
     attendance_count: number;
     event_id: string;
-    event: { creator_id: string; venue_id: string | null; dj_id: string | null } | null;
+    event: { creator_id: string; venue_id: string | null; dj_id: string | null; starts_at: string | null } | null;
   }>;
 
   // Filter by subordinateUserIds (event.creator_id) and optionally venueId, userId, djId in app
@@ -364,14 +368,28 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
   if (djId) {
     filtered = filtered.filter((r) => r.event?.dj_id === djId);
   }
+  // Filter by event starts_at (event date) when date range is provided
+  if (dateFrom || dateTo) {
+    const from = dateFrom ? `${dateFrom}T00:00:00.000Z` : null;
+    const to = dateTo ? `${dateTo}T23:59:59.999Z` : null;
+    filtered = filtered.filter((r) => {
+      const s = r.event?.starts_at;
+      if (!s) return false;
+      if (from && s < from) return false;
+      if (to && s > to) return false;
+      return true;
+    });
+  }
 
-  // Aggregate by date (YYYY-MM-DD)
+  // Aggregate by event starts_at date (YYYY-MM-DD)
   const byDate = new Map<
     string,
     { table_sales: number; ticket_sales: number; bar_sales: number; event_count: number; attendance: number }
   >();
   for (const r of filtered) {
-    const date = r.created_at.slice(0, 10);
+    const startsAt = r.event?.starts_at;
+    const date = startsAt ? startsAt.slice(0, 10) : null;
+    if (!date) continue;
     const current = byDate.get(date) ?? {
       table_sales: 0,
       ticket_sales: 0,

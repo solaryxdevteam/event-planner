@@ -50,11 +50,11 @@ function EventRow({ event }: { event: EventWithRelations }) {
 }
 
 export function AwaitingReportEventsCard() {
-  const { data: events = [], isLoading } = useEvents({
+  const { data, isLoading } = useEvents({
     status: ["completed_awaiting_report"],
     pageSize: LIMIT,
   });
-
+  const events = data?.events ?? [];
   const displayEvents = events.slice(0, LIMIT);
 
   return (

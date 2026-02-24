@@ -11,10 +11,15 @@ import {
   type ChartData,
 } from "chart.js";
 import { Chart } from "react-chartjs-2";
+import { useTheme } from "next-themes";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ReportChartDataPoint } from "@/lib/data-access/reports.dal";
-import { REPORT_CHART_COLORS, REPORT_CHART_TEXT } from "@/lib/constants/report-chart-colors";
+import {
+  REPORT_CHART_COLORS,
+  REPORT_CHART_AXIS_TEXT_LIGHT,
+  REPORT_CHART_AXIS_TEXT_DARK,
+} from "@/lib/constants/report-chart-colors";
 import { formatCurrency } from "./reports-page-utils";
 
 ChartJS.register(ArcElement, DoughnutController, Tooltip, Legend);
@@ -27,6 +32,10 @@ interface ReportsPageRevenueBreakdownProps {
 }
 
 export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageRevenueBreakdownProps) {
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const legendColor = isDark ? REPORT_CHART_AXIS_TEXT_DARK : REPORT_CHART_AXIS_TEXT_LIGHT;
+
   const { donutData, totalSales } = useMemo(() => {
     const list = data ?? [];
     const totalTicket = list.reduce((s, d) => s + d.ticket_sales, 0);
@@ -57,7 +66,7 @@ export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageReve
       plugins: {
         legend: {
           position: "bottom",
-          labels: { usePointStyle: true, padding: 12, color: REPORT_CHART_TEXT },
+          labels: { usePointStyle: true, padding: 12, color: legendColor },
         },
         tooltip: {
           callbacks: {
@@ -70,7 +79,7 @@ export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageReve
         },
       },
     }),
-    []
+    [legendColor]
   );
 
   if (isLoading) {

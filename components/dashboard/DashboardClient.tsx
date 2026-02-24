@@ -121,10 +121,11 @@ export function DashboardClient() {
   const isMarketingManager = profile?.role === UserRole.MARKETING_MANAGER;
   const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
 
-  const { data: currentEvents = [], isLoading: currentEventsLoading } = useEvents({
+  const { data: currentEventsData, isLoading: currentEventsLoading } = useEvents({
     status: ["approved_scheduled"],
     pageSize: LIMIT,
   });
+  const currentEvents = currentEventsData?.events ?? [];
 
   const { data: calendarEvents = [], isLoading: calendarLoading } = useQuery({
     queryKey: ["dashboard", "calendar", monthStart.toISOString()],

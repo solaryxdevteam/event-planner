@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { format, subYears } from "date-fns";
 import { requireAuth } from "@/lib/auth/server";
 import { UnauthorizedError } from "@/lib/utils/errors";
 import * as reportService from "@/lib/services/reports/report.service";
@@ -54,16 +55,34 @@ export async function GET(request: NextRequest) {
     };
 
     const result = await reportService.listApprovedReports(authUser.id, params);
-    const chartData = includeChart
-      ? await reportService.getReportChartData(authUser.id, {
+    let chartData: Awaited<ReturnType<typeof reportService.getReportChartData>> | undefined;
+    let chartDataPriorYear: Awaited<ReturnType<typeof reportService.getReportChartData>> | undefined;
+
+    if (includeChart) {
+      chartData = await reportService.getReportChartData(authUser.id, {
+        eventId,
+        venueId,
+        dateFrom,
+        dateTo,
+        userId,
+        djId,
+      });
+      // Same date range last year for growth comparison
+      if (dateFrom && dateTo) {
+        const from = new Date(dateFrom + "T12:00:00");
+        const to = new Date(dateTo + "T12:00:00");
+        const priorYearFrom = format(subYears(from, 1), "yyyy-MM-dd");
+        const priorYearTo = format(subYears(to, 1), "yyyy-MM-dd");
+        chartDataPriorYear = await reportService.getReportChartData(authUser.id, {
           eventId,
           venueId,
-          dateFrom,
-          dateTo,
+          dateFrom: priorYearFrom,
+          dateTo: priorYearTo,
           userId,
           djId,
-        })
-      : undefined;
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -71,6 +90,7 @@ export async function GET(request: NextRequest) {
         reports: result.reports,
         pagination: result.pagination,
         ...(chartData !== undefined && { chartData }),
+        ...(chartDataPriorYear !== undefined && { chartDataPriorYear }),
       },
     });
   } catch (error) {

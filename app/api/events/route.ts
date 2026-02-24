@@ -73,11 +73,21 @@ export async function GET(request: NextRequest) {
     };
 
     // Get events with filters
-    const events = await eventService.getEventsForUser(authUser.id, filters);
+    const result = await eventService.getEventsForUser(authUser.id, filters);
+    const page = filters.page ?? 1;
+    const pageSize = filters.pageSize ?? 20;
 
     return NextResponse.json({
       success: true,
-      data: events,
+      data: {
+        events: result.data,
+        pagination: {
+          total: result.total,
+          page,
+          pageSize,
+          totalPages: Math.ceil(result.total / pageSize) || 1,
+        },
+      },
     });
   } catch (error) {
     console.error("Failed to fetch events:", error);

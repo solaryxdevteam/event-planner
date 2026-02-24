@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useApprovedReportsList } from "@/lib/hooks/use-reports";
 import { useEvents } from "@/lib/hooks/use-events";
@@ -35,11 +36,12 @@ export function ReportsPageClient() {
   const [page, setPage] = useState(1);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const isMobile = useIsMobile();
+  const now = new Date();
   const [filters, setFilters] = useState<ReportsFiltersState>({
     eventId: null,
     venueId: null,
-    dateFrom: null,
-    dateTo: null,
+    dateFrom: format(startOfMonth(subMonths(now, 11)), "yyyy-MM-dd"),
+    dateTo: format(endOfMonth(now), "yyyy-MM-dd"),
     userId: null,
     djId: null,
   });
@@ -70,14 +72,18 @@ export function ReportsPageClient() {
     hasMore: false,
   };
   const chartData = listData?.chartData;
+  const chartDataPriorYear = listData?.chartDataPriorYear;
 
-  const summary = useMemo(() => computeReportsPageSummary(chartData), [chartData]);
+  const summary = useMemo(
+    () => computeReportsPageSummary(chartData, chartDataPriorYear),
+    [chartData, chartDataPriorYear]
+  );
 
   const { data: eventsData, isLoading: isLoadingEvents } = useEvents({
     status: "completed_archived",
     pageSize: 200,
   });
-  const eventOptions = eventsData ?? [];
+  const eventOptions = eventsData?.events ?? [];
 
   const { data: venuesResponse, isLoading: isLoadingVenues } = useVenues({
     status: "active",

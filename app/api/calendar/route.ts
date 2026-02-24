@@ -45,9 +45,9 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     if (search) filters.search = search;
 
-    const events = await eventService.getEventsForUser(authUser.id, filters);
+    const result = await eventService.getEventsForUser(authUser.id, filters);
 
-    return NextResponse.json({ success: true, data: events });
+    return NextResponse.json({ success: true, data: result.data });
   } catch (error) {
     console.error("[Calendar API] Error:", error);
     return NextResponse.json(

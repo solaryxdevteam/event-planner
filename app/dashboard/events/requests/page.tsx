@@ -49,9 +49,12 @@ export default function EventRequestsPage() {
   };
 
   // Fetch events by status
-  const { data: drafts = [], isLoading: loadingDrafts } = useEvents({ status: "draft" });
-  const { data: inReview = [], isLoading: loadingInReview } = useEvents({ status: "in_review" });
-  const { data: rejected = [], isLoading: loadingRejected } = useEvents({ status: "rejected" });
+  const { data: draftsData, isLoading: loadingDrafts } = useEvents({ status: "draft" });
+  const { data: inReviewData, isLoading: loadingInReview } = useEvents({ status: "in_review" });
+  const { data: rejectedData, isLoading: loadingRejected } = useEvents({ status: "rejected" });
+  const drafts = draftsData?.events ?? [];
+  const inReview = inReviewData?.events ?? [];
+  const rejected = rejectedData?.events ?? [];
 
   // Mutations
   const deleteEventMutation = useDeleteEventDraft();

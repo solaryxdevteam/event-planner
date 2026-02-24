@@ -67,7 +67,7 @@ export function VenueCombobox({
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[300px] p-0" align="start">
           <Command>
             <CommandInput placeholder="Search venues..." className="h-9" />
             <CommandList className="!max-h-none !overflow-visible p-0">
@@ -87,7 +87,7 @@ export function VenueCombobox({
                         setOpen(false);
                       }}
                     >
-                      <Check className={cn("mr-2 h-4 w-4", value == null ? "opacity-100" : "opacity-0")} />
+                      <Check className={cn("h-4 w-4", value == null ? "opacity-100" : "opacity-0")} />
                       {allLabel}
                     </CommandItem>
                     {safeOptions.map((option) => (

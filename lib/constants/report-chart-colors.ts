@@ -5,13 +5,22 @@
  * Table: Deep Slate (stable, professional, anchors the palette)
  */
 
-export const REPORT_CHART_TICKET = "#F97316";
+/** Lighter orange for better contrast and readability */
+export const REPORT_CHART_TICKET = "#FB923C";
 export const REPORT_CHART_BAR = "#14B8A6";
 export const REPORT_CHART_TABLE = "#1E293B";
 export const REPORT_CHART_TEXT = "#0F172A";
 
-/** Total Revenue line: visible in both light and dark mode (slate-400) */
+/** Event bar: light slate so it stays distinct in the stack */
+export const REPORT_CHART_EVENT = "#94A3B8";
+
+/** Total Revenue line (legacy/fallback): slate-400 */
 export const REPORT_CHART_TOTAL_LINE = "#94A3B8";
+
+/** Revenue line – light mode: red so it stands out over orange/teal/slate bars */
+export const REPORT_CHART_REVENUE_LINE_LIGHT = "#DC2626";
+/** Revenue line – dark mode: light slate so it stays visible on dark background */
+export const REPORT_CHART_REVENUE_LINE_DARK = "#E2E8F0";
 
 /** Chart axis/legend text: visible in light mode */
 export const REPORT_CHART_AXIS_TEXT_LIGHT = "#475569";
@@ -33,4 +42,5 @@ export const REPORT_CHART_COLORS = {
   table: REPORT_CHART_TABLE,
   text: REPORT_CHART_TEXT,
   totalLine: REPORT_CHART_TOTAL_LINE,
+  event: REPORT_CHART_EVENT,
 } as const;

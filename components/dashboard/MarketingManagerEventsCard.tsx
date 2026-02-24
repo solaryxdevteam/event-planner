@@ -44,12 +44,12 @@ function EventRow({ event }: { event: EventWithRelations }) {
  * Shows approved events that do not yet have a marketing report and need one from the marketing manager.
  */
 export function MarketingManagerEventsCard() {
-  const { data: events = [], isLoading } = useEvents({
+  const { data, isLoading } = useEvents({
     status: ["approved_scheduled"],
     needsMarketingReport: true,
     pageSize: LIMIT,
   });
-
+  const events = data?.events ?? [];
   const displayEvents = events.slice(0, LIMIT);
 
   return (

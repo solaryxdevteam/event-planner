@@ -26,6 +26,8 @@ export interface ListApprovedReportsResponse {
   reports: ApprovedReportRow[];
   pagination: { page: number; limit: number; total: number; totalPages: number; hasMore: boolean };
   chartData?: ReportChartDataPoint[];
+  /** Same date range last year, for YoY growth comparison */
+  chartDataPriorYear?: ReportChartDataPoint[];
 }
 
 /**
@@ -48,11 +50,13 @@ export async function listApprovedReports(params: ListApprovedReportsParams): Pr
     reports: ApprovedReportRow[];
     pagination: ListApprovedReportsResponse["pagination"];
     chartData?: ReportChartDataPoint[];
+    chartDataPriorYear?: ReportChartDataPoint[];
   }>(url);
   return {
     reports: res.reports ?? [],
     pagination: res.pagination ?? { page: 1, limit: 10, total: 0, totalPages: 0, hasMore: false },
     ...(res.chartData !== undefined && { chartData: res.chartData }),
+    ...(res.chartDataPriorYear !== undefined && { chartDataPriorYear: res.chartDataPriorYear }),
   };
 }
 

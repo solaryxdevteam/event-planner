@@ -528,6 +528,14 @@ export interface EventFilterOptions {
 }
 
 /**
+ * Paginated result for event list queries
+ */
+export interface EventListResult {
+  data: EventWithRelations[];
+  total: number;
+}
+
+/**
  * Get events visible to user with filters (pyramid visibility)
  *
  * @param subordinateUserIds - Array of user IDs that the current user can see
@@ -536,7 +544,7 @@ export interface EventFilterOptions {
 export async function findPyramidVisible(
   subordinateUserIds: string[],
   filters: EventFilterOptions = {}
-): Promise<EventWithRelations[]> {
+): Promise<EventListResult> {
   const supabase = await createClient();
 
   const {
@@ -550,6 +558,9 @@ export async function findPyramidVisible(
     search,
     includeRelations = true,
   } = filters;
+
+  const usePagination = !!(filters.page && filters.pageSize);
+  const selectOptions = usePagination ? { count: "exact" as const } : undefined;
 
   const selectQuery = includeRelations
     ? `
@@ -582,7 +593,7 @@ export async function findPyramidVisible(
 
   let query = supabase
     .from("events")
-    .select(selectQuery)
+    .select(selectQuery, selectOptions)
     .in("creator_id", subordinateUserIds) // Backend authorization filter
     .order("created_at", { ascending: false });
 
@@ -635,7 +646,7 @@ export async function findPyramidVisible(
     query = query.range(from, to);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
     throw new Error(`Failed to fetch events: ${error.message}`);
@@ -658,7 +669,8 @@ export async function findPyramidVisible(
     dj: event.dj || null,
   })) as EventWithRelations[];
 
-  return events;
+  const total = usePagination && count != null ? count : events.length;
+  return { data: events, total };
 }
 
 /**
@@ -712,7 +724,7 @@ export async function update(id: string, event: EventUpdate): Promise<Event> {
 export async function findAllByStatuses(
   statuses: string[],
   filters: EventFilterOptions = {}
-): Promise<EventWithRelations[]> {
+): Promise<EventListResult> {
   const supabase = await createClient();
 
   const {
@@ -726,6 +738,9 @@ export async function findAllByStatuses(
     pageSize,
     includeRelations = true,
   } = filters;
+
+  const usePagination = !!(page && pageSize);
+  const selectOptions = usePagination ? { count: "exact" as const } : undefined;
 
   const selectQuery = includeRelations
     ? `
@@ -758,7 +773,7 @@ export async function findAllByStatuses(
 
   let query = supabase
     .from("events")
-    .select(selectQuery)
+    .select(selectQuery, selectOptions)
     .in("status", statuses)
     .order("created_at", { ascending: false });
 
@@ -783,13 +798,13 @@ export async function findAllByStatuses(
     query = query.range(from, from + pageSize - 1);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
 
   if (error) {
     throw new Error(`Failed to fetch events: ${error.message}`);
   }
 
-  return (data || []).map((event: EventWithRelationsRaw) => ({
+  const events = (data || []).map((event: EventWithRelationsRaw) => ({
     ...event,
     creator: event.creator
       ? {
@@ -804,6 +819,9 @@ export async function findAllByStatuses(
     venue: event.venue || null,
     dj: event.dj || null,
   })) as EventWithRelations[];
+
+  const total = usePagination && count != null ? count : events.length;
+  return { data: events, total };
 }
 
 /**

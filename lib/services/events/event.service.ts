@@ -130,7 +130,7 @@ const MARKETING_MANAGER_EVENT_STATUSES = [
 export async function getEventsForUser(
   userId: string,
   filters: EventFilterOptions = {}
-): Promise<EventWithRelations[]> {
+): Promise<{ data: EventWithRelations[]; total: number }> {
   const supabase = await createClient();
   const { data: userRow } = await supabase.from("users").select("role").eq("id", userId).single();
 
@@ -141,17 +141,18 @@ export async function getEventsForUser(
     const requested = filters.status ? (Array.isArray(filters.status) ? filters.status : [filters.status]) : allowed;
     const statusFilter = requested.filter((s) => allowed.includes(s as (typeof allowed)[number]));
     const { needsMarketingReport, ...restFilters } = filters;
-    let events = await eventDAL.findAllByStatuses(statusFilter.length ? statusFilter : allowed, {
+    const result = await eventDAL.findAllByStatuses(statusFilter.length ? statusFilter : allowed, {
       ...restFilters,
       status: undefined,
       includeRelations: true,
     });
+    let events = result.data;
     if (needsMarketingReport) {
       const eventIdsWithApprovedReport = await marketingReportsDAL.findEventIdsWithApprovedReport();
       const excludeSet = new Set(eventIdsWithApprovedReport);
       events = events.filter((e) => e.status === "approved_scheduled" && !excludeSet.has(e.id));
     }
-    return events;
+    return { data: events, total: result.total };
   }
 
   const subordinateIds = await getSubordinateUserIds(userId);

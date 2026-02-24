@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useEvents, type EventFilters as EventFiltersHook } from "@/lib/hooks/use-events";
 import { useProfile } from "@/lib/hooks/use-profile";
 import { UserRole } from "@/lib/types/roles";
-import { Plus, Filter } from "lucide-react";
+import { Plus, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -24,7 +24,9 @@ export default function EventsPage() {
   const tabFromUrl = searchParams.get("tab") || "current";
   // Local tab state so switching is instant; URL updates in background
   const [selectedTab, setSelectedTab] = useState(tabFromUrl);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Per-tab page so each tab keeps its own page when switching
+  const [pageByTab, setPageByTab] = useState<Record<string, number>>({ current: 1, past: 1, cancelled: 1 });
+  const currentPage = pageByTab[selectedTab] ?? 1;
   const isMarketingManager = profile?.role === UserRole.MARKETING_MANAGER;
   const [pageSize] = useState(12);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -76,7 +78,7 @@ export default function EventsPage() {
     pageSize: 1000, // Get all for filter options
   });
 
-  const allEvents = useMemo(() => allEventsData || [], [allEventsData]);
+  const allEvents = useMemo(() => allEventsData?.events ?? [], [allEventsData]);
 
   // Get unique creators from events
   const availableCreators = useMemo(() => {
@@ -152,7 +154,14 @@ export default function EventsPage() {
   }, [filters, currentPage, pageSize, selectedTab]);
 
   // Fetch filtered events
-  const { data: events = [], isLoading } = useEvents(eventFilters);
+  const { data: eventsResponse, isLoading } = useEvents(eventFilters);
+  const events = eventsResponse?.events ?? [];
+  const pagination = eventsResponse?.pagination ?? {
+    total: 0,
+    page: 1,
+    pageSize: 12,
+    totalPages: 1,
+  };
 
   // Scroll to top when filters or page changes
   useEffect(() => {
@@ -170,7 +179,11 @@ export default function EventsPage() {
 
   const handleFiltersChange = (newFilters: EventFiltersType) => {
     setFilters(newFilters);
-    setCurrentPage(1); // Reset to first page when filters change
+    setPageByTab((prev) => ({ ...prev, [selectedTab]: 1 }));
+  };
+
+  const handlePageChange = (page: number) => {
+    setPageByTab((prev) => ({ ...prev, [selectedTab]: page }));
   };
 
   // Calculate totals for tabs
@@ -233,7 +246,7 @@ export default function EventsPage() {
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Events</h1>
                 <p className="text-muted-foreground mt-1 sm:mt-2 text-sm sm:text-base">
-                  {events.length} {events.length === 1 ? "event" : "events"} found
+                  {pagination.total} {pagination.total === 1 ? "event" : "events"} found
                 </p>
               </div>
             </div>
@@ -280,18 +293,81 @@ export default function EventsPage() {
               ))}
             </div>
           ) : (
-            <EventList
-              events={events}
-              onView={handleView}
-              showActions={false}
-              emptyMessage={
-                selectedTab === "current"
-                  ? "No current events"
-                  : selectedTab === "past"
-                    ? "No past events"
-                    : "No cancelled or rejected events"
-              }
-            />
+            <>
+              <EventList
+                events={events}
+                onView={handleView}
+                showActions={false}
+                emptyMessage={
+                  selectedTab === "current"
+                    ? "No current events"
+                    : selectedTab === "past"
+                      ? "No past events"
+                      : "No cancelled or rejected events"
+                }
+              />
+              {/* Pagination - one per tab */}
+              {pagination.totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page <= 1}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    <span className="hidden sm:inline sm:ml-1">Previous</span>
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => {
+                      const showPage =
+                        page === 1 ||
+                        page === pagination.totalPages ||
+                        (page >= pagination.page - 1 && page <= pagination.page + 1);
+                      if (!showPage) {
+                        const prevPage = page - 1;
+                        const nextPage = page + 1;
+                        if (
+                          (prevPage === 1 || prevPage === pagination.page - 2) &&
+                          (nextPage === pagination.totalPages || nextPage === pagination.page + 2)
+                        ) {
+                          return (
+                            <span key={page} className="px-2 text-muted-foreground">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      }
+                      return (
+                        <Button
+                          key={page}
+                          variant={pagination.page === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handlePageChange(page)}
+                          className="min-w-[2.5rem]"
+                          aria-label={`Go to page ${page}`}
+                          aria-current={pagination.page === page ? "page" : undefined}
+                        >
+                          {page}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page >= pagination.totalPages}
+                    aria-label="Next page"
+                  >
+                    <span className="hidden sm:inline sm:mr-1">Next</span>
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
