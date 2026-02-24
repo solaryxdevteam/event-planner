@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useApprovedReportsList } from "@/lib/hooks/use-reports";
@@ -8,6 +8,7 @@ import { useEvents } from "@/lib/hooks/use-events";
 import { useVenues } from "@/lib/hooks/use-venues";
 import { useActiveDjs } from "@/lib/hooks/use-djs";
 import { apiClient } from "@/lib/services/client/api-client";
+import * as reportsClientService from "@/lib/services/client/reports.client.service";
 import { ReportsFilters, type ReportsFiltersState, type UserOption } from "./ReportsFilters";
 import { computeReportsPageSummary } from "./reports-page-utils";
 import { ReportsPageKPIRow } from "./ReportsPageKPIRow";
@@ -111,6 +112,24 @@ export function ReportsPageClient() {
     setPage(p);
   };
 
+  const fetchAllReportsForExport = useCallback(async () => {
+    const total = pagination.total;
+    if (total === 0) return [];
+    const limit = Math.min(total, 10000);
+    const { reports: allReports } = await reportsClientService.listApprovedReports({
+      page: 1,
+      limit,
+      eventId: appliedFilters.eventId,
+      venueId: appliedFilters.venueId,
+      dateFrom: appliedFilters.dateFrom,
+      dateTo: appliedFilters.dateTo,
+      userId: appliedFilters.userId,
+      djId: appliedFilters.djId,
+      chart: false,
+    });
+    return allReports;
+  }, [appliedFilters, pagination.total]);
+
   const hasActiveFilters =
     appliedFilters.eventId ||
     appliedFilters.venueId ||
@@ -191,6 +210,7 @@ export function ReportsPageClient() {
         totalPages={pagination.totalPages}
         hasMore={pagination.hasMore}
         onPageChange={handlePageChange}
+        onExportCsvRequest={fetchAllReportsForExport}
       />
 
       {/* Page empty state when no reports at all */}

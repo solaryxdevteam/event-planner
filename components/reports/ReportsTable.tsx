@@ -34,6 +34,8 @@ interface ReportsTableProps {
   totalPages: number;
   hasMore: boolean;
   onPageChange: (page: number) => void;
+  /** When provided, export uses this to fetch all filtered reports (date range + filters). Otherwise exports current page only. */
+  onExportCsvRequest?: () => Promise<ApprovedReportRow[]>;
 }
 
 export function ReportsTable({
@@ -45,12 +47,14 @@ export function ReportsTable({
   totalPages,
   hasMore,
   onPageChange,
+  onExportCsvRequest,
 }: ReportsTableProps) {
   const [viewingReport, setViewingReport] = useState<ApprovedReportRow | null>(null);
   const [showApproveDialog, setShowApproveDialog] = useState<ApprovedReportRow | null>(null);
   const [showRejectDialog, setShowRejectDialog] = useState<ApprovedReportRow | null>(null);
   const [comment, setComment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data: profile } = useProfile();
   const isGlobalDirector = profile?.role === UserRole.GLOBAL_DIRECTOR;
@@ -111,7 +115,7 @@ export function ReportsTable({
     return s;
   };
 
-  const handleExportCsv = () => {
+  const buildCsvFromReports = (rows: ApprovedReportRow[]) => {
     const headers = [
       "Date",
       "Event",
@@ -122,7 +126,7 @@ export function ReportsTable({
       "Bar sales",
       "Revenue per event",
     ];
-    const rows = reports.map((row) => {
+    const csvRows = rows.map((row) => {
       const revenuePerEvent = (row.total_table_sales ?? 0) + (row.total_ticket_sales ?? 0) + (row.total_bar_sales ?? 0);
       const dateStr = row.event_starts_at ? format(new Date(row.event_starts_at), "PPp") : "";
       return [
@@ -136,7 +140,20 @@ export function ReportsTable({
         revenuePerEvent > 0 ? escapeCsv(revenuePerEvent.toFixed(2)) : "",
       ];
     });
-    const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+    return [headers.join(","), ...csvRows.map((r) => r.join(","))].join("\r\n");
+  };
+
+  const handleExportCsv = async () => {
+    let rowsToExport = reports;
+    if (onExportCsvRequest) {
+      setIsExporting(true);
+      try {
+        rowsToExport = await onExportCsvRequest();
+      } finally {
+        setIsExporting(false);
+      }
+    }
+    const csv = buildCsvFromReports(rowsToExport);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -183,9 +200,9 @@ export function ReportsTable({
       <div className="flex flex-col gap-4">
         {!showEmptyState && reports.length > 0 && (
           <div className="flex justify-end">
-            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={handleExportCsv} disabled={isLoading || isExporting}>
               <Download className="mr-2 h-4 w-4" />
-              Export CSV
+              {isExporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
         )}
