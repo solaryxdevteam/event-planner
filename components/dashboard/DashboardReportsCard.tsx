@@ -254,21 +254,10 @@ export function DashboardReportsCard() {
   const lineChartData = useMemo(() => {
     if (trendData.length === 0) return null;
     type MixedDataset = ChartData<"bar">["datasets"][0] | ChartData<"line">["datasets"][0];
-    const totalRevenue = trendData.reduce((s, d) => s + d.total, 0);
-    const totalEvents = trendData.reduce((s, d) => s + d.event_count, 0);
-    const eventScale = totalEvents > 0 ? totalRevenue / totalEvents : 0;
-    const eventBarData = trendData.map((d) => d.event_count * eventScale);
+    // Event line at middle of each stack; Revenue line at top of each stack (exact stack sum so dots align with bars)
+    const stackMiddleData = trendData.map((d) => (d.table_sales + d.bar_sales + d.ticket_sales) / 2);
+    const stackTopData = trendData.map((d) => d.table_sales + d.bar_sales + d.ticket_sales);
     const datasets: MixedDataset[] = [
-      {
-        type: "bar",
-        label: "Event",
-        data: eventBarData,
-        stack: "stack0",
-        order: 2,
-        backgroundColor: REPORT_CHART_COLORS.event,
-        borderColor: REPORT_CHART_COLORS.event,
-        borderWidth: 0,
-      },
       {
         type: "bar",
         label: "Table",
@@ -299,10 +288,26 @@ export function DashboardReportsCard() {
         borderColor: REPORT_CHART_COLORS.chart1,
         borderWidth: 0,
       },
+      // {
+      //   type: "line" as const,
+      //   label: "Event",
+      //   data: stackMiddleData,
+      //   yAxisID: "y",
+      //   borderColor: REPORT_CHART_COLORS.event,
+      //   fill: false,
+      //   tension: 0.3,
+      //   pointRadius: 3,
+      //   pointHoverRadius: 5,
+      //   pointBackgroundColor: "#ffffff",
+      //   pointBorderColor: REPORT_CHART_COLORS.event,
+      //   pointBorderWidth: 2,
+      //   order: 0,
+      // },
       {
         type: "line" as const,
         label: "Revenue",
-        data: trendData.map((d) => d.total),
+        data: stackTopData,
+        yAxisID: "y",
         borderColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         backgroundColor: isDark ? `${REPORT_CHART_REVENUE_LINE_DARK}20` : `${REPORT_CHART_REVENUE_LINE_LIGHT}20`,
         fill: true,
@@ -312,7 +317,7 @@ export function DashboardReportsCard() {
         pointBackgroundColor: "#ffffff",
         pointBorderColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         pointBorderWidth: 2,
-        order: 0,
+        order: 1,
       },
     ];
     return {
@@ -365,6 +370,12 @@ export function DashboardReportsCard() {
                 const idx = context.dataIndex;
                 const count = trendData[idx]?.event_count ?? 0;
                 return `${label}: ${count} events`;
+              }
+              // Revenue line uses stack-top for position; show actual revenue in tooltip
+              if (label === "Revenue") {
+                const idx = context.dataIndex;
+                const total = trendData[idx]?.total ?? 0;
+                return `${label}: ${formatCurrency(total)}`;
               }
               return `${label}: ${formatCurrency(Number(value))}`;
             },

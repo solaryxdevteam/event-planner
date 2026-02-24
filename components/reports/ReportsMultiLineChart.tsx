@@ -81,18 +81,10 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
     const totalRevenue = trendData.reduce((s, d) => s + d.total, 0);
     const totalEvents = trendData.reduce((s, d) => s + d.event_count, 0);
     const eventScale = totalEvents > 0 ? totalRevenue / totalEvents : 0;
-    const eventBarData = trendData.map((d) => d.event_count * eventScale);
+    // const eventBarData = trendData.map((d) => d.event_count * eventScale);
+    // Line y = top of each stack so the dot sits on top of the bar, not at revenue value
+    const stackTopData = trendData.map((d, i) => d.table_sales + d.bar_sales + d.ticket_sales);
     const datasets: MixedDataset[] = [
-      {
-        type: "bar",
-        label: "Event",
-        data: eventBarData,
-        stack: "stack0",
-        order: 2,
-        backgroundColor: REPORT_CHART_COLORS.event,
-        borderColor: REPORT_CHART_COLORS.event,
-        borderWidth: 0,
-      },
       {
         type: "bar",
         label: "Table",
@@ -123,11 +115,20 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
         borderColor: REPORT_CHART_COLORS.chart1,
         borderWidth: 0,
       },
-
+      // {
+      //   type: "bar",
+      //   label: "Event",
+      //   data: eventBarData,
+      //   stack: "stack0",
+      //   order: 2,
+      //   backgroundColor: REPORT_CHART_COLORS.event,
+      //   borderColor: REPORT_CHART_COLORS.event,
+      //   borderWidth: 0,
+      // },
       {
         type: "line",
         label: "Revenue",
-        data: trendData.map((d) => d.total),
+        data: stackTopData,
         borderColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         backgroundColor: isDark ? `${REPORT_CHART_REVENUE_LINE_DARK}20` : `${REPORT_CHART_REVENUE_LINE_LIGHT}20`,
         fill: true,
@@ -162,6 +163,12 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
                 const idx = context.dataIndex;
                 const count = trendData[idx]?.event_count ?? 0;
                 return `${label}: ${count} events`;
+              }
+              // Revenue line uses stack-top for position; show actual revenue in tooltip
+              if (label === "Revenue") {
+                const idx = context.dataIndex;
+                const total = trendData[idx]?.total ?? 0;
+                return `${label}: ${formatCurrency(total)}`;
               }
               return `${label}: ${formatCurrency(Number(value))}`;
             },
@@ -228,7 +235,7 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>Reports – Last 12 Months</CardTitle>
+        <CardTitle>Reports – Last 12 Monthsdddd</CardTitle>
         <ReportsPeriodToggle value={period} onChange={setPeriod} />
       </CardHeader>
       <CardContent>
