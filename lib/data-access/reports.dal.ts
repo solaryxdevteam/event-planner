@@ -288,6 +288,7 @@ export interface ReportChartDataPoint {
   ticket_sales: number;
   bar_sales: number;
   event_count: number;
+  attendance: number;
 }
 
 export interface GetReportChartParams {
@@ -315,6 +316,7 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
       total_table_sales,
       total_ticket_sales,
       total_bar_sales,
+      attendance_count,
       event_id,
       event:events!reports_event_id_fkey (
         creator_id,
@@ -346,6 +348,7 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
     total_table_sales: number | null;
     total_ticket_sales: number | null;
     total_bar_sales: number | null;
+    attendance_count: number;
     event_id: string;
     event: { creator_id: string; venue_id: string | null; dj_id: string | null } | null;
   }>;
@@ -365,7 +368,7 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
   // Aggregate by date (YYYY-MM-DD)
   const byDate = new Map<
     string,
-    { table_sales: number; ticket_sales: number; bar_sales: number; event_count: number }
+    { table_sales: number; ticket_sales: number; bar_sales: number; event_count: number; attendance: number }
   >();
   for (const r of filtered) {
     const date = r.created_at.slice(0, 10);
@@ -374,11 +377,13 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
       ticket_sales: 0,
       bar_sales: 0,
       event_count: 0,
+      attendance: 0,
     };
     current.table_sales += Number(r.total_table_sales) || 0;
     current.ticket_sales += Number(r.total_ticket_sales) || 0;
     current.bar_sales += Number(r.total_bar_sales) || 0;
     current.event_count += 1;
+    current.attendance += Number(r.attendance_count) || 0;
     byDate.set(date, current);
   }
 
@@ -391,6 +396,7 @@ export async function getChartData(params: GetReportChartParams): Promise<Report
       ticket_sales: agg.ticket_sales,
       bar_sales: agg.bar_sales,
       event_count: agg.event_count,
+      attendance: agg.attendance,
     };
   });
 }

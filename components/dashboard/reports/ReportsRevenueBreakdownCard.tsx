@@ -3,6 +3,7 @@
 import { Chart } from "react-chartjs-2";
 import type { ChartOptions, ChartData } from "chart.js";
 import { Card } from "@/components/ui/card";
+import { REPORT_CHART_TEXT } from "@/lib/constants/report-chart-colors";
 import { formatCurrency } from "./utils";
 
 interface ReportsRevenueBreakdownCardProps {
@@ -21,7 +22,9 @@ export function ReportsRevenueBreakdownCard({ donutData, donutOptions, totalSale
         <div className="relative" style={{ height: DONUT_HEIGHT }}>
           <Chart type="doughnut" data={donutData} options={donutOptions} />
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="font-bold text-xl">{formatCurrency(totalSales)}</span>
+            <span className="font-bold text-xl" style={{ color: REPORT_CHART_TEXT }}>
+              {formatCurrency(totalSales)}
+            </span>
             <span className="text-xs text-muted-foreground">Total Revenue</span>
           </div>
         </div>

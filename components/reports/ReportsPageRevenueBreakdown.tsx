@@ -14,8 +14,8 @@ import { Chart } from "react-chartjs-2";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ReportChartDataPoint } from "@/lib/data-access/reports.dal";
+import { REPORT_CHART_COLORS, REPORT_CHART_TEXT } from "@/lib/constants/report-chart-colors";
 import { formatCurrency } from "./reports-page-utils";
-import { useChartColors } from "@/lib/hooks/use-chart-colors";
 
 ChartJS.register(ArcElement, DoughnutController, Tooltip, Legend);
 
@@ -27,8 +27,6 @@ interface ReportsPageRevenueBreakdownProps {
 }
 
 export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageRevenueBreakdownProps) {
-  const colors = useChartColors();
-
   const { donutData, totalSales } = useMemo(() => {
     const list = data ?? [];
     const totalTicket = list.reduce((s, d) => s + d.ticket_sales, 0);
@@ -42,14 +40,14 @@ export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageReve
         datasets: [
           {
             data: [totalTicket, totalBar, totalTable],
-            backgroundColor: [colors.chart1, colors.chart2, colors.chart3],
+            backgroundColor: [REPORT_CHART_COLORS.chart1, REPORT_CHART_COLORS.chart2, REPORT_CHART_COLORS.chart3],
             borderWidth: 0,
           },
         ],
       } as ChartData<"doughnut">,
       totalSales: total,
     };
-  }, [data, colors.chart1, colors.chart2, colors.chart3]);
+  }, [data]);
 
   const donutOptions: ChartOptions<"doughnut"> = useMemo(
     () => ({
@@ -57,7 +55,10 @@ export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageReve
       maintainAspectRatio: false,
       cutout: "70%",
       plugins: {
-        legend: { position: "bottom", labels: { usePointStyle: true, padding: 12 } },
+        legend: {
+          position: "bottom",
+          labels: { usePointStyle: true, padding: 12, color: REPORT_CHART_TEXT },
+        },
         tooltip: {
           callbacks: {
             label: (ctx) => {

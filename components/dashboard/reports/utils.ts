@@ -7,6 +7,7 @@ export function formatCurrency(value: number): string {
 export type ReportsSummary = {
   totalSales: number;
   totalEvents: number;
+  totalAttendance: number;
   avgPerEvent: number;
   totalTable: number;
   totalBar: number;

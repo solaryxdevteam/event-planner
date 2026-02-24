@@ -1,10 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  BarController,
+  BarElement,
   LineController,
   LineElement,
   PointElement,
@@ -27,9 +30,28 @@ import {
   type PeriodBucket,
 } from "./reports-page-utils";
 import { ReportsPeriodToggle, type ReportsPeriod } from "./ReportsPeriodToggle";
-import { useChartColors } from "@/lib/hooks/use-chart-colors";
+import {
+  REPORT_CHART_COLORS,
+  REPORT_CHART_TOTAL_LINE,
+  REPORT_CHART_AXIS_TEXT_LIGHT,
+  REPORT_CHART_AXIS_TEXT_DARK,
+  REPORT_CHART_GRID_LIGHT,
+  REPORT_CHART_GRID_DARK,
+} from "@/lib/constants/report-chart-colors";
 
-ChartJS.register(CategoryScale, LinearScale, LineController, LineElement, PointElement, Filler, Title, Tooltip, Legend);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarController,
+  BarElement,
+  LineController,
+  LineElement,
+  PointElement,
+  Filler,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface ReportsMultiLineChartProps {
   data: ReportChartDataPoint[] | undefined;
@@ -38,7 +60,10 @@ interface ReportsMultiLineChartProps {
 
 export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChartProps) {
   const [period, setPeriod] = useState<ReportsPeriod>("monthly");
-  const colors = useChartColors();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const chartAxisColor = isDark ? REPORT_CHART_AXIS_TEXT_DARK : REPORT_CHART_AXIS_TEXT_LIGHT;
+  const chartGridColor = isDark ? REPORT_CHART_GRID_DARK : REPORT_CHART_GRID_LIGHT;
 
   const trendData = useMemo((): PeriodBucket[] => {
     const daily = data ?? [];
@@ -47,60 +72,142 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
     return aggregateByMonth(daily);
   }, [data, period]);
 
-  const chartData = useMemo((): ChartData<"line"> | null => {
-    if (trendData.length === 0) return null;
-    return {
-      labels: trendData.map((d) => d.label),
-      datasets: [
-        {
-          label: "Ticket",
-          data: trendData.map((d) => d.ticket_sales),
-          borderColor: colors.chart1,
-          backgroundColor: colors.chart1,
-          pointBackgroundColor: colors.chart1,
-          pointBorderColor: colors.chart1,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-        },
-        {
-          label: "Bar",
-          data: trendData.map((d) => d.bar_sales),
-          borderColor: colors.chart2,
-          backgroundColor: colors.chart2,
-          pointBackgroundColor: colors.chart2,
-          pointBorderColor: colors.chart2,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-        },
-        {
-          label: "Table",
-          data: trendData.map((d) => d.table_sales),
-          borderColor: colors.chart3,
-          backgroundColor: colors.chart3,
-          pointBackgroundColor: colors.chart3,
-          pointBorderColor: colors.chart3,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-        },
-      ],
-    };
-  }, [trendData, colors]);
+  type MixedDataset = ChartData<"bar">["datasets"][0] | ChartData<"line">["datasets"][0];
 
-  const options: ChartOptions<"line"> = useMemo(
+  const chartData = useMemo((): ChartData<"bar"> | null => {
+    if (trendData.length === 0) return null;
+    const labels = trendData.map((d) => d.label);
+    const datasets: MixedDataset[] = [
+      {
+        type: "bar",
+        label: "Ticket",
+        data: trendData.map((d) => d.ticket_sales),
+        stack: "stack0",
+        order: 2,
+        backgroundColor: REPORT_CHART_COLORS.chart1,
+        borderColor: REPORT_CHART_COLORS.chart1,
+        borderWidth: 0,
+      },
+      {
+        type: "bar",
+        label: "Bar",
+        data: trendData.map((d) => d.bar_sales),
+        stack: "stack0",
+        order: 2,
+        backgroundColor: REPORT_CHART_COLORS.chart2,
+        borderColor: REPORT_CHART_COLORS.chart2,
+        borderWidth: 0,
+      },
+      {
+        type: "bar",
+        label: "Table",
+        data: trendData.map((d) => d.table_sales),
+        stack: "stack0",
+        order: 2,
+        backgroundColor: REPORT_CHART_COLORS.chart3,
+        borderColor: REPORT_CHART_COLORS.chart3,
+        borderWidth: 0,
+      },
+      {
+        type: "line",
+        label: "Ticket",
+        data: trendData.map((d) => d.ticket_sales),
+        borderColor: REPORT_CHART_COLORS.chart1,
+        backgroundColor: `${REPORT_CHART_COLORS.chart1}20`,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: REPORT_CHART_COLORS.chart1,
+        pointBorderColor: REPORT_CHART_COLORS.chart1,
+        order: 0,
+      },
+      {
+        type: "line",
+        label: "Bar",
+        data: trendData.map((d) => d.bar_sales),
+        borderColor: REPORT_CHART_COLORS.chart2,
+        backgroundColor: `${REPORT_CHART_COLORS.chart2}20`,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: REPORT_CHART_COLORS.chart2,
+        pointBorderColor: REPORT_CHART_COLORS.chart2,
+        order: 0,
+      },
+      {
+        type: "line",
+        label: "Table",
+        data: trendData.map((d) => d.table_sales),
+        borderColor: REPORT_CHART_COLORS.chart3,
+        backgroundColor: `${REPORT_CHART_COLORS.chart3}20`,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: REPORT_CHART_COLORS.chart3,
+        pointBorderColor: REPORT_CHART_COLORS.chart3,
+        order: 0,
+      },
+      {
+        type: "line",
+        label: "Total Revenue",
+        data: trendData.map((d) => d.total),
+        borderColor: REPORT_CHART_TOTAL_LINE,
+        backgroundColor: `${REPORT_CHART_TOTAL_LINE}30`,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: REPORT_CHART_TOTAL_LINE,
+        pointBorderColor: REPORT_CHART_TOTAL_LINE,
+        order: 0,
+      },
+      {
+        type: "line",
+        label: "Events",
+        data: trendData.map((d) => d.event_count),
+        yAxisID: "y1",
+        borderColor: chartAxisColor,
+        backgroundColor: `${chartAxisColor}20`,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: chartAxisColor,
+        pointBorderColor: chartAxisColor,
+        borderDash: [5, 5],
+        order: 0,
+      },
+    ];
+    return { labels, datasets } as ChartData<"bar">;
+  }, [trendData, chartAxisColor]);
+
+  const options: ChartOptions<"bar"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index" as const, intersect: false },
       plugins: {
-        legend: { position: "bottom", labels: { usePointStyle: true } },
+        legend: {
+          position: "bottom",
+          labels: { usePointStyle: true, color: chartAxisColor },
+          // Only show line datasets (indices 3–7); bar datasets (0–2) are stacked and not shown in legend
+          filter: (item: { datasetIndex: number }) => item.datasetIndex >= 3,
+        },
         tooltip: {
+          filter: (tooltipItem) => {
+            const ds = tooltipItem.chart.data.datasets[tooltipItem.datasetIndex];
+            return ds && "type" in ds && ds.type === "line";
+          },
           callbacks: {
+            label: (context) => {
+              const label = context.dataset.label ?? "";
+              const value = context.parsed?.y ?? context.raw;
+              if (label === "Events") return `${label}: ${value}`;
+              return `${label}: ${formatCurrency(Number(value))}`;
+            },
             afterBody: (context) => {
               if (context.length === 0 || trendData.length === 0) return "";
               const i = context[0].dataIndex;
@@ -109,13 +216,7 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
               const prev = trendData[i - 1];
               const growth =
                 prev && prev.total > 0 ? (((point.total - prev.total) / prev.total) * 100).toFixed(0) : null;
-              return [
-                `Total: ${formatCurrency(point.total)}`,
-                `Events: ${point.event_count}`,
-                growth != null ? `${Number(growth) >= 0 ? "+" : ""}${growth}% vs prior` : "",
-              ]
-                .filter(Boolean)
-                .join("\n");
+              return growth != null ? `${Number(growth) >= 0 ? "+" : ""}${growth}% vs prior` : "";
             },
           },
         },
@@ -123,18 +224,27 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
       scales: {
         x: {
           grid: { display: false },
-          ticks: { maxRotation: 45, maxTicksLimit: 12 },
+          ticks: { maxRotation: 45, maxTicksLimit: 12, color: chartAxisColor },
         },
         y: {
           beginAtZero: true,
-          grid: { color: "hsl(var(--border))" },
+          stacked: true,
+          grid: { color: chartGridColor },
           ticks: {
+            color: chartAxisColor,
             callback: (v) => (typeof v === "number" ? formatCurrency(v) : v),
           },
         },
+        y1: {
+          type: "linear",
+          position: "right",
+          beginAtZero: true,
+          grid: { drawOnChartArea: false },
+          ticks: { color: chartAxisColor },
+        },
       },
     }),
-    [trendData]
+    [trendData, chartAxisColor, chartGridColor]
   );
 
   if (isLoading) {
@@ -173,7 +283,7 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
       </CardHeader>
       <CardContent>
         <div className="h-[320px] w-full">
-          <Chart type="line" data={chartData} options={options} />
+          <Chart type="bar" data={chartData} options={options} />
         </div>
       </CardContent>
     </Card>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -29,7 +30,14 @@ import { format, startOfWeek, startOfMonth, endOfMonth, subMonths } from "date-f
 import Link from "next/link";
 import { formatCurrency } from "./reports/utils";
 import type { ReportsSummary, ReportsInsights } from "./reports/utils";
-import { useChartColors } from "@/lib/hooks/use-chart-colors";
+import {
+  REPORT_CHART_COLORS,
+  REPORT_CHART_TOTAL_LINE,
+  REPORT_CHART_AXIS_TEXT_LIGHT,
+  REPORT_CHART_AXIS_TEXT_DARK,
+  REPORT_CHART_GRID_LIGHT,
+  REPORT_CHART_GRID_DARK,
+} from "@/lib/constants/report-chart-colors";
 import { ReportsKPICards } from "./reports/ReportsKPICards";
 import { ReportsInsightsCard } from "./reports/ReportsInsightsCard";
 import { ReportsRevenueBreakdownCard } from "./reports/ReportsRevenueBreakdownCard";
@@ -152,7 +160,10 @@ export function DashboardReportsCard() {
   const [period, setPeriod] = useState<"monthly" | "weekly" | "daily">("monthly");
   const trendData = period === "monthly" ? monthlyData : period === "weekly" ? weeklyData : dayData;
 
-  const colors = useChartColors();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
+  const chartAxisColor = isDark ? REPORT_CHART_AXIS_TEXT_DARK : REPORT_CHART_AXIS_TEXT_LIGHT;
+  const chartGridColor = isDark ? REPORT_CHART_GRID_DARK : REPORT_CHART_GRID_LIGHT;
 
   const summary = useMemo(() => {
     const totalTable = dailyData.reduce((s, d) => s + d.table_sales, 0);
@@ -160,10 +171,12 @@ export function DashboardReportsCard() {
     const totalTicket = dailyData.reduce((s, d) => s + d.ticket_sales, 0);
     const totalSales = totalTable + totalBar + totalTicket;
     const totalEvents = dailyData.reduce((s, d) => s + d.event_count, 0);
+    const totalAttendance = dailyData.reduce((s, d) => s + (d.attendance ?? 0), 0);
     const avgPerEvent = totalEvents > 0 ? totalSales / totalEvents : 0;
     return {
       totalSales,
       totalEvents,
+      totalAttendance,
       avgPerEvent,
       totalTable,
       totalBar,
@@ -181,8 +194,8 @@ export function DashboardReportsCard() {
         growthPct: 0,
         eventsGrowthPct: 0,
         avgRevenueGrowthPct: 0,
-        attendance: summary.totalEvents,
-        revenuePerGuest: summary.totalSales / (summary.totalEvents || 1),
+        attendance: summary.totalAttendance,
+        revenuePerGuest: summary.totalSales / (summary.totalAttendance || 1),
       };
     const best = monthlyData.reduce((a, b) => (a.total >= b.total ? a : b), monthlyData[0]);
     const worst = monthlyData.reduce((a, b) => (a.total <= b.total ? a : b), monthlyData[0]);
@@ -212,8 +225,8 @@ export function DashboardReportsCard() {
       growthPct,
       eventsGrowthPct,
       avgRevenueGrowthPct,
-      attendance: summary.totalEvents,
-      revenuePerGuest: summary.totalEvents > 0 ? summary.totalSales / summary.totalEvents : 0,
+      attendance: summary.totalAttendance,
+      revenuePerGuest: summary.totalAttendance > 0 ? summary.totalSales / summary.totalAttendance : 0,
     };
   }, [monthlyData, summary]);
 
@@ -224,40 +237,83 @@ export function DashboardReportsCard() {
       datasets: [
         {
           data: [summary.totalTicket, summary.totalBar, summary.totalTable],
-          backgroundColor: [colors.chart1, colors.chart2, colors.chart3],
+          backgroundColor: [REPORT_CHART_COLORS.chart1, REPORT_CHART_COLORS.chart2, REPORT_CHART_COLORS.chart3],
           borderWidth: 0,
         },
       ],
     };
-  }, [
-    summary.totalTicket,
-    summary.totalBar,
-    summary.totalTable,
-    summary.totalSales,
-    colors.chart1,
-    colors.chart2,
-    colors.chart3,
-  ]);
+  }, [summary.totalTicket, summary.totalBar, summary.totalTable, summary.totalSales]);
 
   const lineChartData = useMemo(() => {
     if (trendData.length === 0) return null;
+    type MixedDataset = ChartData<"bar">["datasets"][0] | ChartData<"line">["datasets"][0];
+    const datasets: MixedDataset[] = [
+      {
+        type: "bar",
+        label: "Ticket",
+        data: trendData.map((d) => d.ticket_sales),
+        stack: "stack0",
+        order: 2,
+        backgroundColor: REPORT_CHART_COLORS.chart1,
+        borderColor: REPORT_CHART_COLORS.chart1,
+        borderWidth: 0,
+      },
+      {
+        type: "bar",
+        label: "Bar",
+        data: trendData.map((d) => d.bar_sales),
+        stack: "stack0",
+        order: 2,
+        backgroundColor: REPORT_CHART_COLORS.chart2,
+        borderColor: REPORT_CHART_COLORS.chart2,
+        borderWidth: 0,
+      },
+      {
+        type: "bar",
+        label: "Table",
+        data: trendData.map((d) => d.table_sales),
+        stack: "stack0",
+        order: 2,
+        backgroundColor: REPORT_CHART_COLORS.chart3,
+        borderColor: REPORT_CHART_COLORS.chart3,
+        borderWidth: 0,
+      },
+      {
+        type: "line" as const,
+        label: "Total Revenue",
+        data: trendData.map((d) => d.total),
+        borderColor: REPORT_CHART_TOTAL_LINE,
+        backgroundColor: `${REPORT_CHART_TOTAL_LINE}30`,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: REPORT_CHART_TOTAL_LINE,
+        pointBorderColor: REPORT_CHART_TOTAL_LINE,
+        order: 0,
+      },
+      {
+        type: "line" as const,
+        label: "Events",
+        data: trendData.map((d) => d.event_count),
+        yAxisID: "y1",
+        borderColor: chartAxisColor,
+        backgroundColor: `${chartAxisColor}20`,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: chartAxisColor,
+        pointBorderColor: chartAxisColor,
+        borderDash: [5, 5],
+        order: 0,
+      },
+    ];
     return {
       labels: trendData.map((d) => d.label),
-      datasets: [
-        {
-          type: "line" as const,
-          label: "Total Revenue",
-          data: trendData.map((d) => d.total),
-          borderColor: colors.chart1,
-          backgroundColor: `${colors.chart1}20`,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 4,
-          pointHoverRadius: 6,
-        },
-      ],
-    };
-  }, [trendData, colors]);
+      datasets,
+    } as ChartData<"bar">;
+  }, [trendData, chartAxisColor]);
 
   const donutOptions: ChartOptions<"doughnut"> = useMemo(
     () => ({
@@ -265,7 +321,10 @@ export function DashboardReportsCard() {
       maintainAspectRatio: false,
       cutout: "70%",
       plugins: {
-        legend: { position: "bottom", labels: { usePointStyle: true, padding: 12 } },
+        legend: {
+          position: "bottom",
+          labels: { usePointStyle: true, padding: 12, color: chartAxisColor },
+        },
         tooltip: {
           callbacks: {
             label: (ctx) => {
@@ -277,30 +336,31 @@ export function DashboardReportsCard() {
         },
       },
     }),
-    []
+    [chartAxisColor]
   );
 
-  const lineChartOptions: ChartOptions<"line"> = useMemo(
+  const lineChartOptions: ChartOptions<"bar"> = useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index" as const, intersect: false },
       plugins: {
-        legend: { display: false },
+        legend: {
+          display: true,
+          position: "bottom",
+          labels: { usePointStyle: true, padding: 12, color: chartAxisColor },
+          filter: (item: { datasetIndex: number }, data: { datasets?: Array<{ type?: string }> }) => {
+            const ds = data?.datasets?.[item.datasetIndex];
+            return ds && "type" in ds && ds.type === "line";
+          },
+        },
         tooltip: {
           callbacks: {
-            afterBody: (context) => {
-              if (context.length === 0 || trendData.length === 0) return "";
-              const i = context[0].dataIndex;
-              const point = trendData[i];
-              if (point)
-                return [
-                  `Ticket: ${formatCurrency(point.ticket_sales)}`,
-                  `Bar: ${formatCurrency(point.bar_sales)}`,
-                  `Table: ${formatCurrency(point.table_sales)}`,
-                  `Events: ${point.event_count}`,
-                ].join("\n");
-              return "";
+            label: (context) => {
+              const label = context.dataset.label ?? "";
+              const value = context.parsed?.y ?? context.raw;
+              if (label === "Events") return `${label}: ${value}`;
+              return `${label}: ${formatCurrency(Number(value))}`;
             },
           },
         },
@@ -308,18 +368,28 @@ export function DashboardReportsCard() {
       scales: {
         x: {
           grid: { display: false },
-          ticks: { maxRotation: 45, maxTicksLimit: 10 },
+          ticks: { maxRotation: 45, maxTicksLimit: 10, color: chartAxisColor },
         },
         y: {
+          type: "linear",
           beginAtZero: true,
-          grid: { color: "hsl(var(--border))" },
+          stacked: true,
+          grid: { color: chartGridColor },
           ticks: {
+            color: chartAxisColor,
             callback: (v) => (typeof v === "number" ? formatCurrency(v) : v),
           },
         },
+        y1: {
+          type: "linear",
+          position: "right",
+          beginAtZero: true,
+          grid: { drawOnChartArea: false },
+          ticks: { color: chartAxisColor },
+        },
       },
     }),
-    [trendData]
+    [trendData, chartAxisColor, chartGridColor]
   );
 
   return (
@@ -343,7 +413,7 @@ export function DashboardReportsCard() {
           insights={insights}
           donutData={donutData as ChartData<"doughnut">}
           donutOptions={donutOptions}
-          lineChartData={lineChartData as ChartData<"line">}
+          lineChartData={lineChartData}
           lineChartOptions={lineChartOptions}
           period={period}
           setPeriod={setPeriod}
@@ -368,6 +438,7 @@ const EMPTY_INSIGHTS: ReportsInsights = {
 const EMPTY_SUMMARY: ReportsSummary = {
   totalSales: 0,
   totalEvents: 0,
+  totalAttendance: 0,
   avgPerEvent: 0,
   totalTable: 0,
   totalBar: 0,
@@ -390,8 +461,8 @@ function ReportsContent({
   insights: ReportsInsights;
   donutData: ChartData<"doughnut"> | null;
   donutOptions: ChartOptions<"doughnut">;
-  lineChartData: ChartData<"line"> | null;
-  lineChartOptions: ChartOptions<"line">;
+  lineChartData: ChartData<"bar"> | null;
+  lineChartOptions: ChartOptions<"bar">;
   period: "monthly" | "weekly" | "daily";
   setPeriod: (p: "monthly" | "weekly" | "daily") => void;
 }) {

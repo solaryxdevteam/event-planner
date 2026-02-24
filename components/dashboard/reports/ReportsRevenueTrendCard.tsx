@@ -6,8 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface ReportsRevenueTrendCardProps {
-  lineChartData: ChartData<"line"> | null;
-  lineChartOptions: ChartOptions<"line">;
+  lineChartData: ChartData<"bar"> | null;
+  lineChartOptions: ChartOptions<"bar">;
   period: "monthly" | "weekly" | "daily";
   onPeriodChange: (period: "monthly" | "weekly" | "daily") => void;
 }
@@ -42,7 +42,7 @@ export function ReportsRevenueTrendCard({
       </div>
       {hasData ? (
         <div className="w-full" style={{ height: CHART_HEIGHT }}>
-          <Chart type="line" data={lineChartData!} options={lineChartOptions} />
+          <Chart type="bar" data={lineChartData!} options={lineChartOptions} />
         </div>
       ) : (
         <div
