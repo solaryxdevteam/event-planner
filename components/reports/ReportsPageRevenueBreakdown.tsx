@@ -95,11 +95,13 @@ export function ReportsPageRevenueBreakdown({ data, isLoading }: ReportsPageReve
     <Card className="p-4 h-full flex flex-col">
       <h3 className="text-sm font-semibold mb-3">Revenue Breakdown</h3>
       {donutData ? (
-        <div className="relative flex-1 min-h-0" style={{ height: DONUT_HEIGHT }}>
-          <Chart type="doughnut" data={donutData} options={donutOptions} />
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+        <div className="relative" style={{ height: DONUT_HEIGHT }}>
+          <div className="absolute inset-0 z-0 flex flex-col items-center justify-center pointer-events-none">
             <span className="font-bold text-xl">{formatCurrency(totalSales)}</span>
             <span className="text-xs text-muted-foreground">Total Revenue</span>
+          </div>
+          <div className="absolute inset-0 z-10">
+            <Chart type="doughnut" data={donutData} options={donutOptions} />
           </div>
         </div>
       ) : (

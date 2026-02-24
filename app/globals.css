@@ -138,6 +138,12 @@
   min-height: 520px;
 }
 
+@media (max-width: 767px) {
+  .calendar-dashboard {
+    min-height: auto;
+  }
+}
+
 @media (min-width: 768px) {
   .calendar-dashboard {
     min-height: 312px;
