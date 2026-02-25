@@ -188,16 +188,17 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
           },
         ]
       : []),
-    // Activity Logs - only for curators and above (non-event-planner)
-    ...(isCurator
+    // Dev only: Email template preview & test send (show when env is set)
+    ...(isGlobalDirector && process.env.NEXT_PUBLIC_ENABLE_EMAIL_PREVIEW === "true"
       ? [
           {
-            title: "Logs",
-            url: "/dashboard/logs",
-            icon: Clock,
+            title: "Email templates",
+            url: "/dashboard/dev/email-templates",
+            icon: Mail,
           },
         ]
       : []),
+
     {
       title: "Profile",
       url: "/dashboard/profile",
@@ -208,13 +209,13 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
       url: "/dashboard/help",
       icon: HelpCircle,
     },
-    // Dev only: Email template preview & test send (show when env is set)
-    ...(isGlobalDirector && process.env.NEXT_PUBLIC_ENABLE_EMAIL_PREVIEW === "true"
+    // Activity Logs - only for curators and above (non-event-planner)
+    ...(isCurator
       ? [
           {
-            title: "Email templates",
-            url: "/dashboard/dev/email-templates",
-            icon: Mail,
+            title: "Logs",
+            url: "/dashboard/logs",
+            icon: Clock,
           },
         ]
       : []),
