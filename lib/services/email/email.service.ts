@@ -39,6 +39,20 @@ const getEffectiveToEmail = (originalTo: string): string => {
 };
 
 /**
+ * Send a single email (used by dev email-templates test send).
+ */
+export async function sendTestEmail(to: string, subject: string, html: string): Promise<void> {
+  const { data, error } = await getResend().emails.send({
+    from: getFromEmail(),
+    to: getEffectiveToEmail(to),
+    subject,
+    html,
+  });
+  if (error) throw new Error(`Failed to send test email: ${error.message}`);
+  console.log("Test email sent:", data);
+}
+
+/**
  * Send invitation email
  *
  * @param invitation - Invitation object

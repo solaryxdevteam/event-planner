@@ -97,11 +97,13 @@ export function renderInvitationEmail(invitation: Invitation, countryName: strin
 export function renderUserEmailVerificationOtp(otpCode: string, expiresMinutes: number): string {
   const content = `
     <h2 style="color: #f5f5f5; margin-top: 0;">Verify your email</h2>
-    <p style="color: #e5e5e5;">Your verification code is:</p>
-    <p style="font-size: 24px; font-weight: bold; letter-spacing: 4px; margin: 20px 0; color: ${BRAND_RED_LINK};">${otpCode}</p>
-    <p style="color: #a3a3a3; font-size: 14px;">This code expires in ${expiresMinutes} minutes.</p>
-    <p style="color: #e5e5e5;">Enter this code on the verification page to verify your email.</p>
-    <p style="color: #e5e5e5;">Your account will remain pending until a Global Director activates it. You will be notified once you can sign in and use the platform.</p>
+    <p style="color: #e5e5e5;">Enter the code below on the verification page to verify your email.</p>
+    <p style="color: #a3a3a3; margin: 1rem 0 0.5rem;">Your verification code:</p>
+    <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #404040;">
+      <p style="margin: 0; font-size: 1.5rem; font-weight: bold; text-align: center; letter-spacing: 0.25em; color: ${BRAND_RED_LINK};">${otpCode}</p>
+    </div>
+    <p style="color: #a3a3a3; font-size: 0.875rem; margin: 0;">This code expires in ${expiresMinutes} minutes. Do not share it with anyone.</p>
+    <p style="color: #e5e5e5; margin-top: 1rem;">Your account will remain pending until a Global Director activates it. You will be notified once you can sign in and use the platform.</p>
     <p style="color: #a3a3a3;">If you did not register, you can safely ignore this email.</p>
   `;
   return baseTemplate(content);
@@ -293,42 +295,22 @@ export function renderVenueContactVerificationEmail(
       ? `${Math.round(validMinutes / 60)} hour${validMinutes >= 120 ? "s" : ""}`
       : `${validMinutes} minutes`;
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify your email</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-    <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
-      <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
-      </div>
-      <div style="padding: 30px;">
-        <h2 style="color: #f5f5f5; margin-top: 0;">Verify your email</h2>
-        <p style="color: #e5e5e5; margin: 0 0 1rem;">Dear ${contactPersonName},</p>
-        <p style="color: #e5e5e5; margin: 0 0 1rem;">${appName} has requested you to verify your email for the venue <strong>${venueName}</strong>.</p>
-        <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Click the button below to go to the verification page, then enter the code shown in this email.</p>
-        <div style="text-align: center; margin: 1.5rem 0;">
-          <a href="${verifyUrl}" style="${buttonStyle}">Go to verification page</a>
-        </div>
-        <p style="color: #a3a3a3; margin: 1rem 0 0.5rem;">Your verification code:</p>
-        <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #404040;">
-          <p style="margin: 0; font-size: 1.5rem; font-weight: bold; text-align: center; letter-spacing: 0.25em; color: ${BRAND_RED_LINK};">${otpCode}</p>
-        </div>
-        <p style="color: #a3a3a3; font-size: 0.875rem; margin: 0;">This code is valid for ${validText}. Do not share it with anyone.</p>
-      </div>
-      <div style="background-color: #0a0a0a; padding: 1rem 2rem; border-top: 1px solid #262626;">
-        <p style="margin: 0; font-size: 0.75rem; color: #737373; text-align: center;">&copy; ${new Date().getFullYear()} ${appName}</p>
-      </div>
+  const content = `
+    <h2 style="color: #f5f5f5; margin-top: 0;">Verify your email</h2>
+    <p style="color: #e5e5e5; margin: 0 0 1rem;">Dear ${contactPersonName},</p>
+    <p style="color: #e5e5e5; margin: 0 0 1rem;">${appName} has requested you to verify your email for the venue <strong>${venueName}</strong>.</p>
+    <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Click the button below to go to the verification page, then enter the code shown in this email.</p>
+    <div style="text-align: center; margin: 1.5rem 0;">
+      <a href="${verifyUrl}" style="${buttonStyle}">Go to verification page</a>
     </div>
-  </div>
-</body>
-</html>
-  `.trim();
+    <p style="color: #a3a3a3; margin: 1rem 0 0.5rem;">Your verification code:</p>
+    <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #404040;">
+      <p style="margin: 0; font-size: 1.5rem; font-weight: bold; text-align: center; letter-spacing: 0.25em; color: ${BRAND_RED_LINK};">${otpCode}</p>
+    </div>
+    <p style="color: #a3a3a3; font-size: 0.875rem; margin: 0;">This code is valid for ${validText}. Do not share it with anyone.</p>
+  `;
+
+  return baseTemplate(content);
 }
 
 /**
@@ -348,42 +330,22 @@ export function renderDjContactVerificationEmail(
       ? `${Math.round(validMinutes / 60)} hour${validMinutes >= 120 ? "s" : ""}`
       : `${validMinutes} minutes`;
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify your DJ profile</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-    <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
-      <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
-      </div>
-      <div style="padding: 30px;">
-        <h2 style="color: #f5f5f5; margin-top: 0;">Verify your DJ profile</h2>
-        <p style="color: #e5e5e5; margin: 0 0 1rem;">Dear ${djName},</p>
-        <p style="color: #e5e5e5; margin: 0 0 1rem;">You have been added as a DJ on ${appName}. Please verify your email to be recognized as a verified DJ.</p>
-        <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Click the button below to go to the verification page, then enter the code shown in this email.</p>
-        <div style="text-align: center; margin: 1.5rem 0;">
-          <a href="${verifyUrl}" style="${buttonStyle}">Go to verification page</a>
-        </div>
-        <p style="color: #a3a3a3; margin: 1rem 0 0.5rem;">Your verification code:</p>
-        <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #404040;">
-          <p style="margin: 0; font-size: 1.5rem; font-weight: bold; text-align: center; letter-spacing: 0.25em; color: ${BRAND_RED_LINK};">${otpCode}</p>
-        </div>
-        <p style="color: #a3a3a3; font-size: 0.875rem; margin: 0;">This code is valid for ${validText}. Do not share it with anyone.</p>
-      </div>
-      <div style="background-color: #0a0a0a; padding: 1rem 2rem; border-top: 1px solid #262626;">
-        <p style="margin: 0; font-size: 0.75rem; color: #737373; text-align: center;">&copy; ${new Date().getFullYear()} ${appName}</p>
-      </div>
+  const content = `
+    <h2 style="color: #f5f5f5; margin-top: 0;">Verify your DJ profile</h2>
+    <p style="color: #e5e5e5; margin: 0 0 1rem;">Dear ${djName},</p>
+    <p style="color: #e5e5e5; margin: 0 0 1rem;">You have been added as a DJ on ${appName}. Please verify your email to be recognized as a verified DJ.</p>
+    <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Click the button below to go to the verification page, then enter the code shown in this email.</p>
+    <div style="text-align: center; margin: 1.5rem 0;">
+      <a href="${verifyUrl}" style="${buttonStyle}">Go to verification page</a>
     </div>
-  </div>
-</body>
-</html>
-  `.trim();
+    <p style="color: #a3a3a3; margin: 1rem 0 0.5rem;">Your verification code:</p>
+    <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; border: 1px solid #404040;">
+      <p style="margin: 0; font-size: 1.5rem; font-weight: bold; text-align: center; letter-spacing: 0.25em; color: ${BRAND_RED_LINK};">${otpCode}</p>
+    </div>
+    <p style="color: #a3a3a3; font-size: 0.875rem; margin: 0;">This code is valid for ${validText}. Do not share it with anyone.</p>
+  `;
+
+  return baseTemplate(content);
 }
 
 /**
@@ -393,39 +355,19 @@ export function renderDjContactVerificationEmail(
 export function renderVerificationOtpEmail(otpCode: string, validMinutes: number): string {
   const appName = process.env.NEXT_PUBLIC_APP_NAME || "Event Management Platform";
 
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your OTP Code</title>
-</head>
-<body style="margin: 0; padding: 0; background-color: #0a0a0a; font-family: Arial, sans-serif;">
-  <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-    <div style="background-color: #171717; border-radius: 8px; overflow: hidden; border: 1px solid #262626;">
-      <div style="background-color: #0a0a0a; padding: 24px; text-align: center; border-bottom: 1px solid #262626;">
-        <img src="${EMAIL_LOGO_URL}" alt="${appName}" width="${LOGO_WIDTH}" height="${LOGO_HEIGHT}" style="display: inline-block; width: ${LOGO_WIDTH}px; height: ${LOGO_HEIGHT}px; max-width: ${LOGO_WIDTH}px; border: 0; outline: none; -ms-interpolation-mode: bicubic;" />
-      </div>
-      <div style="padding: 30px;">
-        <h2 style="color: #f5f5f5; margin-top: 0;">Your OTP Code</h2>
-        <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Hello,</p>
-        <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Your One-Time Password (OTP) for approval verification is:</p>
-        <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; border: 1px solid #404040;">
-          <p style="margin: 0; font-size: 2rem; font-weight: bold; text-align: center; color: ${BRAND_RED_LINK}; letter-spacing: 0.25em;">${otpCode}</p>
-        </div>
-        <p style="color: #a3a3a3; margin: 0 0 1.5rem;">This OTP is valid for <span style="font-weight: 600; color: #f5f5f5;">${validMinutes} minutes</span>. Please do not share this code with anyone.</p>
-        <p style="color: #a3a3a3; margin: 0 0 0.5rem;">If you didn't request this code, please ignore this email.</p>
-        <p style="color: #a3a3a3; margin: 0;">Thank you for using ${appName}!</p>
-      </div>
-      <div style="background-color: #0a0a0a; padding: 1rem 2rem; border-top: 1px solid #262626;">
-        <p style="margin: 0; font-size: 0.75rem; color: #737373; text-align: center;">&copy; ${new Date().getFullYear()} ${appName}</p>
-      </div>
+  const content = `
+    <h2 style="color: #f5f5f5; margin-top: 0;">Your OTP Code</h2>
+    <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Hello,</p>
+    <p style="color: #e5e5e5; margin: 0 0 1.5rem;">Your One-Time Password (OTP) for approval verification is:</p>
+    <div style="background-color: #262626; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; border: 1px solid #404040;">
+      <p style="margin: 0; font-size: 2rem; font-weight: bold; text-align: center; color: ${BRAND_RED_LINK}; letter-spacing: 0.25em;">${otpCode}</p>
     </div>
-  </div>
-</body>
-</html>
-  `.trim();
+    <p style="color: #a3a3a3; margin: 0 0 1.5rem;">This OTP is valid for <span style="font-weight: 600; color: #f5f5f5;">${validMinutes} minutes</span>. Please do not share this code with anyone.</p>
+    <p style="color: #a3a3a3; margin: 0 0 0.5rem;">If you didn't request this code, please ignore this email.</p>
+    <p style="color: #a3a3a3; margin: 0;">Thank you for using ${appName}!</p>
+  `;
+
+  return baseTemplate(content);
 }
 
 /**

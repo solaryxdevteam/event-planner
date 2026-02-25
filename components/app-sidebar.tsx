@@ -17,6 +17,7 @@ import {
   BarChart3,
   HelpCircle,
   Disc3,
+  Mail,
 } from "lucide-react";
 
 import { NavMain } from "@/components/nav-main";
@@ -57,6 +58,7 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
   // Check if user is curator or higher (can see approvals)
   const isCurator =
     userRole && ["city_curator", "regional_curator", "lead_curator", "global_director"].includes(userRole);
+  const isGlobalDirector = userRole === "global_director";
 
   // Check if user can create events (event planners)
   const canCreateEvents = userRole === "event_planner" || isCurator;
@@ -177,7 +179,7 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
     },
 
     // Reports - only for Global Director
-    ...(userRole === "global_director"
+    ...(isGlobalDirector
       ? [
           {
             title: "Reports",
@@ -206,6 +208,16 @@ export function AppSidebar({ user, disabled = false, userRole, ...props }: AppSi
       url: "/dashboard/help",
       icon: HelpCircle,
     },
+    // Dev only: Email template preview & test send (show when env is set)
+    ...(isGlobalDirector && process.env.NEXT_PUBLIC_ENABLE_EMAIL_PREVIEW === "true"
+      ? [
+          {
+            title: "Email templates",
+            url: "/dashboard/dev/email-templates",
+            icon: Mail,
+          },
+        ]
+      : []),
   ];
 
   // Map navigation items with active state based on current pathname
