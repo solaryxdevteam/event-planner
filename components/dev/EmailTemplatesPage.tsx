@@ -75,7 +75,7 @@ export function EmailTemplatesPage() {
         <p className="font-medium">Email templates not available</p>
         <p className="text-sm mt-1">{error}</p>
         <p className="text-sm mt-2 text-muted-foreground">
-          This page is only available in development or when ENABLE_EMAIL_PREVIEW is set.
+          This page is only available in development or when NEXT_PUBLIC_ENABLE_EMAIL_PREVIEW is set.
         </p>
       </div>
     );

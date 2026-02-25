@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRenderedHtml, isValidTemplateId } from "@/lib/services/email/dev-templates.registry";
 
-const isDev = process.env.NODE_ENV === "development" || process.env.ENABLE_EMAIL_PREVIEW === "true";
+const isDev = process.env.NEXT_PUBLIC_ENABLE_EMAIL_PREVIEW === "true";
 
 export async function GET(request: NextRequest) {
   if (!isDev) {
