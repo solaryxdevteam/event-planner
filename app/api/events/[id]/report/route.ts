@@ -51,6 +51,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       external_links: unknown;
       reelsUrls?: string[];
       mediaUrls?: string[];
+      posReportAttachmentUrls?: string[];
       reelsFiles?: (File | Blob)[];
       mediaFiles?: (File | Blob)[];
     };
@@ -68,6 +69,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         external_links: body.external_links ?? null,
         reelsUrls: Array.isArray(body.reels_urls) ? body.reels_urls : undefined,
         mediaUrls: Array.isArray(body.media_urls) ? body.media_urls : undefined,
+        posReportAttachmentUrls: Array.isArray(body.pos_report_attachment_urls)
+          ? body.pos_report_attachment_urls
+          : undefined,
       };
     } else {
       const formData = await request.formData();
@@ -123,13 +127,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const validatedInput = submitReportSchema.parse({
       eventId: id,
       attendance_count: payload.attendance_count,
-      total_ticket_sales: payload.total_ticket_sales,
-      total_bar_sales: payload.total_bar_sales,
-      total_table_sales: payload.total_table_sales,
+      total_ticket_sales: payload.total_ticket_sales ?? 0,
+      total_bar_sales: payload.total_bar_sales ?? 0,
+      total_table_sales: payload.total_table_sales ?? 0,
       detailed_report: payload.detailed_report,
       incidents: payload.incidents,
       feedback: payload.feedback,
       external_links: payload.external_links,
+      reels_urls: payload.reelsUrls,
+      media_urls: payload.mediaUrls,
+      pos_report_attachment_urls: payload.posReportAttachmentUrls,
     });
 
     const report = await reportService.submitReport(authUser.id, validatedInput.eventId, {
@@ -143,6 +150,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       external_links: validatedInput.external_links,
       reelsUrls: payload.reelsUrls,
       mediaUrls: payload.mediaUrls,
+      posReportAttachmentUrls: validatedInput.pos_report_attachment_urls ?? payload.posReportAttachmentUrls ?? [],
       reelsFiles: payload.reelsFiles,
       mediaFiles: payload.mediaFiles,
     });

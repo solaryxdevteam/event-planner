@@ -210,6 +210,88 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
                   )}
                 </div>
 
+                {/* Marketing strategy PDF - from this report */}
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Marketing strategy PDF</Label>
+                  {(lastReport.marketing_strategy_files?.length ?? 0) > 0 ? (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {(lastReport.marketing_strategy_files ?? []).map((item, index) => {
+                        const url = getItemUrl(item);
+                        const name = getItemName(item, index, "File");
+                        const type = getPreviewType(url, name);
+                        if (!url) return null;
+                        const openPreview = () =>
+                          setPreview({
+                            url,
+                            name,
+                            type,
+                            mimeType: name.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+                          });
+                        if (type === "image") {
+                          return (
+                            <div
+                              key={`${url}-${index}`}
+                              className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+                            >
+                              <button
+                                type="button"
+                                className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                                onClick={openPreview}
+                              >
+                                <Image src={url} alt={name} fill className="object-cover" unoptimized sizes="120px" />
+                              </button>
+                            </div>
+                          );
+                        }
+                        if (type === "video") {
+                          return (
+                            <button
+                              key={`${url}-${index}`}
+                              type="button"
+                              className="relative aspect-video rounded-lg overflow-hidden bg-muted focus:outline-none focus:ring-2 focus:ring-primary block w-full"
+                              onClick={openPreview}
+                            >
+                              <video
+                                src={url}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            </button>
+                          );
+                        }
+                        return (
+                          <Button
+                            key={`${url}-${index}`}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="col-span-3 sm:col-span-4 truncate max-w-full justify-start"
+                            onClick={openPreview}
+                          >
+                            {name}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">—</p>
+                  )}
+                </div>
+
+                {/* Budget - from this report */}
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Budget (price)</Label>
+                  <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+                    {lastReport.marketing_budget != null
+                      ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
+                          Number(lastReport.marketing_budget)
+                        )
+                      : "—"}
+                  </p>
+                </div>
+
                 {/* Notes */}
                 <div className="space-y-2">
                   <Label className="text-muted-foreground">Notes</Label>
@@ -255,12 +337,12 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Marketing Reports</CardTitle>
-            {canAddReport && (
-              <Button onClick={() => setShowAddDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Report
-              </Button>
-            )}
+            {/* {canAddReport && ( */}
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Report
+            </Button>
+            {/* )} */}
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -359,6 +441,7 @@ export function MarketingTab({ eventId, event }: MarketingTabProps) {
         event={{
           marketing_flyers: lastReport?.marketing_flyers ?? event.marketing_flyers ?? null,
           marketing_videos: lastReport?.marketing_videos ?? event.marketing_videos ?? null,
+          marketing_strategy_files: lastReport?.marketing_strategy_files ?? null,
           marketing_budget: lastReport?.marketing_budget ?? event.marketing_budget ?? null,
         }}
         viewReport={viewReport}

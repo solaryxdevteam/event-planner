@@ -232,19 +232,20 @@ export function renderEventRejectedEmail(eventTitle: string, eventId: string, co
 
 /**
  * Render report due reminder email
- * Sent to event planner when event transitions to awaiting report
+ * Sent to event creator 4 hours after event ends when event transitions to awaiting report.
+ * Uses base template; CTA links to the event page to fill out the report.
  */
-export function renderReportDueReminderEmail(eventTitle: string, eventId: string): string {
+export function renderReportDueReminderEmail(eventTitle: string, eventIdentifier: string): string {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://panel.shirazhouse.com";
-  const eventUrl = `${baseUrl}/dashboard/events/${eventId}`;
+  const eventUrl = `${baseUrl}/dashboard/events/${eventIdentifier}`;
 
   const content = `
     <h2 style="color: #f5f5f5; margin-top: 0;">Report Required</h2>
     <p style="color: #e5e5e5;">Hello,</p>
-    <p style="color: #e5e5e5;">Your event <strong>${eventTitle}</strong> has been completed. Please submit a post-event report.</p>
+    <p style="color: #e5e5e5;">Your event <strong>${escapeHtml(eventTitle)}</strong> has ended. Please fill out the event report so we can capture attendance and feedback.</p>
     <div style="text-align: center; margin: 30px 0;">
-      <a href="${eventUrl}" style="${buttonStyle}">Submit Report</a>
+      <a href="${eventUrl}" style="${buttonStyle}">View Event &amp; Submit Report</a>
     </div>
     <p style="color: #a3a3a3;">If you have any questions, please contact your administrator.</p>
   `;

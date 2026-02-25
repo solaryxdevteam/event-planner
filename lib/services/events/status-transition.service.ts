@@ -23,14 +23,32 @@ import * as emailService from "../email/email.service";
 type Event = Database["public"]["Tables"]["events"]["Row"];
 type EventStatus = Database["public"]["Enums"]["event_status"];
 
-/** Event is considered "past" 5 hours after starts_at (no ends_at field). */
+/** When event has no ends_at: consider "past" 5 hours after starts_at. */
 const HOURS_AFTER_START_TO_TRANSITION = 5;
+/** When event has ends_at: transition and send report reminder 4 hours after event ends. */
+const HOURS_AFTER_END_TO_TRANSITION = 4;
 
 /**
- * Transition events that are 5+ hours past start from approved_scheduled
- * to completed_awaiting_report
+ * Returns true if the event should be transitioned now.
+ * Uses ends_at + 4h when ends_at is set, otherwise starts_at + 5h.
+ */
+function isEventReadyForTransition(event: Event): boolean {
+  const now = Date.now();
+  if (event.ends_at) {
+    const reminderAt = new Date(event.ends_at).getTime() + HOURS_AFTER_END_TO_TRANSITION * 60 * 60 * 1000;
+    return reminderAt <= now;
+  }
+  if (!event.starts_at) return false;
+  const transitionAt = new Date(event.starts_at).getTime() + HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000;
+  return transitionAt <= now;
+}
+
+/**
+ * Transition events from approved_scheduled to completed_awaiting_report and send
+ * report-reminder email to the creator. When ends_at is set, transition happens
+ * 4 hours after event end; otherwise 5 hours after start.
  *
- * Cron should run frequently (e.g. hourly) so events transition ~5 hours after start.
+ * Cron should run frequently (e.g. hourly).
  *
  * @returns Number of events transitioned
  */
@@ -44,13 +62,13 @@ export async function transitionCompletedEvents(): Promise<{
   let transitioned = 0;
 
   try {
-    // Cutoff: events that started at least 5 hours ago
-    const cutoff = new Date(Date.now() - HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000).toISOString();
+    // Fetch events that have started (candidates for transition)
+    const startedCutoff = new Date().toISOString();
     const { data: events, error: fetchError } = await supabase
       .from("events")
       .select("*")
       .eq("status", "approved_scheduled")
-      .lt("starts_at", cutoff); // starts_at < (now - 5 hours)
+      .lt("starts_at", startedCutoff);
 
     if (fetchError) {
       throw new Error(`Failed to fetch events: ${fetchError.message}`);
@@ -60,8 +78,9 @@ export async function transitionCompletedEvents(): Promise<{
       return { success: true, transitioned: 0, errors: [] };
     }
 
-    // Transition each event
-    for (const event of events as Event[]) {
+    const eventsToTransition = (events as Event[]).filter(isEventReadyForTransition);
+
+    for (const event of eventsToTransition) {
       try {
         await transitionSingleEvent(event);
         transitioned++;
@@ -114,7 +133,7 @@ async function transitionSingleEvent(event: Event): Promise<void> {
     event_id: event.id,
     user_id: null, // System action
     action_type: "update_event",
-    comment: "Event automatically transitioned to awaiting report (5 hours after start)",
+    comment: "Event automatically transitioned to awaiting report (4h after end or 5h after start)",
     metadata: {
       automated: true,
       old_status: "approved_scheduled",
@@ -164,7 +183,7 @@ async function notifyCreatorReportDue(event: Event): Promise<void> {
     return;
   }
 
-  await emailService.sendReportDueReminderEmail(creator.email, event.title, event.id);
+  await emailService.sendReportDueReminderEmail(creator.email, event.title, event.short_id);
 }
 
 /**
@@ -227,25 +246,27 @@ export async function manuallyTransitionEvent(
 
 /**
  * Get count of events that need transition
+ * (started and past ends_at+4h or starts_at+5h)
  *
  * @returns Number of events ready to transition
  */
 export async function getEventsNeedingTransition(): Promise<number> {
   const supabase = await createClient();
-  const cutoff = new Date(Date.now() - HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000).toISOString();
+  const startedCutoff = new Date().toISOString();
 
-  const { count, error } = await supabase
+  const { data: events, error } = await supabase
     .from("events")
-    .select("*", { count: "exact", head: true })
+    .select("id, starts_at, ends_at")
     .eq("status", "approved_scheduled")
-    .lt("starts_at", cutoff);
+    .lt("starts_at", startedCutoff);
 
   if (error) {
-    console.error("Error counting events:", error);
+    console.error("Error fetching events:", error);
     return 0;
   }
 
-  return count || 0;
+  const ready = (events || []).filter((e) => isEventReadyForTransition(e as Event));
+  return ready.length;
 }
 
 // =============================================
@@ -326,9 +347,13 @@ export async function getEventsNeedingTransition(): Promise<number> {
  */
 export async function _testGetEventsReadyForTransition(): Promise<Event[]> {
   const supabase = await createClient();
-  const cutoff = new Date(Date.now() - HOURS_AFTER_START_TO_TRANSITION * 60 * 60 * 1000).toISOString();
+  const startedCutoff = new Date().toISOString();
 
-  const { data } = await supabase.from("events").select("*").eq("status", "approved_scheduled").lt("starts_at", cutoff);
+  const { data: events } = await supabase
+    .from("events")
+    .select("*")
+    .eq("status", "approved_scheduled")
+    .lt("starts_at", startedCutoff);
 
-  return data || [];
+  return (events || []).filter((e) => isEventReadyForTransition(e as Event));
 }

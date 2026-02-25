@@ -104,10 +104,14 @@ export default function EventRequestsPage() {
       await createEventMutation.mutateAsync({
         title: `${selectedEvent.title} (Copy)`,
         starts_at: selectedEvent.starts_at || null,
+        ends_at: selectedEvent.ends_at || null,
         venue_id: selectedEvent.venue_id || null,
+        dj_id: selectedEvent.dj_id || null,
         expected_attendance: selectedEvent.expected_attendance || null,
         minimum_ticket_price: selectedEvent.minimum_ticket_price ?? null,
         minimum_table_price: selectedEvent.minimum_table_price ?? null,
+        proposed_ticket_files: selectedEvent.proposed_ticket_files ?? [],
+        proposed_table_files: selectedEvent.proposed_table_files ?? [],
         notes: selectedEvent.notes || null,
       });
 

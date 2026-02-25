@@ -39,17 +39,13 @@ export const venueStep1Schema = z.object({
   country: z.string().min(1, "Country is required").max(100, "Country must be less than 100 characters").trim(),
   country_id: z.string().uuid("Invalid country ID").nullable().optional(),
   location_lat: z
-    .number()
+    .number({ message: "Map location is required" })
     .min(-90, "Latitude must be between -90 and 90")
-    .max(90, "Latitude must be between -90 and 90")
-    .nullable()
-    .optional(),
+    .max(90, "Latitude must be between -90 and 90"),
   location_lng: z
-    .number()
+    .number({ message: "Map location is required" })
     .min(-180, "Longitude must be between -180 and 180")
-    .max(180, "Longitude must be between -180 and 180")
-    .nullable()
-    .optional(),
+    .max(180, "Longitude must be between -180 and 180"),
 });
 
 /**
@@ -58,26 +54,20 @@ export const venueStep1Schema = z.object({
  */
 export const venueStep2Schema = z.object({
   total_capacity: z
-    .number()
+    .number({ message: "Total capacity is required" })
     .int("Total capacity must be a whole number")
     .min(0, "Total capacity must be 0 or greater")
-    .max(99999999, "Total capacity must be less than 99,999,999")
-    .nullable()
-    .optional(),
+    .max(99999999, "Total capacity must be less than 99,999,999"),
   number_of_tables: z
-    .number()
+    .number({ message: "Number of tables is required" })
     .int("Number of tables must be a whole number")
     .min(0, "Number of tables must be 0 or greater")
-    .max(99999999, "Number of tables must be less than 99,999,999")
-    .nullable()
-    .optional(),
+    .max(99999999, "Number of tables must be less than 99,999,999"),
   ticket_capacity: z
-    .number()
+    .number({ message: "Ticket capacity is required" })
     .int("Ticket capacity must be a whole number")
     .min(0, "Ticket capacity must be 0 or greater")
-    .max(99999999, "Ticket capacity must be less than 99,999,999")
-    .nullable()
-    .optional(),
+    .max(99999999, "Ticket capacity must be less than 99,999,999"),
   sounds: z
     .string()
     .max(MAX_TEXTAREA_LENGTH, `Must be less than ${MAX_TEXTAREA_LENGTH.toLocaleString()} characters`)
@@ -107,22 +97,21 @@ export const venueStep3Schema = z.object({
     .trim(),
   contact_email: z
     .string()
+    .min(1, "Venue contact email is required")
     .email("Invalid email address")
     .max(255, "Email must be less than 255 characters")
-    .trim()
-    .optional()
-    .nullable(),
+    .trim(),
   floor_plans: z
     .array(floorPlanItemSchema)
-    .max(MAX_FLOOR_PLANS, `Maximum ${MAX_FLOOR_PLANS} floor plan files allowed`)
-    .default([]),
+    .min(1, "At least one floor plan is required")
+    .max(MAX_FLOOR_PLANS, `Maximum ${MAX_FLOOR_PLANS} floor plan files allowed`),
   media: z
     .array(venueMediaItemSchema)
+    .min(1, "At least one photo or video is required")
     .max(MAX_MEDIA_ITEMS, `Maximum ${MAX_MEDIA_ITEMS} photos/videos allowed`)
-    .refine((arr) => arr.length === 0 || arr.some((m) => m.isCover === true), {
+    .refine((arr) => arr.some((m) => m.isCover === true), {
       message: "Please select one image as the cover image",
-    })
-    .default([]),
+    }),
 });
 
 /**

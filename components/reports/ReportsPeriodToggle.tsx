@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 
-export type ReportsPeriod = "daily" | "weekly" | "monthly";
+export type ReportsPeriod = "daily" | "weekly" | "monthly" | "yearly";
 
 interface ReportsPeriodToggleProps {
   value: ReportsPeriod;
@@ -13,12 +13,13 @@ const LABELS: Record<ReportsPeriod, string> = {
   daily: "Daily",
   weekly: "Weekly",
   monthly: "Monthly",
+  yearly: "Yearly",
 };
 
 export function ReportsPeriodToggle({ value, onChange }: ReportsPeriodToggleProps) {
   return (
     <div className="flex rounded-md border border-border overflow-hidden">
-      {(["daily", "weekly", "monthly"] as const).map((p) => (
+      {(["daily", "weekly", "monthly", "yearly"] as const).map((p) => (
         <Button
           key={p}
           variant={value === p ? "secondary" : "ghost"}

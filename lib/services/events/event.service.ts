@@ -280,6 +280,7 @@ export async function createFromRejected(userId: string, rejectedEventId: string
     short_id: shortId,
     title: rejectedEvent.title,
     starts_at: rejectedEvent.starts_at,
+    ends_at: rejectedEvent.ends_at ?? null,
     venue_id: rejectedEvent.venue_id,
     dj_id: rejectedEvent.dj_id ?? null,
     creator_id: userId,
@@ -287,6 +288,8 @@ export async function createFromRejected(userId: string, rejectedEventId: string
     expected_attendance: rejectedEvent.expected_attendance,
     minimum_ticket_price: rejectedEvent.minimum_ticket_price ?? null,
     minimum_table_price: rejectedEvent.minimum_table_price ?? null,
+    proposed_ticket_files: rejectedEvent.proposed_ticket_files ?? [],
+    proposed_table_files: rejectedEvent.proposed_table_files ?? [],
     notes: rejectedEvent.notes,
   });
 

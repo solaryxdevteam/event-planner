@@ -12,7 +12,7 @@ export const REPORT_CHART_TABLE = "#1E293B";
 export const REPORT_CHART_TEXT = "#0F172A";
 
 /** Event bar: light slate so it stays distinct in the stack */
-export const REPORT_CHART_EVENT = "#94A3B8";
+export const REPORT_CHART_EVENT = "#3B82F6";
 
 /** Total Revenue line (legacy/fallback): slate-400 */
 export const REPORT_CHART_TOTAL_LINE = "#94A3B8";

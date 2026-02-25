@@ -14,15 +14,11 @@ import { buildMarketingReportApprovalChain } from "@/lib/services/approvals/chai
 import * as auditService from "@/lib/services/audit/audit.service";
 import type { MarketingReport, MarketingReportWithSubmitter } from "@/lib/types/database.types";
 import { UserRole } from "@/lib/types/roles";
+import { submitMarketingReportSchema } from "@/lib/validation/marketing-report.schema";
 
 const MARKETING_VISIBLE_STATUSES = ["approved_scheduled", "completed_awaiting_report", "completed_archived"];
 
-export interface SubmitMarketingReportInput {
-  notes: string | null;
-  marketing_flyers?: { url: string; name?: string }[];
-  marketing_videos?: { url: string; name?: string }[];
-  marketing_budget?: number | null;
-}
+export type SubmitMarketingReportInput = import("@/lib/validation/marketing-report.schema").SubmitMarketingReportInput;
 
 /**
  * Submit a marketing report for an event.
@@ -68,22 +64,24 @@ export async function submitMarketingReport(
     );
   }
 
-  const flyers = Array.isArray(data.marketing_flyers) ? data.marketing_flyers : [];
-  const videos = Array.isArray(data.marketing_videos) ? data.marketing_videos : [];
-  const budget =
-    data.marketing_budget !== undefined && data.marketing_budget !== null ? Number(data.marketing_budget) : null;
-  if (budget !== null && (Number.isNaN(budget) || budget < 0)) {
-    throw new ValidationError("Marketing budget must be a non-negative number");
+  const parsed = submitMarketingReportSchema.safeParse(data);
+  if (!parsed.success) {
+    const first = parsed.error.flatten().fieldErrors;
+    const msg = Object.values(first).flat().find(Boolean) ?? "Invalid marketing report data";
+    throw new ValidationError(String(msg));
   }
+
+  const { notes, marketing_flyers, marketing_videos, marketing_strategy_files, marketing_budget } = parsed.data;
 
   const report = await marketingReportsDAL.insert({
     event_id: eventId,
     submitted_by: userId,
     status: "pending",
-    notes: data.notes?.trim() || null,
-    marketing_flyers: flyers,
-    marketing_videos: videos,
-    marketing_budget: budget,
+    notes: notes?.trim() || null,
+    marketing_flyers,
+    marketing_videos,
+    marketing_strategy_files,
+    marketing_budget,
   });
 
   const gdIds = await buildMarketingReportApprovalChain();

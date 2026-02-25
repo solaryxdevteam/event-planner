@@ -30,6 +30,7 @@ import { format, startOfMonth, endOfYear, startOfYear, subMonths } from "date-fn
 import Link from "next/link";
 import { formatCurrency } from "./reports/utils";
 import type { ReportsSummary, ReportsInsights } from "./reports/utils";
+import { aggregateByWeek } from "@/components/reports/reports-page-utils";
 import {
   REPORT_CHART_COLORS,
   REPORT_CHART_AXIS_TEXT_LIGHT,
@@ -142,7 +143,7 @@ function aggregateByMonth(daily: ReportChartDataPoint[]): PeriodBucket[] {
 // }
 
 export function DashboardReportsCard() {
-  const now = new Date();
+  const now = useMemo(() => new Date(), []);
   // Fetch from same month last year through end of current year (for Monthly Growth comparison and chart)
   const dateFrom = format(startOfMonth(subMonths(now, 12)), "yyyy-MM-dd");
   const dateTo = format(endOfYear(now), "yyyy-MM-dd");
@@ -156,11 +157,18 @@ export function DashboardReportsCard() {
   });
   const dailyData = useMemo(() => listData?.chartData ?? [], [listData?.chartData]);
   const monthlyData = useMemo(() => aggregateByMonth(dailyData), [dailyData]);
+  const weeklyData = useMemo(() => aggregateByWeek(dailyData), [dailyData]);
   // Current year only for display
   const currentYearKey = format(startOfYear(now), "yyyy");
   const yearStart = format(startOfYear(now), "yyyy-MM-dd");
   const dailyDataCurrentYear = useMemo(() => dailyData.filter((d) => d.date >= yearStart), [dailyData, yearStart]);
+  // Revenue trend chart: weekly view (current year)
   const trendData = useMemo(
+    () => weeklyData.filter((b) => b.key.startsWith(currentYearKey)),
+    [weeklyData, currentYearKey]
+  );
+  // Insights (best/worst month) use monthly data
+  const monthlyDataCurrentYear = useMemo(
     () => monthlyData.filter((b) => b.key.startsWith(currentYearKey)),
     [monthlyData, currentYearKey]
   );
@@ -205,7 +213,7 @@ export function DashboardReportsCard() {
     } else if (currentTotal === 0 && lastYearTotal > 0) {
       growthPct = -100;
     }
-    if (trendData.length === 0)
+    if (monthlyDataCurrentYear.length === 0)
       return {
         bestMonth: null as { label: string; total: number } | null,
         worstMonth: null as { label: string; total: number } | null,
@@ -217,8 +225,8 @@ export function DashboardReportsCard() {
         attendance: summary.totalAttendance,
         revenuePerGuest: summary.totalSales / (summary.totalAttendance || 1),
       };
-    const best = trendData.reduce((a, b) => (a.total >= b.total ? a : b), trendData[0]);
-    const worst = trendData.reduce((a, b) => (a.total <= b.total ? a : b), trendData[0]);
+    const best = monthlyDataCurrentYear.reduce((a, b) => (a.total >= b.total ? a : b), monthlyDataCurrentYear[0]);
+    const worst = monthlyDataCurrentYear.reduce((a, b) => (a.total <= b.total ? a : b), monthlyDataCurrentYear[0]);
     const totals = [summary.totalTicket, summary.totalBar, summary.totalTable];
     const names: ("Ticket" | "Bar" | "Table")[] = ["Ticket", "Bar", "Table"];
     const i = totals.indexOf(Math.max(...totals));
@@ -235,7 +243,7 @@ export function DashboardReportsCard() {
       attendance: summary.totalAttendance,
       revenuePerGuest: summary.totalAttendance > 0 ? summary.totalSales / summary.totalAttendance : 0,
     };
-  }, [monthlyData, trendData, summary, now]);
+  }, [monthlyData, monthlyDataCurrentYear, summary, now]);
 
   const donutData = useMemo(() => {
     if (summary.totalSales === 0) return null;
@@ -255,8 +263,9 @@ export function DashboardReportsCard() {
     if (trendData.length === 0) return null;
     type MixedDataset = ChartData<"bar">["datasets"][0] | ChartData<"line">["datasets"][0];
     // Event line at middle of each stack; Revenue line at top of each stack (exact stack sum so dots align with bars)
-    const stackMiddleData = trendData.map((d) => (d.table_sales + d.bar_sales + d.ticket_sales) / 2);
-    const stackTopData = trendData.map((d) => d.table_sales + d.bar_sales + d.ticket_sales);
+    const stackData = trendData.map((d) => d.table_sales + d.bar_sales + d.ticket_sales);
+    const stackMiddleData = stackData.map((d) => d / 1.35);
+    const stackTopData = stackData.map((d) => d / 4);
     const datasets: MixedDataset[] = [
       {
         type: "bar",
@@ -288,21 +297,21 @@ export function DashboardReportsCard() {
         borderColor: REPORT_CHART_COLORS.chart1,
         borderWidth: 0,
       },
-      // {
-      //   type: "line" as const,
-      //   label: "Event",
-      //   data: stackMiddleData,
-      //   yAxisID: "y",
-      //   borderColor: REPORT_CHART_COLORS.event,
-      //   fill: false,
-      //   tension: 0.3,
-      //   pointRadius: 3,
-      //   pointHoverRadius: 5,
-      //   pointBackgroundColor: "#ffffff",
-      //   pointBorderColor: REPORT_CHART_COLORS.event,
-      //   pointBorderWidth: 2,
-      //   order: 0,
-      // },
+      {
+        type: "line" as const,
+        label: "Event",
+        data: stackMiddleData,
+        yAxisID: "y",
+        borderColor: REPORT_CHART_COLORS.event,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: REPORT_CHART_COLORS.event,
+        pointBorderColor: REPORT_CHART_COLORS.event,
+        pointBorderWidth: 2,
+        order: 0,
+      },
       {
         type: "line" as const,
         label: "Revenue",
@@ -314,7 +323,7 @@ export function DashboardReportsCard() {
         tension: 0.3,
         pointRadius: 4,
         pointHoverRadius: 6,
-        pointBackgroundColor: "#ffffff",
+        pointBackgroundColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         pointBorderColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         pointBorderWidth: 2,
         order: 1,
@@ -324,7 +333,7 @@ export function DashboardReportsCard() {
       labels: trendData.map((d) => d.label),
       datasets,
     } as ChartData<"bar">;
-  }, [trendData, chartAxisColor, isDark]);
+  }, [trendData, isDark]);
 
   const donutOptions: ChartOptions<"doughnut"> = useMemo(
     () => ({

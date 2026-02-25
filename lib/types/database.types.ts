@@ -195,7 +195,8 @@ export interface Event {
   id: string;
   short_id: string;
   title: string;
-  starts_at: string | null; // ISO datetime string (no ends_at; transition 5h after start)
+  starts_at: string | null; // ISO datetime string
+  ends_at: string | null; // ISO datetime string
   venue_id: string | null;
   dj_id: string | null;
   creator_id: string;
@@ -204,6 +205,8 @@ export interface Event {
   minimum_ticket_price: number | null;
   minimum_table_price: number | null;
   notes: string | null;
+  proposed_ticket_files: EventMarketingFile[] | null;
+  proposed_table_files: EventMarketingFile[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -216,6 +219,7 @@ export interface MarketingReport {
   notes: string | null;
   marketing_flyers: EventMarketingFile[];
   marketing_videos: EventMarketingFile[];
+  marketing_strategy_files: EventMarketingFile[];
   marketing_budget: number | null;
   created_at: string;
   updated_at: string;
@@ -260,6 +264,7 @@ export interface Report {
   total_bar_sales: number | null;
   total_table_sales: number | null;
   reels_urls: string[];
+  pos_report_attachment_urls: string[];
   detailed_report: string | null;
   incidents: string | null;
   created_at: string;

@@ -32,6 +32,8 @@ export interface SubmitReportInput {
   reelsUrls?: string[];
   /** Photo URLs when form uses upload-on-select. */
   mediaUrls?: string[];
+  /** POS report attachment URLs (images, videos, PDFs, etc.). Required when using URL-based submit. */
+  posReportAttachmentUrls?: string[];
   /** Reels as files (legacy multipart submit). Server receives Blob from formData(). */
   reelsFiles?: (File | Blob)[];
   /** Photos as files (legacy multipart submit). */
@@ -97,6 +99,7 @@ export async function submitReport(
 
   const reelsUrlsFromInput = reportData.reelsUrls ?? [];
   const mediaUrlsFromInput = reportData.mediaUrls ?? [];
+  const posUrlsFromInput = reportData.posReportAttachmentUrls ?? [];
   const reelsFiles = reportData.reelsFiles ?? [];
   const photoFiles = reportData.mediaFiles ?? mediaFiles ?? [];
 
@@ -128,6 +131,10 @@ export async function submitReport(
     mediaUrls = [];
   }
 
+  if (posUrlsFromInput.length < 1) {
+    throw new ValidationError("At least one POS report attachment is required");
+  }
+
   // Create report
   const report = await reportDAL.insert({
     event_id: eventId,
@@ -139,6 +146,7 @@ export async function submitReport(
     total_bar_sales: reportData.total_bar_sales ?? null,
     total_table_sales: reportData.total_table_sales ?? null,
     reels_urls: reelsUrls,
+    pos_report_attachment_urls: posUrlsFromInput,
     detailed_report: reportData.detailed_report,
     incidents: reportData.incidents ?? null,
     status: "pending",

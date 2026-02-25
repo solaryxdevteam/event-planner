@@ -101,14 +101,14 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
           country_id: venue.country_id || defaultCountryId || null,
           location_lat: venue.location_lat ?? undefined,
           location_lng: venue.location_lng ?? undefined,
-          total_capacity: venue.total_capacity ?? undefined,
-          number_of_tables: venue.number_of_tables ?? undefined,
-          ticket_capacity: venue.ticket_capacity ?? undefined,
+          total_capacity: venue.total_capacity ?? 0,
+          number_of_tables: venue.number_of_tables ?? 0,
+          ticket_capacity: venue.ticket_capacity ?? 0,
           sounds: venue.sounds ?? undefined,
           lights: venue.lights ?? undefined,
           screens: venue.screens ?? undefined,
           contact_person_name: venue.contact_person_name || "",
-          contact_email: venue.contact_email ?? undefined,
+          contact_email: venue.contact_email ?? "",
           floor_plans: normalizeFloorPlans(venue.floor_plans),
           media: venue.media || [],
         }
@@ -120,6 +120,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
           sounds: undefined,
           lights: undefined,
           screens: undefined,
+          total_capacity: 0,
+          number_of_tables: 0,
+          ticket_capacity: 0,
         },
   });
 
@@ -484,7 +487,7 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                   }}
                   options={countries.map((c) => ({ id: c.id, name: c.name }))}
                   placeholder="Select country"
-                  label="Country"
+                  label="Country *"
                   error={form.formState.errors.country?.message}
                 />
                 <div className="space-y-2">
@@ -566,7 +569,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
             {/* Capacity & Features */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="total_capacity">Total Capacity</Label>
+                <Label htmlFor="total_capacity">
+                  Total Capacity <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="total_capacity"
                   type="number"
@@ -581,7 +586,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="number_of_tables">Number of Tables</Label>
+                <Label htmlFor="number_of_tables">
+                  Number of Tables <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="number_of_tables"
                   type="number"
@@ -596,7 +603,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="ticket_capacity">Ticket Capacity</Label>
+                <Label htmlFor="ticket_capacity">
+                  Ticket Capacity <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="ticket_capacity"
                   type="number"
@@ -673,7 +682,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                 )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="contact_email">Venue Contact Email (with verification)</Label>
+                <Label htmlFor="contact_email">
+                  Venue Contact Email (with verification) <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="contact_email"
                   type="email"
@@ -691,7 +702,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
             {/* Floor plans and photos/videos in one row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Floor Plans (PDF, images)</Label>
+                <Label>
+                  Floor Plans (PDF, images) <span className="text-destructive">*</span>
+                </Label>
                 <VenueFloorPlansUpload
                   floorPlans={normalizeFloorPlans(form.watch("floor_plans"))}
                   onFloorPlansChange={(items) => form.setValue("floor_plans", items)}
@@ -699,7 +712,9 @@ export function VenueForm({ mode, venue, defaultCountry, defaultCountryId }: Ven
                 />
               </div>
               <div className="space-y-2">
-                <Label>Photos / Videos (max 10, set cover image)</Label>
+                <Label>
+                  Photos / Videos (max 10, set cover image) <span className="text-destructive">*</span>
+                </Label>
                 <VenueMediaUpload
                   media={form.watch("media") || []}
                   onMediaChange={(items) => form.setValue("media", items)}

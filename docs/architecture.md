@@ -31,7 +31,6 @@ The backend follows a strict 3-layer architecture pattern:
    - Calls DAL functions
 
 3. **Entry Points**:
-   - **Server Actions** - `/lib/actions/*.ts` - Form submissions, UI mutations
    - **Route Handlers** - `/app/api/*/route.ts` - Public HTTP endpoints only
 
 ### Response Format

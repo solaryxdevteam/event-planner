@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, AlertCircle, Link2, Plus, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, Link2, Plus, Trash2, FileText } from "lucide-react";
 import { useSubmitReport } from "@/lib/hooks/use-reports";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -30,9 +30,9 @@ const reportSchema = z.object({
     .number()
     .int("Must be a whole number")
     .nonnegative("Total number of attendance must be 0 or greater"),
-  total_ticket_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
-  total_bar_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
-  total_table_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  total_ticket_sales: z.number().nonnegative("Must be 0 or greater"),
+  total_bar_sales: z.number().nonnegative("Must be 0 or greater"),
+  total_table_sales: z.number().nonnegative("Must be 0 or greater"),
   detailed_report: z
     .string()
     .min(20, "Detailed event report must be at least 20 characters")
@@ -54,15 +54,28 @@ function getMediaType(file: File): "image" | "video" {
 
 type ReelItem = { url: string; type: "image" | "video" };
 type PhotoItem = { url: string };
+type PosReportItem = { url: string };
 type ExternalLinkItem = { url: string; title: string };
 
 export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [posReportAttachments, setPosReportAttachments] = useState<PosReportItem[]>([]);
   const [externalLinks, setExternalLinks] = useState<ExternalLinkItem[]>([]);
   const [uploadingReels, setUploadingReels] = useState(false);
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
-  const [preview, setPreview] = useState<{ url: string; type: "image" | "video"; name: string } | null>(null);
+  const [uploadingPosReport, setUploadingPosReport] = useState(false);
+  const [preview, setPreview] = useState<{
+    url: string;
+    type: "image" | "video" | "file";
+    name: string;
+  } | null>(null);
+  const [sectionErrors, setSectionErrors] = useState<{
+    reels?: string;
+    photos?: string;
+    posReport?: string;
+    externalLinks?: string;
+  }>({});
 
   const submitReport = useSubmitReport();
 
@@ -70,9 +83,9 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
     resolver: zodResolver(reportSchema),
     defaultValues: {
       attendance_count: 0,
-      total_ticket_sales: null,
-      total_bar_sales: null,
-      total_table_sales: null,
+      total_ticket_sales: 0,
+      total_bar_sales: 0,
+      total_table_sales: 0,
       detailed_report: "",
       incidents: null,
     },
@@ -118,12 +131,38 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
     [eventId]
   );
 
+  const handlePosReportSelected = useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      setUploadingPosReport(true);
+      try {
+        const toAdd: PosReportItem[] = [];
+        for (const file of files) {
+          const { url } = await reportsClientService.uploadReportMedia(eventId, file, "pos_report");
+          toAdd.push({ url });
+        }
+        setPosReportAttachments((prev) => [...prev, ...toAdd].slice(0, 20));
+      } catch (e) {
+        toast.error("Upload failed", {
+          description: e instanceof Error ? e.message : "Could not upload POS report files",
+        });
+      } finally {
+        setUploadingPosReport(false);
+      }
+    },
+    [eventId]
+  );
+
   const removeReel = (index: number) => {
     setReels((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removePhoto = (index: number) => {
     setPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removePosReport = (index: number) => {
+    setPosReportAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   const addExternalLink = () => {
@@ -139,13 +178,20 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
   };
 
   const onSubmit = async (data: ReportFormData) => {
+    const errors: {
+      reels?: string;
+      photos?: string;
+      posReport?: string;
+      externalLinks?: string;
+    } = {};
     if (reels.length < 3) {
-      toast.error("Reels: minimum 3 files required");
-      return;
+      errors.reels = "Minimum 3 files required.";
     }
     if (photos.length < 10) {
-      toast.error("Upload photos: minimum 10 files required");
-      return;
+      errors.photos = "Minimum 10 photos required.";
+    }
+    if (posReportAttachments.length < 1) {
+      errors.posReport = "At least one POS report file is required.";
     }
 
     // Validate external links: if any row has content, both title and URL must be valid
@@ -155,9 +201,14 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
       (l) => l.title.trim() && (!l.url.trim() || !linkRegex.test(l.url.trim()))
     );
     if (hasPartialLink && invalidLinks.length > 0) {
-      toast.error("External links: each link must have a title and a valid URL (e.g. https://...)");
+      errors.externalLinks = "Each link must have a title and a valid URL (e.g. https://...).";
+    }
+
+    setSectionErrors(errors);
+    if (Object.keys(errors).length > 0) {
       return;
     }
+
     const validLinks = externalLinks.filter((l) => l.title.trim() && l.url.trim() && linkRegex.test(l.url.trim()));
 
     try {
@@ -165,14 +216,15 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
         eventId,
         data: {
           attendance_count: data.attendance_count,
-          total_ticket_sales: data.total_ticket_sales ?? null,
-          total_bar_sales: data.total_bar_sales ?? null,
-          total_table_sales: data.total_table_sales ?? null,
+          total_ticket_sales: data.total_ticket_sales ?? 0,
+          total_bar_sales: data.total_bar_sales ?? 0,
+          total_table_sales: data.total_table_sales ?? 0,
           detailed_report: data.detailed_report,
           incidents: data.incidents ?? null,
           external_links: validLinks.length > 0 ? validLinks : null,
           reelsUrls: reels.map((r) => r.url),
           mediaUrls: photos.map((p) => p.url),
+          pos_report_attachment_urls: posReportAttachments.map((p) => p.url),
         },
       });
       onSuccess?.();
@@ -185,9 +237,9 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
 
   return (
     <div className="space-y-6">
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
         {/* Total number of attendance */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <Label htmlFor="attendance_count" className="text-base font-semibold">
             Total number of attendance <span className="text-destructive">*</span>
           </Label>
@@ -196,7 +248,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
             type="number"
             min={0}
             {...form.register("attendance_count", { valueAsNumber: true })}
-            className={`text-lg h-12 max-w-full ${form.formState.errors.attendance_count ? "border-destructive" : ""}`}
+            className={`text-lg  max-w-full ${form.formState.errors.attendance_count ? "border-destructive" : ""}`}
             placeholder="0"
           />
           {form.formState.errors.attendance_count && (
@@ -213,12 +265,12 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
         </div>
 
         {/* Sales: ticket, bar, table */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <Label className="text-base font-semibold">Sales</Label>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="total_ticket_sales" className="text-sm font-normal">
-                Total ticket sales
+                Total ticket sales <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="total_ticket_sales"
@@ -227,7 +279,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
                 step={0.01}
                 {...form.register("total_ticket_sales", {
                   valueAsNumber: true,
-                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : v),
+                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? 0 : v),
                 })}
                 className={form.formState.errors.total_ticket_sales ? "border-destructive" : ""}
                 placeholder="0.00"
@@ -238,7 +290,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="total_bar_sales" className="text-sm font-normal">
-                Total bar sales
+                Total bar sales <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="total_bar_sales"
@@ -247,7 +299,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
                 step={0.01}
                 {...form.register("total_bar_sales", {
                   valueAsNumber: true,
-                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : v),
+                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? 0 : v),
                 })}
                 className={form.formState.errors.total_bar_sales ? "border-destructive" : ""}
                 placeholder="0.00"
@@ -258,7 +310,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="total_table_sales" className="text-sm font-normal">
-                Total table sales
+                Total table sales <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="total_table_sales"
@@ -267,7 +319,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
                 step={0.01}
                 {...form.register("total_table_sales", {
                   valueAsNumber: true,
-                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? null : v),
+                  setValueAs: (v) => (v === "" || Number.isNaN(v) ? 0 : v),
                 })}
                 className={form.formState.errors.total_table_sales ? "border-destructive" : ""}
                 placeholder="0.00"
@@ -280,11 +332,17 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
         </div>
 
         {/* Reels – min 3 files */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <Label className="text-base font-semibold">
             Reels <span className="text-destructive">*</span>
           </Label>
           <p className="text-sm text-muted-foreground">Minimum 3 files required.</p>
+          {sectionErrors.reels && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {sectionErrors.reels}
+            </p>
+          )}
           <FileUploader
             accept="image/*,video/*"
             maxFiles={20}
@@ -341,17 +399,23 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
               ))}
             </div>
           )}
-          {reels.length > 0 && reels.length < 3 && (
+          {reels.length > 0 && reels.length < 3 && !sectionErrors.reels && (
             <p className="text-sm text-amber-600">Add at least {3 - reels.length} more file(s) (minimum 3 total).</p>
           )}
         </div>
 
         {/* Upload photos – min 10 */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <Label className="text-base font-semibold">
             Upload photos <span className="text-destructive">*</span>
           </Label>
           <p className="text-sm text-muted-foreground">Minimum 10 photos required.</p>
+          {sectionErrors.photos && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {sectionErrors.photos}
+            </p>
+          )}
           <FileUploader
             accept="image/*"
             maxFiles={30}
@@ -398,15 +462,107 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
               ))}
             </div>
           )}
-          {photos.length > 0 && photos.length < 10 && (
+          {photos.length > 0 && photos.length < 10 && !sectionErrors.photos && (
             <p className="text-sm text-amber-600">
               Add at least {10 - photos.length} more photo(s) (minimum 10 total).
             </p>
           )}
         </div>
 
+        {/* POS report attachment – required, multiple files (image, video, PDF, etc.) */}
+        <div className="space-y-1">
+          <Label className="text-base font-semibold">
+            POS report attachment <span className="text-destructive">*</span>
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            At least one file required. Click an image or video thumbnail to preview.
+          </p>
+          {sectionErrors.posReport && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {sectionErrors.posReport}
+            </p>
+          )}
+          <FileUploader
+            accept=".pdf,image/*,video/*,application/pdf"
+            maxFiles={20}
+            maxSizeBytes={50 * 1024 * 1024}
+            currentCount={posReportAttachments.length}
+            onFilesSelected={handlePosReportSelected}
+            acceptLabel="Images, videos, PDFs, or other files"
+            disabled={uploadingPosReport}
+            uploadProgress={uploadingPosReport ? 50 : undefined}
+          />
+          {posReportAttachments.length > 0 && (
+            <div className="mt-2 space-y-2">
+              {posReportAttachments.map((item, index) => {
+                const fileName = item.url.split("/").pop()?.split("?")[0] ?? `file-${index + 1}`;
+                const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                const isVideo = /\.(mp4|webm|mov|ogg)$/i.test(fileName);
+                const mediaType: "image" | "video" | "file" = isImage ? "image" : isVideo ? "video" : "file";
+                return (
+                  <div
+                    key={`${item.url}-${index}`}
+                    className="flex items-center gap-2 rounded-lg border overflow-hidden bg-muted/50 p-2 group"
+                  >
+                    <button
+                      type="button"
+                      className="w-10 h-10 shrink-0 flex items-center justify-center bg-muted rounded overflow-hidden focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
+                      onClick={() => setPreview({ url: item.url, type: mediaType, name: fileName })}
+                    >
+                      {isImage ? (
+                        <Image
+                          src={item.url}
+                          alt={fileName}
+                          width={40}
+                          height={40}
+                          className="object-cover rounded w-full h-full"
+                          unoptimized
+                        />
+                      ) : isVideo ? (
+                        <video
+                          src={item.url}
+                          className="w-10 h-10 object-cover rounded"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : (
+                        <FileText className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate" title={fileName}>
+                        {fileName}
+                      </p>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
+                        Open file
+                      </a>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removePosReport(index)}
+                      disabled={uploadingPosReport}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
         {/* Detailed event report */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <Label htmlFor="detailed_report" className="text-base font-semibold">
             Detailed event report <span className="text-destructive">*</span>
           </Label>
@@ -432,7 +588,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
         </div>
 
         {/* Incidents – optional */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <Label htmlFor="incidents" className="text-base font-semibold">
             Incidents <span className="text-muted-foreground font-normal">(Optional)</span>
           </Label>
@@ -448,7 +604,7 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
         </div>
 
         {/* External links – optional */}
-        <div className="space-y-3">
+        <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label className="text-base font-semibold flex items-center gap-2">
               <Link2 className="h-4 w-4" />
@@ -462,10 +618,16 @@ export function ReportForm({ eventId, event, onSuccess }: ReportFormProps) {
           <p className="text-sm text-muted-foreground">
             Add links to external content (e.g. social posts, press, playlists).
           </p>
+          {sectionErrors.externalLinks && (
+            <p className="text-sm text-destructive flex items-center gap-1">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {sectionErrors.externalLinks}
+            </p>
+          )}
           {externalLinks.length > 0 && (
             <div className="space-y-3">
               {externalLinks.map((link, index) => (
-                <div key={index} className="flex flex-col sm:flex-row gap-2 p-3 rounded-lg border bg-muted/30">
+                <div key={index} className="flex flex-col sm:flex-row gap-2 ">
                   <Input
                     placeholder="Link title"
                     value={link.title}

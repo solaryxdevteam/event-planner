@@ -49,21 +49,6 @@ describe("users.dal", () => {
 });
 ```
 
-### Integration Tests (Server Actions)
-
-```typescript
-// lib/actions/__tests__/users.test.ts
-import { describe, it, expect } from "vitest";
-import { createUser } from "../users";
-import { mockUsers } from "@/tests/utils/test-helpers";
-
-describe("user actions", () => {
-  it("should create a new user", async () => {
-    // Test implementation
-  });
-});
-```
-
 ### Component Tests
 
 ```typescript

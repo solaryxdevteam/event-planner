@@ -72,17 +72,23 @@ export interface SubmitReportData {
   /** When using upload-on-select (like DJForm/VenueForm) */
   reelsUrls?: string[];
   mediaUrls?: string[];
+  /** POS report attachment URLs (images, videos, PDFs, etc.). Required. */
+  pos_report_attachment_urls?: string[];
   reelsFiles?: File[];
   mediaFiles?: File[];
 }
 
 /**
- * Upload a single report media file (reel or photo). Use when user selects files so thumbnails use real URLs.
+ * Upload a single report media file (reel, photo, or pos_report). Use when user selects files so thumbnails use real URLs.
  */
-export async function uploadReportMedia(eventId: string, file: File, type: "reel" | "photo"): Promise<{ url: string }> {
+export async function uploadReportMedia(
+  eventId: string,
+  file: File,
+  type: "reel" | "photo" | "pos_report"
+): Promise<{ url: string }> {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("type", type);
+  formData.append("type", type as "reel" | "photo" | "pos_report");
   const res = await fetch(`/api/events/${eventId}/report/upload`, {
     method: "POST",
     body: formData,
@@ -117,6 +123,7 @@ export async function submitReport(eventId: string, data: SubmitReportData): Pro
         external_links: data.external_links ?? null,
         reels_urls: data.reelsUrls,
         media_urls: data.mediaUrls,
+        pos_report_attachment_urls: data.pos_report_attachment_urls ?? [],
       }),
       credentials: "include",
     });

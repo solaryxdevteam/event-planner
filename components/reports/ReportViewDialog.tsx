@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Download, ExternalLink, Calendar, Users, Banknote, CheckCircle, XCircle } from "lucide-react";
+import { Download, ExternalLink, Calendar, Users, Banknote, CheckCircle, XCircle, FileText } from "lucide-react";
 import { format } from "date-fns";
 import Image from "next/image";
 import type { Report } from "@/lib/types/database.types";
@@ -282,6 +282,63 @@ export function ReportViewDialog({
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <span className="text-xs text-muted-foreground">File</span>
+                            </div>
+                          )}
+                        </button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={() => {
+                            const link = document.createElement("a");
+                            link.href = url;
+                            link.download = fileName;
+                            link.target = "_blank";
+                            link.click();
+                          }}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          Download
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* POS report attachments */}
+            {(report.pos_report_attachment_urls?.length ?? 0) > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-semibold">POS Report Attachments</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {(report.pos_report_attachment_urls ?? []).map((url, index) => {
+                    const fileName = url.split("/").pop()?.split("?")[0] || `pos-attachment-${index + 1}`;
+                    const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName);
+                    const isVideo = /\.(mp4|webm|mov|ogg)$/i.test(fileName);
+                    const mediaType: "image" | "video" | "file" = isImage ? "image" : isVideo ? "video" : "file";
+
+                    return (
+                      <div key={index} className="space-y-2">
+                        <button
+                          type="button"
+                          className="relative aspect-video w-full bg-muted rounded overflow-hidden border focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 cursor-pointer"
+                          onClick={() => setPreviewMedia({ url, type: mediaType, name: fileName })}
+                        >
+                          {isImage ? (
+                            <Image src={url} alt={`POS ${index + 1}`} fill className="object-cover" unoptimized />
+                          ) : isVideo ? (
+                            <video
+                              src={url}
+                              className="w-full h-full object-cover"
+                              muted
+                              playsInline
+                              preload="metadata"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                              <FileText className="h-8 w-8 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground truncate px-1">File</span>
                             </div>
                           )}
                         </button>

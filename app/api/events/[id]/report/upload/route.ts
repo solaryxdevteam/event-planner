@@ -41,8 +41,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!isFile) {
       return NextResponse.json({ success: false, error: "Missing or invalid file" }, { status: 400 });
     }
-    if (type !== "reel" && type !== "photo") {
-      return NextResponse.json({ success: false, error: "type must be 'reel' or 'photo'" }, { status: 400 });
+    if (type !== "reel" && type !== "photo" && type !== "pos_report") {
+      return NextResponse.json(
+        { success: false, error: "type must be 'reel', 'photo', or 'pos_report'" },
+        { status: 400 }
+      );
     }
     if (file.size > MAX_SIZE_BYTES) {
       return NextResponse.json({ success: false, error: "File size must be 50MB or less" }, { status: 400 });

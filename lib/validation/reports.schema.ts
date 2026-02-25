@@ -15,7 +15,8 @@ const externalLinkSchema = z.object({
 });
 
 /**
- * Submit report schema
+ * Submit report schema (backend)
+ * All fields required except incidents, feedback, external_links.
  */
 export const submitReportSchema = z.object({
   eventId: z.string().uuid("Invalid event ID"),
@@ -23,9 +24,9 @@ export const submitReportSchema = z.object({
     .number()
     .int("Total number of attendance must be a whole number")
     .nonnegative("Total number of attendance must be 0 or greater"),
-  total_ticket_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
-  total_bar_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
-  total_table_sales: z.number().nonnegative("Must be 0 or greater").optional().nullable(),
+  total_ticket_sales: z.number().nonnegative("Must be 0 or greater"),
+  total_bar_sales: z.number().nonnegative("Must be 0 or greater"),
+  total_table_sales: z.number().nonnegative("Must be 0 or greater"),
   detailed_report: z
     .string()
     .min(20, "Detailed event report must be at least 20 characters")
@@ -33,6 +34,12 @@ export const submitReportSchema = z.object({
   incidents: z.string().max(2000, "Incidents must be less than 2000 characters").optional().nullable(),
   feedback: z.string().max(2000, "Feedback must be less than 2000 characters").optional().nullable(),
   external_links: z.array(externalLinkSchema).optional().nullable(),
+  reels_urls: z.array(z.string().url()).min(3, "Reels: minimum 3 files required").optional(),
+  media_urls: z.array(z.string().url()).min(10, "Photos: minimum 10 files required").optional(),
+  pos_report_attachment_urls: z
+    .array(z.string().url())
+    .min(1, "At least one POS report attachment is required")
+    .optional(),
 });
 
 /**

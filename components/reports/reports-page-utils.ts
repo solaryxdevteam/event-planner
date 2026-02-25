@@ -99,6 +99,33 @@ export function aggregateByMonth(daily: ReportChartDataPoint[]): PeriodBucket[] 
   });
 }
 
+export function aggregateByYear(daily: ReportChartDataPoint[]): PeriodBucket[] {
+  const byYear = new Map<
+    string,
+    { table_sales: number; bar_sales: number; ticket_sales: number; event_count: number }
+  >();
+  for (const d of daily) {
+    const date = new Date(d.date + "T12:00:00");
+    const key = format(date, "yyyy");
+    const cur = byYear.get(key) ?? { table_sales: 0, bar_sales: 0, ticket_sales: 0, event_count: 0 };
+    cur.table_sales += d.table_sales;
+    cur.bar_sales += d.bar_sales;
+    cur.ticket_sales += d.ticket_sales;
+    cur.event_count += d.event_count;
+    byYear.set(key, cur);
+  }
+  const sorted = Array.from(byYear.entries()).sort(([a], [b]) => a.localeCompare(b));
+  return sorted.map(([yearKey, agg]) => {
+    const total = agg.table_sales + agg.bar_sales + agg.ticket_sales;
+    return {
+      key: yearKey,
+      label: yearKey,
+      ...agg,
+      total,
+    };
+  });
+}
+
 export type ReportsPageSummary = {
   totalEvents: number;
   totalSales: number;

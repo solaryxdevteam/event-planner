@@ -29,7 +29,19 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Calendar, Clock, MapPin, Disc3, CheckCircle2, Loader2, CheckCircle, XCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  Calendar,
+  Clock,
+  MapPin,
+  Disc3,
+  CheckCircle2,
+  Loader2,
+  CheckCircle,
+  XCircle,
+  FileText,
+  Download,
+} from "lucide-react";
 import { OtpVerificationDialog } from "@/components/verification/OtpVerificationDialog";
 import type { EventWithRelations } from "@/lib/data-access/events.dal";
 import { ApprovalChainTimeline } from "@/components/approvals/ApprovalChainTimeline";
@@ -53,6 +65,7 @@ import { ModificationVersionsList } from "./ModificationVersionsList";
 import { EventDetailVenueCard } from "./EventDetailVenueCard";
 import { EventDetailDJCard } from "./EventDetailDJCard";
 import { MarketingTab } from "./MarketingTab";
+import { MediaPreviewDialog } from "@/components/ui/media-preview-dialog";
 
 interface EventDetailClientProps {
   event: EventWithRelations;
@@ -78,6 +91,86 @@ const statusLabels: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+function getPreviewTypeFromUrl(url: string): "image" | "video" | "file" {
+  const path = url.split("?")[0].toLowerCase();
+  if (/\.(jpe?g|png|gif|webp)(\?|$)/i.test(path)) return "image";
+  if (/\.(mp4|webm|mov|ogg)(\?|$)/i.test(path)) return "video";
+  return "file";
+}
+
+function fileNameFromUrl(url: string): string {
+  try {
+    const pathname = new URL(url).pathname;
+    const segment = pathname.split("/").filter(Boolean).pop() ?? "";
+    const name = segment.split("?")[0]?.trim() ?? "";
+    return name.length > 0 ? decodeURIComponent(name) : "file";
+  } catch {
+    return "file";
+  }
+}
+
+function ProposedFileCard({
+  url,
+  displayName: displayNameProp,
+  onPreview,
+}: {
+  url: string;
+  displayName?: string;
+  onPreview: (url: string, type: "image" | "video" | "file", name?: string) => void;
+}) {
+  const type = getPreviewTypeFromUrl(url);
+  const name = displayNameProp?.trim() || fileNameFromUrl(url);
+  const canPreview = type === "image" || type === "video";
+
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="p-3 flex items-center gap-3">
+        {canPreview ? (
+          <button
+            type="button"
+            className="relative w-24 h-24 shrink-0 rounded-md overflow-hidden bg-muted hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary"
+            onClick={() => onPreview(url, type, name)}
+          >
+            {type === "image" && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={url} alt="" className="w-full h-full object-cover" />
+            )}
+            {type === "video" && <video src={url} className="w-full h-full object-cover" muted preload="metadata" />}
+          </button>
+        ) : (
+          <div className="w-24 h-24 shrink-0 rounded-md bg-muted flex items-center justify-center">
+            <FileText className="h-10 w-10 text-muted-foreground" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate" title={name}>
+            {name}
+          </p>
+          {canPreview ? (
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline text-left"
+              onClick={() => onPreview(url, type, name)}
+            >
+              View preview
+            </button>
+          ) : (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+            >
+              <Download className="h-3 w-3" />
+              Download
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EventDetailClient({ event }: EventDetailClientProps) {
   const router = useRouter();
   const [showTransitionDialog, setShowTransitionDialog] = useState(false);
@@ -90,7 +183,13 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   const [otpAction, setOtpAction] = useState<"approve" | "reject">("approve");
   const [approvalComment, setApprovalComment] = useState("");
   const [approvalSubmitting, setApprovalSubmitting] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    type: "image" | "video" | "file";
+    name?: string;
+  } | null>(null);
   const startDate = event.starts_at ? new Date(event.starts_at) : null;
+  const endDate = event.ends_at ? new Date(event.ends_at) : null;
 
   // Get current user profile to check role
   const { data: profile } = useProfile();
@@ -251,6 +350,12 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                 {format(startDate, "h:mm a")}
               </span>
             )}
+            {endDate && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                Ends {format(endDate, "MMM d, h:mm a")}
+              </span>
+            )}
             {event.venue && (
               <span className="flex items-center gap-1">
                 <MapPin className="h-4 w-4" />
@@ -359,6 +464,50 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
                     <p className="text-muted-foreground mb-1">Notes</p>
                     <p className="text-sm whitespace-pre-wrap">{event.notes || "No notes for this event."}</p>
                   </div>
+
+                  {/* Proposed ticket and proposed table (grid-cols-2, multiple files each) */}
+                  {((event.proposed_ticket_files?.length ?? 0) > 0 ||
+                    (event.proposed_table_files?.length ?? 0) > 0) && (
+                    <>
+                      <Separator />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {(event.proposed_ticket_files?.length ?? 0) > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground text-sm font-medium">
+                              Proposed ticket categories and prices
+                            </p>
+                            <div className="space-y-2">
+                              {(event.proposed_ticket_files ?? []).map((item, i) => (
+                                <ProposedFileCard
+                                  key={`ticket-${i}-${item.url}`}
+                                  url={item.url}
+                                  displayName={item.name}
+                                  onPreview={(url, type, name) => setPreviewFile({ url, type, name })}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(event.proposed_table_files?.length ?? 0) > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-muted-foreground text-sm font-medium">
+                              Proposed table layout, categories and prices
+                            </p>
+                            <div className="space-y-2">
+                              {(event.proposed_table_files ?? []).map((item, i) => (
+                                <ProposedFileCard
+                                  key={`table-${i}-${item.url}`}
+                                  url={item.url}
+                                  displayName={item.name}
+                                  onPreview={(url, type, name) => setPreviewFile({ url, type, name })}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -657,6 +806,14 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
         action={otpAction}
         title="Verify with OTP"
         description="We sent a 4-digit code to your email. Enter it below to confirm your decision."
+      />
+
+      <MediaPreviewDialog
+        open={!!previewFile}
+        onOpenChange={(open) => !open && setPreviewFile(null)}
+        type={previewFile?.type ?? "file"}
+        url={previewFile?.url ?? ""}
+        downloadName={previewFile?.name}
       />
     </div>
   );

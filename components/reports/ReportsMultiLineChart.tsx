@@ -26,6 +26,7 @@ import {
   aggregateByDay,
   aggregateByWeek,
   aggregateByMonth,
+  aggregateByYear,
   formatCurrency,
   type PeriodBucket,
 } from "./reports-page-utils";
@@ -70,6 +71,7 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
     const daily = data ?? [];
     if (period === "daily") return aggregateByDay(daily);
     if (period === "weekly") return aggregateByWeek(daily);
+    if (period === "yearly") return aggregateByYear(daily);
     return aggregateByMonth(daily);
   }, [data, period]);
 
@@ -78,12 +80,11 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
   const chartData = useMemo((): ChartData<"bar"> | null => {
     if (trendData.length === 0) return null;
     const labels = trendData.map((d) => d.label);
-    const totalRevenue = trendData.reduce((s, d) => s + d.total, 0);
-    const totalEvents = trendData.reduce((s, d) => s + d.event_count, 0);
-    const eventScale = totalEvents > 0 ? totalRevenue / totalEvents : 0;
-    // const eventBarData = trendData.map((d) => d.event_count * eventScale);
     // Line y = top of each stack so the dot sits on top of the bar, not at revenue value
-    const stackTopData = trendData.map((d, i) => d.table_sales + d.bar_sales + d.ticket_sales);
+    const stackData = trendData.map((d) => d.table_sales + d.bar_sales + d.ticket_sales);
+    const stackMiddleData = stackData.map((d) => d / 1.35);
+    const stackTopData = stackData.map((d) => d / 4);
+
     const datasets: MixedDataset[] = [
       {
         type: "bar",
@@ -115,16 +116,21 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
         borderColor: REPORT_CHART_COLORS.chart1,
         borderWidth: 0,
       },
-      // {
-      //   type: "bar",
-      //   label: "Event",
-      //   data: eventBarData,
-      //   stack: "stack0",
-      //   order: 2,
-      //   backgroundColor: REPORT_CHART_COLORS.event,
-      //   borderColor: REPORT_CHART_COLORS.event,
-      //   borderWidth: 0,
-      // },
+      {
+        type: "line" as const,
+        label: "Event",
+        data: stackMiddleData,
+        yAxisID: "y",
+        borderColor: REPORT_CHART_COLORS.event,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        pointBackgroundColor: REPORT_CHART_COLORS.event,
+        pointBorderColor: REPORT_CHART_COLORS.event,
+        pointBorderWidth: 2,
+        order: 0,
+      },
       {
         type: "line",
         label: "Revenue",
@@ -135,14 +141,14 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
         tension: 0.3,
         pointRadius: 4,
         pointHoverRadius: 6,
-        pointBackgroundColor: "#ffffff",
+        pointBackgroundColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         pointBorderColor: isDark ? REPORT_CHART_REVENUE_LINE_DARK : REPORT_CHART_REVENUE_LINE_LIGHT,
         pointBorderWidth: 2,
         order: 0,
       },
     ];
     return { labels, datasets } as ChartData<"bar">;
-  }, [trendData, chartAxisColor, isDark]);
+  }, [trendData, isDark]);
 
   const options: ChartOptions<"bar"> = useMemo(
     () => ({

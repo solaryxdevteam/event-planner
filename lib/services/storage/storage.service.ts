@@ -253,20 +253,21 @@ export async function uploadTemporaryDjFile(userId: string, file: File | Buffer 
 }
 
 /**
- * Upload event marketing file (flyer or video).
- * Path: reports/events/{eventId}/marketing/flyers|videos/
+ * Upload event marketing file (flyer, video, or strategy).
+ * Path: reports/events/{eventId}/marketing/flyers|videos|strategies/
  */
 export async function uploadEventMarketingFile(
   eventId: string,
   file: File | Buffer | Blob,
-  type: "flyer" | "video"
+  type: "flyer" | "video" | "strategy"
 ): Promise<{ url: string; name: string }> {
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 9);
   const name = file instanceof File ? file.name : `upload-${timestamp}.bin`;
   const extension = file instanceof File ? file.name.split(".").pop() || "bin" : "bin";
   const filename = `${timestamp}-${random}.${extension}`;
-  const path = `events/${eventId}/marketing/${type}s/${filename}`;
+  const folder = type === "strategy" ? "strategies" : `${type}s`;
+  const path = `events/${eventId}/marketing/${folder}/${filename}`;
 
   await storageDal.uploadFile("reports", path, file, {
     contentType: file instanceof File ? file.type : "application/octet-stream",
@@ -276,4 +277,36 @@ export async function uploadEventMarketingFile(
 
   const url = storageDal.getPublicUrl("reports", path);
   return { url, name };
+}
+
+/**
+ * Upload proposed event file (ticket or table) during event form.
+ * Stored in reports bucket under events/temp/{userId}/ so it can be used before event exists.
+ */
+export async function uploadProposedEventFile(userId: string, file: File | Buffer | Blob): Promise<string> {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 9);
+  const name = file instanceof File ? file.name : `upload-${timestamp}.bin`;
+  const extension = file instanceof File ? name.split(".").pop() || "bin" : "bin";
+  const filename = `${timestamp}-${random}.${extension}`;
+  const path = `events/temp/${userId}/${filename}`;
+
+  // For PDF, omit contentType so the bucket does not reject on MIME check (some buckets only allow image/video).
+  // The file keeps the .pdf extension so the URL still opens as PDF in browsers.
+  const rawType = file instanceof File ? file.type : "application/octet-stream";
+  const isPdf =
+    rawType === "application/pdf" ||
+    rawType === "application/x-pdf" ||
+    (file instanceof File && (file.name || "").toLowerCase().endsWith(".pdf"));
+  const uploadOptions: { contentType?: string; cacheControl: string; upsert: boolean } = {
+    cacheControl: "3600",
+    upsert: true,
+  };
+  if (!isPdf) {
+    uploadOptions.contentType = rawType;
+  }
+
+  await storageDal.uploadFile("reports", path, file, uploadOptions);
+
+  return storageDal.getPublicUrl("reports", path);
 }

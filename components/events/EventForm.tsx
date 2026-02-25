@@ -39,6 +39,7 @@ import type { DJ } from "@/lib/types/database.types";
 /** Minimal DJ shape for event form display (from event relation or full DJ) */
 type DJDisplay = Pick<DJ, "id" | "name" | "picture_url" | "music_style" | "price" | "email">;
 import { DraftDialog } from "@/components/events/DraftDialog";
+import { EventProposedFileUpload } from "@/components/events/EventProposedFileUpload";
 import { VenueCard } from "@/components/venues/VenueCard";
 import { PriceInput } from "@/components/ui/price-input";
 import { useVenue } from "@/lib/hooks/use-venues";
@@ -119,6 +120,7 @@ function VenueSelectionDisplay({
 export function EventForm({ eventId, shortId }: EventFormProps) {
   const router = useRouter();
   const [startsAtDate, setStartsAtDate] = useState<Date | undefined>();
+  const [endsAtDate, setEndsAtDate] = useState<Date | undefined>();
   const [existingDraft, setExistingDraft] = useState<EventWithRelations | null>(null);
   const [showDraftDialog, setShowDraftDialog] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(eventId || null);
@@ -151,12 +153,15 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     defaultValues: {
       title: "",
       starts_at: null,
+      ends_at: null,
       venue_id: null,
       dj_id: null,
       expected_attendance: null,
       minimum_ticket_price: null,
       minimum_table_price: null,
       notes: null,
+      proposed_ticket_files: [],
+      proposed_table_files: [],
     },
   });
 
@@ -208,12 +213,15 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       form.reset({
         title: draft.title,
         starts_at: draft.starts_at || null,
+        ends_at: draft.ends_at || null,
         venue_id: draft.venue_id || null,
         dj_id: draft.dj_id ?? null,
         expected_attendance: draft.expected_attendance || null,
         minimum_ticket_price: draft.minimum_ticket_price ?? null,
         minimum_table_price: draft.minimum_table_price ?? null,
         notes: draft.notes || null,
+        proposed_ticket_files: Array.isArray(draft.proposed_ticket_files) ? draft.proposed_ticket_files : [],
+        proposed_table_files: Array.isArray(draft.proposed_table_files) ? draft.proposed_table_files : [],
       });
       setSelectedDj(
         draft.dj
@@ -227,9 +235,8 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
             }
           : null
       );
-      if (draft.starts_at) {
-        setStartsAtDate(new Date(draft.starts_at));
-      }
+      if (draft.starts_at) setStartsAtDate(new Date(draft.starts_at));
+      if (draft.ends_at) setEndsAtDate(new Date(draft.ends_at));
     },
     [form]
   );
@@ -253,6 +260,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
     setHasUserStarted(true);
     form.reset();
     setStartsAtDate(undefined);
+    setEndsAtDate(undefined);
     setSelectedVenue(null);
     setSelectedDj(null);
     if (idToDelete) {
@@ -267,48 +275,57 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
 
     const formData = form.getValues();
 
-    // Check if form has minimum required data
+    // Check if form has minimum required data (title at least)
     if (!formData.title || !formData.title.trim()) {
       return;
     }
 
-    try {
-      const submitData = {
-        ...formData,
-        starts_at: startsAtDate ? startsAtDate.toISOString() : null,
-      };
+    const submitData = {
+      ...formData,
+      starts_at: startsAtDate ? startsAtDate.toISOString() : null,
+      ends_at: endsAtDate ? endsAtDate.toISOString() : null,
+    };
 
-      if (!draftId) {
-        // Create new draft
-        const draftResult = await createEventMutation.mutateAsync(submitData);
-        setDraftId(draftResult.id);
-        if (draftResult.short_id) {
-          setDraftShortId(draftResult.short_id);
-        }
-        setLastAutoSave(new Date());
-      } else {
-        // Update existing draft (silently - mutations already configured not to show toast)
-        await updateEventMutation.mutateAsync({ id: draftId, input: submitData });
-        setLastAutoSave(new Date());
-      }
-    } catch (error) {
-      // If draft was deleted (e.g. GD created event), clear id so we don't keep PUTting
+    const handleAutoSaveError = (err: unknown) => {
       const msg =
-        error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : "";
+        err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : "";
       const isNotFound =
         msg.includes("not found") ||
-        (error &&
-          typeof error === "object" &&
-          "response" in error &&
-          typeof (error as { response?: { status?: number } }).response?.status === "number" &&
-          (error as { response: { status: number } }).response.status === 404);
+        (err &&
+          typeof err === "object" &&
+          "response" in err &&
+          typeof (err as { response?: { status?: number } }).response?.status === "number" &&
+          (err as { response: { status: number } }).response.status === 404);
       if (isNotFound && draftId) {
         setDraftId(null);
         setDraftShortId(null);
       }
-      console.error("Auto-save failed:", error);
+      console.error("Auto-save failed:", err);
+    };
+
+    if (!draftId) {
+      // Create new draft only when all required fields pass validation (POST requires full create schema)
+      const parsed = createEventSchema.safeParse(submitData);
+      if (!parsed.success) return; // Skip create until form is complete; no error to user
+      try {
+        const draftResult = await createEventMutation.mutateAsync(parsed.data);
+        setDraftId(draftResult.id);
+        if (draftResult.short_id) setDraftShortId(draftResult.short_id);
+        setLastAutoSave(new Date());
+      } catch (err) {
+        handleAutoSaveError(err);
+      }
+      return;
     }
-  }, [hasUserStarted, draftId, startsAtDate, form, createEventMutation, updateEventMutation]);
+
+    try {
+      // Update existing draft with partial data (PUT uses update schema; partial is allowed)
+      await updateEventMutation.mutateAsync({ id: draftId, input: submitData });
+      setLastAutoSave(new Date());
+    } catch (err) {
+      handleAutoSaveError(err);
+    }
+  }, [hasUserStarted, draftId, startsAtDate, endsAtDate, form, createEventMutation, updateEventMutation]);
 
   // Auto-save every 20 seconds (only via timer, not when changing steps)
   useEffect(() => {
@@ -340,6 +357,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         const submitData: CreateEventInput = {
           ...data,
           starts_at: startsAtDate ? startsAtDate.toISOString() : null,
+          ends_at: endsAtDate ? endsAtDate.toISOString() : null,
         };
 
         // Global Director: verify OTP then create event as approved (no approval chain)
@@ -409,7 +427,16 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         isSubmittingRef.current = false;
       }
     },
-    [startsAtDate, draftId, profile?.role, createEventMutation, updateEventMutation, submitEventMutation, router]
+    [
+      startsAtDate,
+      endsAtDate,
+      draftId,
+      profile?.role,
+      createEventMutation,
+      updateEventMutation,
+      submitEventMutation,
+      router,
+    ]
   );
 
   const handleEventCreateOtpVerified = useCallback(
@@ -586,7 +613,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
       <div className="space-y-2">
         <Label htmlFor="expected_attendance" className="flex items-center gap-2">
           <UsersIcon className="h-4 w-4" />
-          Expected Attendance
+          Expected Attendance <span className="text-destructive">*</span>
           {maxAttendance && (
             <span className="pl-1 text-xs text-muted-foreground font-normal">
               (Max: {maxAttendance.toLocaleString()})
@@ -625,24 +652,36 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         )}
       </div>
 
-      {/* Start date & time */}
-      <DateTimePickerNew
-        label="Starts At *"
-        value={startsAtDate}
-        onChange={(date) => {
-          setStartsAtDate(date);
-          form.setValue("starts_at", date ? date.toISOString() : null, { shouldValidate: true });
-        }}
-        error={form.formState.errors.starts_at?.message}
-        placeholder="Select start date and time"
-      />
+      {/* Start and end date & time */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DateTimePickerNew
+          label="Starts At *"
+          value={startsAtDate}
+          onChange={(date) => {
+            setStartsAtDate(date);
+            form.setValue("starts_at", date ? date.toISOString() : null, { shouldValidate: true });
+          }}
+          error={form.formState.errors.starts_at?.message}
+          placeholder="Select start date and time"
+        />
+        <DateTimePickerNew
+          label="Ends At *"
+          value={endsAtDate}
+          onChange={(date) => {
+            setEndsAtDate(date);
+            form.setValue("ends_at", date ? date.toISOString() : null, { shouldValidate: true });
+          }}
+          error={form.formState.errors.ends_at?.message}
+          placeholder="Select end date and time"
+        />
+      </div>
 
       {/* Minimum ticket price & table price */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <div className="space-y-2">
           <Label htmlFor="minimum_ticket_price" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
-            Min. ticket price
+            Min. ticket price <span className="text-destructive">*</span>
           </Label>
           <PriceInput
             id="minimum_ticket_price"
@@ -663,7 +702,7 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
         <div className="space-y-2">
           <Label htmlFor="minimum_table_price" className="flex items-center gap-2">
             <DollarSign className="h-4 w-4" />
-            Min. table price
+            Min. table price <span className="text-destructive">*</span>
           </Label>
           <PriceInput
             id="minimum_table_price"
@@ -681,6 +720,22 @@ export function EventForm({ eventId, shortId }: EventFormProps) {
             </p>
           )}
         </div>
+      </div>
+
+      {/* Proposed ticket and table files */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <EventProposedFileUpload
+          label="Proposed ticket categories and prices"
+          value={form.watch("proposed_ticket_files") ?? []}
+          onChange={(files) => form.setValue("proposed_ticket_files", files, { shouldValidate: true })}
+          error={form.formState.errors.proposed_ticket_files?.message}
+        />
+        <EventProposedFileUpload
+          label="Proposed table layout, categories and prices"
+          value={form.watch("proposed_table_files") ?? []}
+          onChange={(files) => form.setValue("proposed_table_files", files, { shouldValidate: true })}
+          error={form.formState.errors.proposed_table_files?.message}
+        />
       </div>
 
       {/* Notes */}

@@ -176,12 +176,13 @@ export async function fetchMarketingReports(
   );
 }
 
-/** Payload to submit a marketing report (each report carries its own assets) */
+/** Payload to submit a marketing report (each report carries its own assets). All required except notes. */
 export interface SubmitMarketingReportPayload {
   notes: string | null;
-  marketing_flyers?: { url: string; name?: string }[];
-  marketing_videos?: { url: string; name?: string }[];
-  marketing_budget?: number | null;
+  marketing_flyers: { url: string; name?: string }[];
+  marketing_videos: { url: string; name?: string }[];
+  marketing_strategy_files: { url: string; name?: string }[];
+  marketing_budget: number;
 }
 
 /**
@@ -204,7 +205,7 @@ export async function submitMarketingReport(
 export async function uploadEventMarketingAsset(
   eventId: string,
   file: File,
-  type: "flyer" | "video"
+  type: "flyer" | "video" | "strategy"
 ): Promise<{ url: string; name: string }> {
   const formData = new FormData();
   formData.append("file", file);

@@ -75,6 +75,7 @@ export async function createDraft(userId: string, data: CreateEventInput): Promi
     short_id: shortId,
     title: data.title,
     starts_at: data.starts_at || null,
+    ends_at: data.ends_at || null,
     venue_id: data.venue_id || null,
     dj_id: data.dj_id || null,
     creator_id: userId,
@@ -83,6 +84,8 @@ export async function createDraft(userId: string, data: CreateEventInput): Promi
     minimum_ticket_price: data.minimum_ticket_price ?? null,
     minimum_table_price: data.minimum_table_price ?? null,
     notes: data.notes || null,
+    proposed_ticket_files: data.proposed_ticket_files ?? [],
+    proposed_table_files: data.proposed_table_files ?? [],
   });
 
   // Log audit trail
@@ -131,6 +134,7 @@ export async function createEventAsApprovedForGD(
     short_id: shortId,
     title: data.title,
     starts_at: data.starts_at || null,
+    ends_at: data.ends_at || null,
     venue_id: data.venue_id || null,
     dj_id: data.dj_id || null,
     creator_id: userId,
@@ -139,6 +143,8 @@ export async function createEventAsApprovedForGD(
     minimum_ticket_price: data.minimum_ticket_price ?? null,
     minimum_table_price: data.minimum_table_price ?? null,
     notes: data.notes || null,
+    proposed_ticket_files: data.proposed_ticket_files ?? [],
+    proposed_table_files: data.proposed_table_files ?? [],
   });
 
   await auditService.log("create_event_as_approved", userId, event.id, {
@@ -184,12 +190,15 @@ export async function updateDraft(
   const updatedEvent = await eventDAL.update(eventId, {
     title: data.title,
     starts_at: data.starts_at,
+    ends_at: data.ends_at,
     venue_id: data.venue_id,
     dj_id: data.dj_id,
     expected_attendance: data.expected_attendance,
     minimum_ticket_price: data.minimum_ticket_price,
     minimum_table_price: data.minimum_table_price,
     notes: data.notes,
+    proposed_ticket_files: data.proposed_ticket_files,
+    proposed_table_files: data.proposed_table_files,
   });
 
   // Log audit trail

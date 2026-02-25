@@ -34,8 +34,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Missing or invalid file" }, { status: 400 });
     }
 
-    if (type !== "flyer" && type !== "video") {
-      return NextResponse.json({ success: false, error: "type must be 'flyer' or 'video'" }, { status: 400 });
+    if (type !== "flyer" && type !== "video" && type !== "strategy") {
+      return NextResponse.json(
+        { success: false, error: "type must be 'flyer', 'video', or 'strategy'" },
+        { status: 400 }
+      );
     }
 
     const result = await storageService.uploadEventMarketingFile(eventId, file, type);

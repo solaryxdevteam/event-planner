@@ -177,12 +177,12 @@ export function ReportsList({ reports, eventTitle, eventId, canSubmit, onOpenSub
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Reports</CardTitle>
-          {canSubmit && (
-            <Button onClick={onOpenSubmitDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Submit Report
-            </Button>
-          )}
+          {/* {canSubmit && ( */}
+          <Button onClick={onOpenSubmitDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Submit Report
+          </Button>
+          {/* )} */}
         </div>
       </CardHeader>
       <CardContent>

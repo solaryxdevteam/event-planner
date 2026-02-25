@@ -22,8 +22,10 @@ import { useSubmitMarketingReport } from "@/lib/hooks/use-marketing-reports";
 import * as eventsClientService from "@/lib/services/client/events.client.service";
 import { toast } from "sonner";
 import type { EventMarketingFile } from "@/lib/types/database.types";
+import { cn } from "@/lib/utils";
 import type { MarketingReportWithSubmitter } from "@/lib/types/database.types";
 import { Badge } from "@/components/ui/badge";
+import { submitMarketingReportSchema } from "@/lib/validation/marketing-report.schema";
 
 const VIDEO_ACCEPT = "video/mp4,video/webm,video/quicktime,video/x-msvideo,video/*";
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|bmp|svg)$/i;
@@ -68,16 +70,19 @@ interface AddMarketingReportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   eventId: string;
-  /** Current event marketing data (flyers, videos, budget) for initial values */
+  /** Current event marketing data (flyers, videos, strategy, budget) for initial values */
   event?: {
     marketing_flyers?: EventMarketingFile[] | null;
     marketing_videos?: EventMarketingFile[] | null;
+    marketing_strategy_files?: EventMarketingFile[] | null;
     marketing_budget?: number | null;
   };
   /** When set, dialog is in view-only mode (report details + event assets, no edit) */
   viewReport?: MarketingReportWithSubmitter | null;
   onSuccess?: () => void;
 }
+
+const STRATEGY_LABEL = "Marketing strategy PDF";
 
 export function AddMarketingReportDialog({
   open,
@@ -91,9 +96,12 @@ export function AddMarketingReportDialog({
   const [notes, setNotes] = useState("");
   const [flyers, setFlyers] = useState<MarketingFileItem[]>([]);
   const [videos, setVideos] = useState<MarketingFileItem[]>([]);
+  const [strategyFiles, setStrategyFiles] = useState<MarketingFileItem[]>([]);
   const [budgetValue, setBudgetValue] = useState<number | null>(null);
   const [uploadingFlyer, setUploadingFlyer] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingStrategy, setUploadingStrategy] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [preview, setPreview] = useState<{
     url: string;
     name?: string;
@@ -109,14 +117,19 @@ export function AddMarketingReportDialog({
       setNotes(viewReport.notes ?? "");
       setFlyers(Array.isArray(viewReport.marketing_flyers) ? [...viewReport.marketing_flyers] : []);
       setVideos(Array.isArray(viewReport.marketing_videos) ? [...viewReport.marketing_videos] : []);
+      setStrategyFiles(
+        Array.isArray(viewReport.marketing_strategy_files) ? [...viewReport.marketing_strategy_files] : []
+      );
       setBudgetValue(viewReport.marketing_budget ?? null);
     } else if (open && event) {
       setFlyers(Array.isArray(event.marketing_flyers) ? [...event.marketing_flyers] : []);
       setVideos(Array.isArray(event.marketing_videos) ? [...event.marketing_videos] : []);
+      setStrategyFiles(Array.isArray(event.marketing_strategy_files) ? [...event.marketing_strategy_files] : []);
       setBudgetValue(event.marketing_budget ?? null);
     }
     if (!open) {
       setNotes("");
+      setFieldErrors({});
     }
   }, [open, event, viewReport]);
 
@@ -127,9 +140,10 @@ export function AddMarketingReportDialog({
   );
 
   const uploadFiles = useCallback(
-    async (files: File[], type: "flyer" | "video") => {
-      const setBusy = type === "flyer" ? setUploadingFlyer : setUploadingVideo;
-      const current = type === "flyer" ? flyers : videos;
+    async (files: File[], type: "flyer" | "video" | "strategy") => {
+      const setBusy =
+        type === "flyer" ? setUploadingFlyer : type === "video" ? setUploadingVideo : setUploadingStrategy;
+      const current = type === "flyer" ? flyers : type === "video" ? videos : strategyFiles;
       setBusy(true);
       try {
         const added: { url: string; name: string }[] = [];
@@ -139,37 +153,48 @@ export function AddMarketingReportDialog({
         }
         const next: MarketingFileItem[] = [...current, ...added];
         if (type === "flyer") setFlyers(next);
-        else setVideos(next);
+        else if (type === "video") setVideos(next);
+        else setStrategyFiles(next);
       } catch (e) {
         toast.error("Upload failed", { description: e instanceof Error ? e.message : "Unknown error" });
       } finally {
         setBusy(false);
       }
     },
-    [eventId, flyers, videos]
+    [eventId, flyers, videos, strategyFiles]
   );
 
-  const removeFile = useCallback((type: "flyer" | "video", index: number) => {
+  const removeFile = useCallback((type: "flyer" | "video" | "strategy", index: number) => {
     if (type === "flyer") {
       setFlyers((prev) => prev.filter((_, i) => i !== index));
-    } else {
+    } else if (type === "video") {
       setVideos((prev) => prev.filter((_, i) => i !== index));
+    } else {
+      setStrategyFiles((prev) => prev.filter((_, i) => i !== index));
     }
   }, []);
 
   const handleSubmit = async () => {
     try {
-      if (budgetValue !== null && (Number.isNaN(budgetValue) || budgetValue < 0)) {
-        toast.error("Please enter a valid budget (number ≥ 0)");
+      const payload = {
+        notes: notes.trim() || null,
+        marketing_flyers: normalizeForPayload(flyers),
+        marketing_videos: normalizeForPayload(videos),
+        marketing_strategy_files: normalizeForPayload(strategyFiles),
+        marketing_budget: budgetValue ?? 0,
+      };
+      const parsed = submitMarketingReportSchema.safeParse(payload);
+      if (!parsed.success) {
+        const flattened = parsed.error.flatten().fieldErrors;
+        setFieldErrors(flattened as Record<string, string[]>);
         return;
       }
+      setFieldErrors({});
       await submitMutation.mutateAsync({
         eventId,
         payload: {
-          notes: notes.trim() || null,
-          marketing_flyers: normalizeForPayload(flyers),
-          marketing_videos: normalizeForPayload(videos),
-          marketing_budget: budgetValue,
+          ...parsed.data,
+          notes: parsed.data.notes ?? null,
         },
       });
       onOpenChange(false);
@@ -211,27 +236,18 @@ export function AddMarketingReportDialog({
               </DialogDescription>
             )}
           </DialogHeader>
-          <div className="space-y-5 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="marketing-notes">Notes {isViewMode ? "" : "(optional)"}</Label>
-              {isViewMode ? (
-                <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground whitespace-pre-wrap min-h-[80px]">
-                  {notes || "—"}
-                </p>
-              ) : (
-                <Textarea
-                  id="marketing-notes"
-                  placeholder="Add any notes for this marketing report..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                />
-              )}
-            </div>
-
+          <div className="space-y-3 pb-4">
+            {!isViewMode && Object.keys(fieldErrors).length > 0 && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                Please fix the errors below before submitting.
+              </div>
+            )}
             {/* Flyers */}
-            <div className="space-y-2">
-              <Label>Flyers</Label>
+            <div className="space-y-1">
+              <Label className={cn(fieldErrors.marketing_flyers && "text-destructive")}>Flyers</Label>
+              {fieldErrors.marketing_flyers?.[0] && (
+                <p className="text-sm text-destructive">{fieldErrors.marketing_flyers[0]}</p>
+              )}
               {!isViewMode && (
                 <p className="text-xs text-muted-foreground">
                   Any format (images, videos, PDFs, etc.). Click a file to preview.
@@ -369,8 +385,11 @@ export function AddMarketingReportDialog({
             </div>
 
             {/* Videos */}
-            <div className="space-y-2">
-              <Label>Videos</Label>
+            <div className="space-y-1">
+              <Label className={cn(fieldErrors.marketing_videos && "text-destructive")}>Videos</Label>
+              {fieldErrors.marketing_videos?.[0] && (
+                <p className="text-sm text-destructive">{fieldErrors.marketing_videos[0]}</p>
+              )}
               {!isViewMode && <p className="text-xs text-muted-foreground">Video files only. Click to preview.</p>}
               {!isViewMode && (
                 <FileUploader
@@ -442,9 +461,159 @@ export function AddMarketingReportDialog({
               )}
             </div>
 
+            {/* Marketing strategy PDF - any file type */}
+            <div className="space-y-1">
+              <Label className={cn(fieldErrors.marketing_strategy_files && "text-destructive")}>{STRATEGY_LABEL}</Label>
+              {fieldErrors.marketing_strategy_files?.[0] && (
+                <p className="text-sm text-destructive">{fieldErrors.marketing_strategy_files[0]}</p>
+              )}
+              {!isViewMode && (
+                <p className="text-xs text-muted-foreground">
+                  Any format (images, videos, PDFs, etc.). Click a file to preview.
+                </p>
+              )}
+              {!isViewMode && (
+                <FileUploader
+                  accept="*/*"
+                  multiple
+                  maxFiles={20}
+                  currentCount={strategyFiles.length}
+                  onFilesSelected={(files) => uploadFiles(files, "strategy")}
+                  disabled={uploadingStrategy}
+                  uploadProgress={uploadingStrategy ? 50 : undefined}
+                  acceptLabel="Any format"
+                >
+                  {uploadingStrategy && (
+                    <>
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      <span className="text-sm">Uploading...</span>
+                    </>
+                  )}
+                </FileUploader>
+              )}
+              {strategyFiles.length > 0 && (
+                <div className="mt-2 space-y-2">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {strategyFiles.map((item, index) => {
+                      const url = getItemUrl(item);
+                      const name = getItemName(item, index, "File");
+                      const type = getPreviewType(url, name);
+
+                      if (!url) return null;
+
+                      const commonClick = () => {
+                        setPreview({
+                          url,
+                          name,
+                          type,
+                          mimeType: name.toLowerCase().endsWith(".pdf") ? "application/pdf" : undefined,
+                        });
+                      };
+
+                      if (type === "image") {
+                        return (
+                          <div
+                            key={`${url}-${index}`}
+                            className="relative aspect-square rounded-lg overflow-hidden bg-muted group"
+                          >
+                            <button
+                              type="button"
+                              className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                              onClick={commonClick}
+                            >
+                              <Image src={url} alt={name} fill className="object-cover" unoptimized sizes="120px" />
+                            </button>
+                            {!isViewMode && (
+                              <button
+                                type="button"
+                                className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => removeFile("strategy", index)}
+                                disabled={isPending}
+                                aria-label="Remove file"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      if (type === "video") {
+                        return (
+                          <div
+                            key={`${url}-${index}`}
+                            className="relative aspect-video rounded-lg overflow-hidden bg-muted group"
+                          >
+                            <button
+                              type="button"
+                              className="absolute inset-0 w-full h-full focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                              onClick={commonClick}
+                            >
+                              <video
+                                src={url}
+                                className="w-full h-full object-cover"
+                                muted
+                                playsInline
+                                preload="metadata"
+                              />
+                            </button>
+                            {!isViewMode && (
+                              <button
+                                type="button"
+                                className="absolute top-1 right-1 p-1.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => removeFile("strategy", index)}
+                                disabled={isPending}
+                                aria-label="Remove file"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={`${url}-${index}`} className="flex items-center gap-1 col-span-3 sm:col-span-4">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="truncate max-w-full justify-start"
+                            onClick={commonClick}
+                          >
+                            {name}
+                          </Button>
+                          {!isViewMode && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => removeFile("strategy", index)}
+                              disabled={isPending}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Budget */}
-            <div className="space-y-2">
-              <Label htmlFor="marketing-budget-dialog">Budget (price)</Label>
+            <div className="space-y-1">
+              <Label
+                htmlFor="marketing-budget-dialog"
+                className={cn(fieldErrors.marketing_budget && "text-destructive")}
+              >
+                Budget (price)
+              </Label>
+              {fieldErrors.marketing_budget?.[0] && (
+                <p className="text-sm text-destructive">{fieldErrors.marketing_budget[0]}</p>
+              )}
               {isViewMode ? (
                 <p className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
                   {budgetValue != null
@@ -456,6 +625,23 @@ export function AddMarketingReportDialog({
                   id="marketing-budget-dialog"
                   value={budgetValue ?? undefined}
                   onChange={(v) => setBudgetValue(v ?? null)}
+                />
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="marketing-notes">Notes {isViewMode ? "" : "(optional)"}</Label>
+              {isViewMode ? (
+                <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground whitespace-pre-wrap min-h-[80px]">
+                  {notes || "—"}
+                </p>
+              ) : (
+                <Textarea
+                  id="marketing-notes"
+                  placeholder="Add any notes for this marketing report..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={3}
                 />
               )}
             </div>
