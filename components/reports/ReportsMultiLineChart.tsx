@@ -81,9 +81,8 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
     if (trendData.length === 0) return null;
     const labels = trendData.map((d) => d.label);
     // Line y = top of each stack so the dot sits on top of the bar, not at revenue value
-    const stackData = trendData.map((d) => d.table_sales + d.bar_sales + d.ticket_sales);
-    const stackMiddleData = stackData.map((d) => d / 1.35);
-    const stackTopData = stackData.map((d) => d / 4);
+    const eventData = trendData.map((d) => d.event_count ?? 0);
+    const stackTopData = trendData.map((d) => d.table_sales + d.bar_sales + d.ticket_sales);
 
     const datasets: MixedDataset[] = [
       {
@@ -119,13 +118,14 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
       {
         type: "line" as const,
         label: "Event",
-        data: stackMiddleData,
-        yAxisID: "y",
+        data: eventData,
+        yAxisID: "y1",
         borderColor: REPORT_CHART_COLORS.event,
+        borderWidth: 2,
         fill: false,
         tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 5,
+        pointRadius: 5,
+        pointHoverRadius: 7,
         pointBackgroundColor: REPORT_CHART_COLORS.event,
         pointBorderColor: REPORT_CHART_COLORS.event,
         pointBorderWidth: 2,
@@ -197,12 +197,24 @@ export function ReportsMultiLineChart({ data, isLoading }: ReportsMultiLineChart
           ticks: { maxRotation: 45, maxTicksLimit: 12, color: chartAxisColor },
         },
         y: {
+          position: "left",
           beginAtZero: true,
           stacked: true,
           grid: { color: chartGridColor },
           ticks: {
             color: chartAxisColor,
             callback: (v) => (typeof v === "number" ? formatCurrency(v) : v),
+          },
+        },
+        y1: {
+          position: "right",
+          beginAtZero: true,
+          max: Math.max(...trendData.map((d) => d.event_count ?? 0), 1) * 1.1,
+          grid: { display: false },
+          ticks: {
+            color: chartAxisColor,
+            stepSize: 1,
+            callback: (v) => (typeof v === "number" ? Math.round(v) : v),
           },
         },
       },
