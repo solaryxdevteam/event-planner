@@ -1,88 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Shiraz House — Event Planner
 
-## Getting Started
+Internal platform for planning, approving, and reporting on events (Next.js App Router, Supabase, TypeScript).
+
+## Documentation
+
+| Doc                                                      | What it covers                                                                                          |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **[docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md)** | Setup from zero, environment variables, project structure, database, integrations, development workflow |
+| **[docs/BACKEND_GUIDE.md](./docs/BACKEND_GUIDE.md)**     | API routes, services, DAL, validation, building backend features                                        |
+| **[docs/FRONTEND_GUIDE.md](./docs/FRONTEND_GUIDE.md)**   | UI patterns, React Query, client services, frontend ↔ API integration                                   |
+| **[docs/README.md](./docs/README.md)**                   | Index of all docs                                                                                       |
+
+## Quick start
 
 ### Prerequisites
 
-- Node.js 18+ installed
-- Supabase CLI installed (`brew install supabase/tap/supabase` or `npm install -g supabase`)
-- Docker Desktop running (required for local Supabase)
+- Node.js 20+
+- npm 10+
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (for local DB or schema sync)
+- Docker Desktop (only if you run Supabase locally with `supabase start`)
 
-### Initial Setup
+### Setup
 
-1. **Install dependencies:**
+1. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-2. **Set up environment variables:**
+2. **Environment**
 
    ```bash
    cp .env.example .env.local
    ```
 
-   Then edit `.env.local` with your Supabase credentials.
+   Edit `.env.local` with your Supabase URL, anon key, service role key, and other values described in [docs/DEVELOPER_GUIDE.md](./docs/DEVELOPER_GUIDE.md#5-environment-variables).
 
-3. **Start local Supabase:**
+3. **Database**
 
-   ```bash
-   supabase start
-   ```
+   Apply `db/schema.sql` to your Supabase project (SQL Editor) or use local Supabase — see the Developer Guide.
 
-4. **Link to remote project (optional, for sync):**
+4. **Run the app**
 
-   ```bash
-   npm run db:link <your-project-ref>
-   ```
-
-5. **Run the development server:**
    ```bash
    npm run dev
    ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+   Open [http://localhost:3000](http://localhost:3000).
 
-## Database Management
+### Database scripts
 
-This project uses Supabase for database management. See [scripts/README.md](./scripts/README.md) for detailed database sync instructions.
+| Command                                 | Purpose                                                                                          |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm run db:push` / `db:pull`           | Push or pull schema via Supabase CLI (after linking the project)                                 |
+| `npm run db:reset`                      | Reset local Supabase database                                                                    |
+| `npm run db:sync:pull` / `db:sync:push` | Sync **data** between remote and local (`REMOTE_DB_URL` in `.env.local`) — see `scripts/sync.sh` |
 
-### Quick Commands
+Details: [docs/DEVELOPER_GUIDE.md § Database](./docs/DEVELOPER_GUIDE.md#7-database) and [db/README.md](./db/README.md).
 
-**Schema Management:**
-
-```bash
-npm run db:pull    # Pull schema from remote
-npm run db:push    # Push schema to remote
-npm run db:reset   # Reset local database
-```
-
-**Data Synchronization:**
+### Other scripts
 
 ```bash
-npm run db:sync:pull  # Pull data from remote to local
-npm run db:sync:push  # Push data from local to remote
+npm run lint          # ESLint
+npm run format        # Prettier
+npm run test          # Vitest
 ```
 
-**Status:**
+## Tech stack
 
-```bash
-npm run db:status  # Check Supabase status and connection details
-```
+Next.js 16, React 19, TypeScript, Tailwind CSS v4, shadcn/ui, TanStack Query, Supabase (Postgres + Auth + Storage), Resend (email). See [docs/DEVELOPER_GUIDE.md § Tech stack](./docs/DEVELOPER_GUIDE.md#2-tech-stack).
 
-For more details, see [scripts/README.md](./scripts/README.md).
+## Deploy
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Production deployment is typically on [Vercel](https://vercel.com) with environment variables set in the project dashboard. Configure `CRON_SECRET` and your host’s cron or Vercel Cron for `/api/cron/transition-events` as described in the Developer Guide.
