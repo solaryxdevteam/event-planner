@@ -11,3 +11,5 @@ Start here and drill into the guide that matches what you are doing.
 | [db/README.md](../db/README.md)         | `schema.sql`, seeds, RLS, migrations, troubleshooting                                                                                                              |
 
 **Suggested order for new contributors:** Developer Guide → skim Backend + Frontend guides → implement a small change with tests/lint.
+
+**API explorer:** Scalar UI at `/api-reference`, OpenAPI JSON at `/api/openapi` (see [Backend Guide §13](./BACKEND_GUIDE.md#13-interactive-api-docs-scalar)).

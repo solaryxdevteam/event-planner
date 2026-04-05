@@ -11,6 +11,8 @@ Internal platform for planning, approving, and reporting on events (Next.js App 
 | **[docs/FRONTEND_GUIDE.md](./docs/FRONTEND_GUIDE.md)**   | UI patterns, React Query, client services, frontend ↔ API integration                                   |
 | **[docs/README.md](./docs/README.md)**                   | Index of all docs                                                                                       |
 
+**API docs (Scalar):** `/api-reference` (UI) · `/api/openapi` (OpenAPI JSON). Details in [Backend Guide §13](./docs/BACKEND_GUIDE.md#13-interactive-api-docs-scalar).
+
 ## Quick start
 
 ### Prerequisites

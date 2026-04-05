@@ -51,6 +51,7 @@ export async function middleware(request: NextRequest) {
     "/auth/onboarding",
     "/verify-venue", // Venue contact verification (link from email, no auth required)
     "/verify-dj", // DJ contact verification (link from email, no auth required)
+    "/api-reference", // Scalar OpenAPI docs (spec is public at /api/openapi)
   ];
 
   const { pathname } = request.nextUrl;

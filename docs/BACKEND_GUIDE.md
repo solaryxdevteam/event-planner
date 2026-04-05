@@ -18,6 +18,7 @@ A developer reference for all backend patterns: API routes, services, the data a
 10. [File Storage](#10-file-storage)
 11. [Audit Logging](#11-audit-logging)
 12. [Adding a New Backend Feature](#12-adding-a-new-backend-feature)
+13. [Interactive API docs (Scalar)](#13-interactive-api-docs-scalar)
 
 ---
 
@@ -691,6 +692,27 @@ export function useEventsByTag(tag: string) {
 ```
 
 The frontend can now consume this with `const { data, isLoading } = useEventsByTag("techno")`.
+
+---
+
+## 13. Interactive API docs (Scalar)
+
+The app ships an **OpenAPI 3** description and a **Scalar** UI (Swagger-style explorer).
+
+| URL              | Purpose                                   |
+| ---------------- | ----------------------------------------- |
+| `/api-reference` | Scalar API Reference (HTML UI)            |
+| `/api/openapi`   | Raw OpenAPI JSON (Postman, codegen, etc.) |
+
+The spec is generated from:
+
+1. **`lib/openapi/parse-routes.ts`** — one line per route (`method|path|summary|tag|optionalMode`).
+2. **`lib/openapi/schemas.ts`** — reusable JSON Schema components (`ApiError`, `CreateEventRequest`, etc.).
+3. **`lib/openapi/operation-details.ts`** — optional **query/path parameters**, **request bodies** (JSON or multipart), and **response examples** per `method|path`. Routes not listed here still appear in Scalar with generic success/error shapes.
+
+When you add or change an API: update the parse table, then add or extend an entry in `operation-details.ts` (and schemas if needed) so payloads and samples stay accurate.
+
+**Try it:** Sign in through `/auth/login` in the same browser so Supabase session cookies are sent; then use Scalar’s client against protected routes. Cron routes use **Bearer** auth with `CRON_SECRET`.
 
 ---
 
